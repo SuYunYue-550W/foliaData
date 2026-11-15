@@ -1,5 +1,23 @@
 # 更新日志 / CHANGELOG
 
+## v0.7.29 · 2026-11-15
+
+**自编译完整版。** 首次由本仓库源码在本机真实编译出 Windows EXE 与 Android APK，
+包含自研的色散玻璃导航条与 microRender GPU 调度微内核；v0.7.28「二进制来自上游官方构建」的限制至此解除。
+
+- 版本号升到 `0.7.29`；安卓 `versionCode` 设为 `7029100`（高于上一版的 `7025011`，避免覆盖安装被判为降级）。
+- **修复 v0.7.28 文件级增量同步造成的构建链断裂**：
+  - 补齐 44 个被合并误删、但上游新增文件仍依赖的模块（hifi 引擎全套、bravais 倾斜模块、`textMeasureCache.ts` 等）；
+  - 对齐 5 处「引用方已是上游新版、提供方仍是 fork 旧版」的接口错配；
+  - 对 `bravaisConstants.ts`、`partitaLayout.ts`、`homeCards.ts` 做**并集合并**，同时保留上游新导出与 fork 仍被引用的旧常量/函数；
+  - 上述改动只补缺失文件、不覆盖 `liquidGlass`、`microRender` 等自研路径。
+- 本机补齐构建条件：Electron 43 Windows 运行时、Android SDK Platform 36 / Build-Tools 36 / platform-tools、
+  Gradle 8.14.3、ffmpeg 8.1.2-folia.5 与两个分析模型（SHA-256 均与项目清单一致）。
+- 渲染层 `vite build` 通过（0 个模块解析 / 导出错误），随后产出新版 EXE 与 APK；
+  重新生成 `latest.yml` / `update.json`，桌面端与安卓端「检查更新」指向本仓库新版本。
+
+> 本机复现步骤与环境记录见 `release-manifests/构建与发布.md`；上一版的完整上游对比见 `上游同步说明-v0.7.28.md`。
+
 ## v0.7.28 · 2026-11-15
 
 **上游同步版。** 完整清单见 [`上游同步说明-v0.7.28.md`](上游同步说明-v0.7.28.md)。

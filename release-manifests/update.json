@@ -1,15 +1,15 @@
 {
-  "version": "0.7.28",
-  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.28/Folia-Android-0.7.28-android.453.apk",
-  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.28",
-  "notes": "## v0.7.28 · 上游同步版\n\n本版同步上游 chthollyphile/folia-major v0.7.26 / v0.7.27 / v0.7.28\n与 whycfawa/folia-android v0.7.28-android.453。\n\n- v0.7.26：速记簿、Apple Music / 飞牛音乐、新搜索页、跨平台队列、进度条胶囊、推荐与町景优化。\n- v0.7.27：Spotify Soloist、Apple Music 改进、飞牛外网登录、酷狗公开歌单修复。\n- v0.7.28：场景「影厅」Beta、新图标与加载提示、窗口按钮位置、字幕回退开关、封面清晰度、单曲循环与 iOS 后台播放修复。\n- 安卓端：Apple Music / 飞牛登录、安装包体积优化至 20 MB、移动端渲染优化。\n\n完整清单见仓库《上游同步说明-v0.7.28.md》。\n注意：本安装包为上游官方构建，不含本仓库的色散玻璃导航条与 microRender 调度微内核。",
-  "published_at": "2026-11-15T04:28:12.576Z",
-  "size": 20934129,
+  "version": "0.7.29",
+  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.29/Folia-Android-0.7.29.apk",
+  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.29",
+  "notes": "## v0.7.29 · 自编译完整版\n\n本版安装包由本仓库源码在本机真实编译，包含自研的色散玻璃导航条与\nmicroRender GPU 调度微内核；软件更新地址指向本仓库 Releases。\n\n- 修复 v0.7.28 文件级上游同步造成的构建链断裂：补齐 44 个缺失模块、\n  对齐 5 处接口错配、对三处文件做并集合并，渲染层构建通过。\n- 补齐构建环境：Electron 43 Windows 运行时、Android SDK 36、Gradle 8.14.3、\n  JDK 21、ffmpeg 与分析模型（哈希均与项目清单一致）。\n- 版本号 0.7.29，安卓 versionCode 7029100；桌面与安卓「检查更新」继续指向本仓库。\n- 自研改动全部保留：色散玻璃、microRender、HiRes 音质、导出补帧等。\n\n逐项记录见仓库 CHANGELOG.md 与 release-manifests/构建与发布.md。",
+  "published_at": "2026-11-15T05:50:37.167Z",
+  "size": 124079060,
   "assets": [
     {
-      "name": "Folia-Android-0.7.28-android.453.apk",
-      "browser_download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.28/Folia-Android-0.7.28-android.453.apk",
-      "size": 20934129
+      "name": "Folia-Android-0.7.29.apk",
+      "browser_download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.29/Folia-Android-0.7.29.apk",
+      "size": 124079060
     }
   ]
 }
