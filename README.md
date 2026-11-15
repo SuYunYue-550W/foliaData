@@ -53,8 +53,6 @@
 | 桌面端更新源（`build.publish`、`electron-updater`、`FOLIA_RELEASES_URL`、发布频道 URL） | **改指向本仓库** Releases |
 | 安卓端更新清单（原自建 CDN `update.json`） | **改指向本仓库** `Releases/latest/download/update.json` |
 | 帮助页项目地址、AI 帮助提示、登录诊断报告、AUR 包、CI 脚本、构建标识 | 统一改指向本仓库 |
-| 旧发布仓库的来源标识（含历史交付文档与同步说明） | 全部替换 / 移除 |
-| 原项目 QQ 群：群号常量、帮助页「加入社区」入口、首次启动弹窗加群按钮、三语文案、对应 UI 测试与计数快照 | **全部删除** |
 | 保留：`LICENSE`、`CONTRIBUTORS.md`、第三方版权声明、各 `package-lock.json` 内的依赖地址与赞助链接 | 保留 —— AGPL 署名要求与 `npm ci` 完整性所必需，不属于来源指向 |
 
 > 历史交付文档中的仓库指向已统一替换，具体技术内容待维护者后续自行更新。
