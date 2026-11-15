@@ -8,8 +8,8 @@
     "email": "hjm184563@gmail.com"
   },
   "private": true,
-  "version": "0.7.25",
-  "displayVersion": "0.7.25.dev2",
+  "version": "0.7.28",
+  "displayVersion": "0.7.28",
   "androidVersionCode": 7025011,
   "license": "AGPL-3.0",
   "type": "module",
@@ -94,7 +94,7 @@
     "publish": [
       {
         "provider": "github",
-        "SuYunYue-550W",
+        "owner": "SuYunYue-550W",
         "repo": "foliaData"
       }
     ],

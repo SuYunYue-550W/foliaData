@@ -2,6 +2,10 @@
 
 全屏沉浸式歌词播放器 **Folia** 的整合增强版。基于 Folia-major 0.7.25，叠加色散玻璃导航条与自研 **microRender** GPU 调度微内核，提供 Windows 与 Android 双端构建。
 
+> **当前版本：`v0.7.28`（上游同步版，2026-11-15）。**
+> 本版同步 `chthollyphile/folia-major` v0.7.26 / v0.7.27 / v0.7.28 与 `whycfawa/folia-android` v0.7.28-android.453 的内容，并补齐桌面与安卓的更新清单，**应用内「检查更新」已可用**。
+> 逐项清单见 [`上游同步说明-v0.7.28.md`](上游同步说明-v0.7.28.md)，版本记录见 [`CHANGELOG.md`](CHANGELOG.md)，清单生成与出包步骤见 [`release-manifests/构建与发布.md`](release-manifests/构建与发布.md)。
+
 > 本仓库由维护者独立整理上传。上传前已移除原发布渠道的更新地址、旧仓库来源指向与原项目社区群信息；**软件更新源现统一指向本仓库的 Releases**。
 > 完整的交付声明见 [`声明文件-FoliaData.md`](声明文件-FoliaData.md)，微引擎算法见 [`microRender-算法说明.md`](microRender-算法说明.md)。
 
@@ -11,7 +15,8 @@
 
 | 项 | 内容 |
 |---|---|
-| 基础项目 | Folia（`folia-major`）v0.7.25 / displayVersion `0.7.25.dev2` |
+| 基础项目 | Folia（`folia-major`）v0.7.25，源码已增量同步至上游 v0.7.28 |
+| 当前版本 | `0.7.28`（`package.json` 的 `version` / `displayVersion`） |
 | 定位 | Lyrics Reimagine —— 桌面 + 移动端的在线音乐播放与全屏歌词可视化 |
 | 技术栈 | React 19 + TypeScript 6 + Vite 8；three / React Three Fiber / pixi.js / framer-motion / animejs；桌面 Electron 43，移动 Capacitor 8 |
 | 规模 | 28 个可视化模式 + 6 种背景模式；`src/` 下约 2790 个 TS/TSX 文件 |
@@ -21,7 +26,24 @@
 
 ---
 
-## 二、本次上传前的清理
+## 二、v0.7.28 同步了什么
+
+| 来源 | 版本 | 主要内容 |
+|---|---|---|
+| `chthollyphile/folia-major` | v0.7.26 | 速记簿、Apple Music / 飞牛音乐、新搜索页、跨平台队列、进度条胶囊、雾笺窗外与玻璃、推荐与歌词增强 |
+| 同上 | v0.7.27 | Spotify Soloist 备用播放、Apple Music 改进、飞牛外网登录、酷狗公开歌单账号失效修复 |
+| 同上 | v0.7.28 | 场景「影厅」Beta、新应用图标、窗口按钮位置、字幕回退开关、封面清晰度、单曲循环与 iOS Safari 后台播放修复、Folium 1.9 |
+| `whycfawa/folia-android` | 至 v0.7.28-android.453 | Apple Music / 飞牛登录、安装包体积 39.8 MB → 20.0 MB、移动端渲染优化、QQ 与酷狗/网易云登录收藏修复 |
+
+以 v0.7.25 tarball 为基线做逐文件 SHA-256 三方对比，**同步 844 个文件**（364 更新 + 477 新增 + 3 删除）。本仓库源码实际来自另一条 fork（`folia-sonnet`），有 **402 个文件双方都改过**；为不抹掉自研改动与上一轮清理，这些冲突文件保留本仓库版本，未强行合并。自研的色散玻璃、microRender、HiRes 音质、导出补帧等全部保留。
+
+顺带修复了 `package.json` 的 `build.publish` 缺少 `owner` 键导致整份 JSON 非法、`npm ci` 与构建全部失败的问题。
+
+> **限制**：v0.7.28 的安装包是上游官方构建，包含上表新功能，但**不含本仓库的自研改动**；官方包内置上游更新地址，安装后会改向上游检查更新。本机 Node 22.22.2 低于要求的 ≥24，且无 Android SDK / Gradle / 签名密钥，因此未能重新编译。源码合并为文件级增量、**未经编译与单测验证**。详见同步说明第三、五节。
+
+---
+
+## 三、上传前的清理（v0.7.25）
 
 | 项目 | 处理结果 |
 |---|---|
@@ -36,7 +58,7 @@
 
 ---
 
-## 三、相对原项目的全部改动（声明）
+## 四、相对原项目的全部改动（声明）
 
 ### 1. 色散玻璃导航条（视觉增强）
 - 新建 `src/components/liquidGlass/`：`dispersionModel.ts`、`LiquidGlass.tsx`、`LiquidGlassNavBar.tsx`、`useLiquidGlassFilter.tsx`、两份 CSS 与导出。
@@ -69,7 +91,7 @@
 
 ---
 
-## 四、microRender 微渲染引擎（算法单独说明）
+## 五、microRender 微渲染引擎（算法单独说明）
 
 它是一个**统一帧预算的调度微内核**：只在帧节拍层做调度，**不碰任何 shader / pass**，因此与 28 个可视化模式完全解耦。
 
@@ -88,7 +110,7 @@
 
 ---
 
-## 五、构建与运行
+## 六、构建与运行
 
 要求 **Node ≥ 24**（见 `.nvmrc`）。
 
@@ -105,13 +127,15 @@ npm run build:android:debug   # Android debug APK
 
 开发规范见 `AGENTS.md` 与 `skills/`（12 个项目 skill）。要点：在线歌曲只走 `src/services/onlineMusic/omni.ts`；禁止手写原生 `<button>/<input>/<select>/<textarea>`；界面文案走三语 i18n；单文件不超过 800 行；改界面必须实看渲染截图。
 
+完整的环境要求、出包与发布步骤见 [`release-manifests/构建与发布.md`](release-manifests/构建与发布.md)。
+
 ---
 
-## 六、软件更新机制（现指向本仓库）
+## 七、软件更新机制（现指向本仓库，v0.7.28 已生效）
 
 | 端 | 机制 | 地址 |
 |---|---|---|
-| 桌面 | `electron-updater` 读取 Release 的 `latest.yml` / `beta.yml` / `alpha.yml` | 本仓库 Releases |
+| 桌面 | `electron-updater` 读取 Release 的 `latest.yml`（`beta.yml` / `alpha.yml` 为未启用的滚动通道） | 本仓库 Releases |
 | Android | 拉取静态版本清单 → 比版本号 → 原生下载 → 系统安装器 | `Releases/latest/download/update.json` |
 | 兜底 | 打开发布页 | 本仓库 Releases 页面 |
 
@@ -119,34 +143,46 @@ npm run build:android:debug   # Android debug APK
 
 ```json
 {
-  "version": "0.7.25",
-  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.25/Folia-Android.apk",
-  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases",
+  "version": "0.7.28",
+  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.28/Folia-Android-0.7.28-android.453.apk",
+  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.28",
   "notes": "更新说明",
-  "published_at": "2026-11-15",
-  "size": 129122640
+  "published_at": "2026-11-15T04:28:12.576Z",
+  "size": 20934129
 }
 ```
 
-> 发布新版本时把 `update.json` 作为 **latest Release 的附件**上传即可，无需自建后端。
+桌面端 `latest.yml` 的 `sha512` 用 **base64**、`size` 用字节，必须与附件实测一致。
+清单模板与自动生成脚本见 `release-manifests/`。**发布新版本时把 `latest.yml` 与 `update.json` 一起作为最新 Release 的附件上传即可**，无需自建后端。
 
 ---
 
-## 七、交付物（Release 附件）
+## 八、交付物（Release 附件）
+
+### v0.7.28（当前版本）
+
+| 文件 | 体积 | 说明 |
+|---|---:|---|
+| `Folia-Setup-0.7.28.exe` | 251.9 MB | 上游官方 Windows 安装包，无代码签名 |
+| `Folia-Android-0.7.28-android.453.apk` | 20.0 MB | 上游官方 Android 包，debug 签名 |
+| `latest.yml` | — | 桌面端更新清单 |
+| `update.json` | — | 安卓端更新清单 |
+
+### v0.7.25（历史版本）
 
 | 文件 | 说明 |
 |---|---|
 | `Folia-Windows-Setup-20261112-2200.exe` | Windows 安装包，**无代码签名**，SmartScreen 可能提示 |
 | `Folia-Android-20261112-2200.apk` | Android 安装包，**debug 签名** |
-| `Folia-源码-完整版-20261112-2200.zip` | 源码包备份 |
+| `Folia-Source-Full-20261112-2200.zip` | 源码包备份（清理前的历史快照） |
 
-> 三个包仅供自研 / 校内演示使用，未做分发级签名；正式发布请另行签名。
+> 安装包仅供自研 / 校内演示使用，未做分发级签名；正式发布请另行签名。
 
 ---
 
-## 八、授权与致谢
+## 九、授权与致谢
 
-- 本体 Folia：**AGPL-3.0**，遵循其条款（`LICENSE` 全文）。
+- 本体 Folia：**AGPL-3.0**，遵循其条款（`LICENSE` 全文）；上游同步内容同样来自 AGPL-3.0 项目。
 - 视觉灵感：感谢 Mineradio 2.2.0 作者提供色散玻璃 `control-glass` 的设计思路；本项目已独立重写，未复制其源码，未引入任何与 AGPL 不相容的第三方源码。
 - 汽水音乐签名组件 `bdms.node` / `metasecml.dll` 来自官方客户端 Web 安全组件，仅用于生成请求签名，版权归字节跳动与汽水音乐所有。
 - 在线音乐、歌词、封面及其他第三方内容的版权归相应权利人所有，请遵守所在地法律及服务条款，并通过官方渠道支持正版。

@@ -1,0 +1,21 @@
+version: 0.7.28
+files:
+  - url: Folia-Setup-0.7.28.exe
+    sha512: 9GNQJf6Lj1QCZ4YVWUYDe9wLi9h+RadsQR5oj6MKh+2P2fePjPFwQZpFxxdaLjsegulRLoR4gl300Yh/L8nxFw==
+    size: 264172216
+path: Folia-Setup-0.7.28.exe
+sha512: 9GNQJf6Lj1QCZ4YVWUYDe9wLi9h+RadsQR5oj6MKh+2P2fePjPFwQZpFxxdaLjsegulRLoR4gl300Yh/L8nxFw==
+releaseDate: '2026-11-15T04:28:12.576Z'
+releaseNotes: |
+  ## v0.7.28 · 上游同步版
+  
+  本版同步上游 chthollyphile/folia-major v0.7.26 / v0.7.27 / v0.7.28
+  与 whycfawa/folia-android v0.7.28-android.453。
+  
+  - v0.7.26：速记簿、Apple Music / 飞牛音乐、新搜索页、跨平台队列、进度条胶囊、推荐与町景优化。
+  - v0.7.27：Spotify Soloist、Apple Music 改进、飞牛外网登录、酷狗公开歌单修复。
+  - v0.7.28：场景「影厅」Beta、新图标与加载提示、窗口按钮位置、字幕回退开关、封面清晰度、单曲循环与 iOS 后台播放修复。
+  - 安卓端：Apple Music / 飞牛登录、安装包体积优化至 20 MB、移动端渲染优化。
+  
+  完整清单见仓库《上游同步说明-v0.7.28.md》。
+  注意：本安装包为上游官方构建，不含本仓库的色散玻璃导航条与 microRender 调度微内核。

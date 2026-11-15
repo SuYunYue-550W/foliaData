@@ -1,0 +1,15 @@
+{
+  "version": "0.7.28",
+  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.28/Folia-Android-0.7.28-android.453.apk",
+  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.28",
+  "notes": "## v0.7.28 · 上游同步版\n\n本版同步上游 chthollyphile/folia-major v0.7.26 / v0.7.27 / v0.7.28\n与 whycfawa/folia-android v0.7.28-android.453。\n\n- v0.7.26：速记簿、Apple Music / 飞牛音乐、新搜索页、跨平台队列、进度条胶囊、推荐与町景优化。\n- v0.7.27：Spotify Soloist、Apple Music 改进、飞牛外网登录、酷狗公开歌单修复。\n- v0.7.28：场景「影厅」Beta、新图标与加载提示、窗口按钮位置、字幕回退开关、封面清晰度、单曲循环与 iOS 后台播放修复。\n- 安卓端：Apple Music / 飞牛登录、安装包体积优化至 20 MB、移动端渲染优化。\n\n完整清单见仓库《上游同步说明-v0.7.28.md》。\n注意：本安装包为上游官方构建，不含本仓库的色散玻璃导航条与 microRender 调度微内核。",
+  "published_at": "2026-11-15T04:28:12.576Z",
+  "size": 20934129,
+  "assets": [
+    {
+      "name": "Folia-Android-0.7.28-android.453.apk",
+      "browser_download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.28/Folia-Android-0.7.28-android.453.apk",
+      "size": 20934129
+    }
+  ]
+}
