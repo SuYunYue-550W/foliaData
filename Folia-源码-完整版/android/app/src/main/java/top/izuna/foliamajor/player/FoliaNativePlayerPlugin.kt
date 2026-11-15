@@ -1,0 +1,812 @@
+package top.izuna.foliamajor.player
+
+import com.getcapacitor.JSArray
+import com.getcapacitor.JSObject
+import com.getcapacitor.Plugin
+import com.getcapacitor.PluginCall
+import com.getcapacitor.PluginMethod
+import com.getcapacitor.annotation.CapacitorPlugin
+
+import android.content.Context
+import android.media.AudioTrack
+import android.media.MediaCodecList
+import android.os.Handler
+import android.os.Looper
+
+import top.izuna.foliamajor.player.dsp.EqSettings
+import top.izuna.foliamajor.player.dsp.NativeEqualizerState
+import top.izuna.foliamajor.settings.FoliaSettingsStore
+import top.izuna.foliamajor.wallpaper.WallpaperLyricsState
+
+/**
+ * 原生播放内核的桥（P1）。
+ *
+ * Web 侧只在 `settings.nativePlayback` 打开、且这个插件真的在（Capacitor.isPluginAvailable）
+ * 时才走原生；否则一切都还是 WebView 的 `<audio>`。也就是说这一层默认完全不参与播放。
+ *
+ * 位置**只在状态边界过桥**（ready / playing / paused / buffering / seeked / ended）：
+ * 播放器内部每 250ms 采一次位置，但那一拍只喂原生锚点（壁纸 / 悬浮窗 / 通知栏），
+ * 不再注入主 WebView。Web 侧按本地墙钟从最后一次状态位置往前推
+ * （见 `nativePlaybackEngine.getPositionSec`）—— 每 500ms 灌一次 JS 正是
+ * 「App 内歌词可视化隔几秒顿一下」的来源，见 `onEvent` 里那段说明。
+ *
+ * 别改成 Web 侧定时调 getSnapshot：Capacitor 的桥只有一条，
+ * 轮询会跟批量拉取那些操作抢同一条通道。
+ *
+ * 事件名与 `src/services/playbackEngine/nativePlayerPlugin.ts` 一一对应，改一处两处都要改。
+ */
+@CapacitorPlugin(name = "FoliaNativePlayer")
+class FoliaNativePlayerPlugin : Plugin() {
+
+    @Volatile
+    private var player: FoliaNativePlayer? = null
+
+    companion object {
+        private const val EVENT = "foliaNativePlayer"
+
+        /** 过桥回到主线程用（播放器那条线程不能直接碰监听器表）。 */
+        private val MAIN = Handler(Looper.getMainLooper())
+
+        /**
+         * 判断"这一拍的采样值要不要写进锚点"的容差：与播放器上报位置的周期一致。
+         *
+         * 见写锚点那一段的说明 —— 差在这么点以内就当作「外推是准的」，不把时间轴往回拽。
+         * 改播放器那个 `POSITION_TICK_MS` 时这里要跟着改。
+         *
+         * 容差与判定已挪到 DisplayAnchorPolicy.kt（DISPLAY_ANCHOR_TOLERANCE_MS /
+         * displayAnchorNeedsWrite），好在 JVM 单测里直接跑：采样值与「墙钟外推出来的
+         * 位置」差不到一个采样周期、且播停一致时，这一拍没有新信息。
+         */
+
+        /**
+         * 服务那边（通知栏 / 锁屏 / 耳机）要能直接碰到播放器，只能走静态引用 ——
+         * 与 FoliaPlaybackPlugin 同一个路子：Activity 可能已经不在了，插件实例也可能换过。
+         */
+        @Volatile
+        private var instance: FoliaNativePlayerPlugin? = null
+
+        /**
+         * 原生播放器此刻的只读快照，作为 getQueueState 的 `nativeMedia` 字段。
+         *
+         * 只读缓存字段（volatile），不碰播放器线程；没有真媒体时 [mediaSnapshot] 返回 null。
+         */
+        data class NativeMediaSnapshot(
+            val songKey: String,
+            val url: String,
+            val positionMs: Long,
+            val durationMs: Long,
+            val playing: Boolean,
+            val speed: Float,
+            val buffering: Boolean,
+        ) {
+            fun toJson(): org.json.JSONObject = org.json.JSONObject().apply {
+                put("songKey", songKey)
+                put("url", url)
+                put("positionMs", positionMs)
+                put("durationMs", durationMs)
+                put("playing", playing)
+                put("speed", speed.toDouble())
+                put("buffering", buffering)
+            }
+        }
+
+        /** 原生手上真有歌时给一份快照；没有播放器 / 没装过源时返回 null。 */
+        @JvmStatic
+        fun mediaSnapshot(): NativeMediaSnapshot? {
+            val current = instance ?: return null
+            val player = current.player ?: return null
+            if (!player.hasMedia()) return null
+            return NativeMediaSnapshot(
+                player.currentMediaId(),
+                player.currentUrl() ?: "",
+                player.getPositionMs(),
+                player.getDurationMs(),
+                player.isPlaying(),
+                player.getSpeed(),
+                player.isBuffering(),
+            )
+        }
+
+        /** 亮屏/叠层低频核对只改显示锚点，绝不 seek 或重新 prepare 真播放器（#174）。 */
+        @JvmStatic
+        fun refreshDisplayAnchor() {
+            val owner = instance ?: return
+            val current = owner.player ?: return
+            current.sampleDisplayAnchor { positionMs, playing ->
+                if (instance !== owner || owner.player !== current) return@sampleDisplayAnchor
+                val snapshot = WallpaperLyricsState.get()
+                if (displayAnchorNeedsWrite(snapshot.playing, snapshot.positionMs(), playing, positionMs)) {
+                    WallpaperLyricsState.setAnchor(positionMs, playing)
+                }
+            }
+        }
+
+        /**
+         * WebView 冻结时通知栏拖进度条：桥收不到 seek 那条广播，只能直接在原生侧跳。
+         * 只有原生手上真有歌时才动手；其余情况由服务照旧转给 JS。
+         */
+        @JvmStatic
+        fun seekFromSystem(positionMs: Long) {
+            val current = instance
+            val player = current?.player
+            if (current == null || player == null || !player.hasMedia()) return
+            player.seek(Math.max(0L, positionMs))
+        }
+
+        /**
+         * 通知栏 / 锁屏按了「播放」之后，服务直接把这一下交给原生播放器。
+         *
+         * 不能只靠「广播 → 插件 → JS」那条老路：挂了很久之后，WebView 那侧的 JS 会被
+         * 节流甚至整个挂起，`resumePlayback` 压根跑不起来 —— 表现就是
+         * 「通知中心点了播放，一点反应都没有」。原生这一路不受那条限制。
+         *
+         * 只有在**确实是用原生在播**时才动手（手上有一首歌），否则交给 Web 那边照旧。
+         * JS 那条命令照样会发：它负责界面与歌词，两边各管一半，不冲突。
+         */
+        @JvmStatic
+        fun resumeFromSystem() {
+            val current = instance
+            val player = current?.player
+            if (current == null || player == null) return
+            if (player.hasMedia()) {
+                player.play()
+                return
+            }
+            /*
+             * 手上有壳、没歌（当前这首走 <audio>，本地缓存的 blob 地址原生吃不下）：
+             * 空手回去等于把这一下交还给被冻结的 JS —— 锁屏按播放就是死的，而下一首
+             * 却是活的（镜像兜底只要求 hasPlayer）。按镜像当前条目在原生重新装源接管：
+             * 与切歌兜底同一条路，位置从缓存读（cachedPositionMs 由 <audio> 那首的最新
+             * 一次状态边界留下，误差一拍以内）。
+             */
+            val url = top.izuna.foliamajor.FoliaPlaybackService.mirrorCurrentUrl()
+            if (url.isNullOrEmpty()) return
+            player.prepare(url, currentPositionMs())
+            player.play()
+        }
+
+        /**
+         * 通知栏镜像切歌用：跳过 JS，直接给播放器换源。
+         *
+         * 「下一首/上一首」的确认计时器超时（WebView 冻结，JS 没回话）时，服务从镜像
+         * 队列取出相邻条目走这里。播放器内部自己处理线程（与 resumeFromSystem 同纪律）。
+         */
+        @JvmStatic
+        fun prepareFromSystem(url: String?, mediaId: String? = null): Boolean {
+            val current = instance
+            val player = current?.player
+            if (current == null || player == null || url == null || url.isEmpty()) return false
+            player.prepare(url, -1L, mediaId)
+            return true
+        }
+
+        /** 同上，方向相反。 */
+        @JvmStatic
+        fun pauseFromSystem() {
+            val current = instance
+            val player = current?.player
+            if (current == null || player == null || !player.hasMedia()) return
+            player.pause()
+        }
+
+        /**
+         * 原生手上有没有正在放的一首。
+         *
+         * 壁纸那边靠它决定「位置该由谁给」：原生在放的时候，Web 推下来的那个位置是插值出来的，
+         * 与播放器自己报的采样值交替写入，时间轴会被拽得来回抖 —— 所以那时 Web 那份要让位。
+         */
+        @JvmStatic
+        fun hasActiveMedia(): Boolean {
+            val current = instance
+            val player = current?.player
+            return current != null && player != null && player.hasMedia()
+        }
+
+        /**
+         * 播放器壳子在不在（不要求手上正拿着歌）。
+         *
+         * 镜像兜底切歌的资格判据用这个而不是 {@link #hasActiveMedia()}：当前这首完全可能
+         * 走的是 {@code <audio>}（有缓存的歌回落网页播放，原生手上没东西）—— 按
+         * hasActiveMedia 判，WebView 一冻结，通知栏切歌就永远没人接。JS 没回话的那一刻
+         * 原生直接 prepare 一条新地址接管播放，不需要原生「之前就在播」。
+         */
+        @JvmStatic
+        fun hasPlayer(): Boolean {
+            val current = instance
+            return current != null && current.player != null
+        }
+
+        /**
+         * 原生播放器**此刻是不是在播**。
+         *
+         * 和 `hasActiveMedia()` 是两件事：手上有一首不等于在播（暂停之后 `lastUrl` 还在）。
+         * 谁该给壁纸喂锚点，问的是这一个 —— 暂停之后原生就不再报位置了，那段时间必须
+         * 交回 Web，否则锚点谁都不写，叠层按「暂停」把自己收起来（设置里那条
+         * 「暂停时自动隐藏」），看上去就是「桌面歌词不见了」。
+         */
+        @JvmStatic
+        fun isNativePlaying(): Boolean {
+            // 读缓存（volatile），不碰播放器：这一发是从插件线程问的，而 ExoPlayer
+            // 独占自己那条 playerLooper —— 直读 isPlaying() 就是「Player is accessed
+            // on the wrong thread」那条崩溃的同款。
+            return instance?.player?.isPlaying() == true
+        }
+
+        /**
+         * 把设置里的「播放淡入淡出」摊到播放器上。
+         *
+         * 这一项以前是 Web Audio 上的 gain 斜坡，原生出声之后那条链不参与了，所以斜坡搬到
+         * 播放器自己身上（见 FoliaNativePlayer.rampVolume）。写设置与插件加载时各调一次。
+         */
+        /**
+         * 交叉淡化到下一首（服务自己切歌时用）：两台播放器互相淡入淡出。
+         * 返回 false = 没交叉（没在放 / 时长无效），调用方照旧 prepare + play。
+         */
+        @JvmStatic
+        fun crossfadeFromSystem(url: String, mediaId: String?, durationMs: Int): Boolean {
+            val current = instance ?: return false
+            val player = current.player ?: return false
+            return player.crossfadeTo(url, mediaId, durationMs)
+        }
+
+        /**
+         * 交叉淡化的「提前换歌窗口」：由设置里的时长推下来，写进播放器。
+         *
+         * 写设置与插件加载时各调一次（与 [applyPlaybackFade] 同一条纪律）。
+         */
+        @JvmStatic
+        fun applyCrossfadeAhead(durationMs: Int) {
+            instance?.player?.setCrossfadeAhead(durationMs)
+        }
+
+        @JvmStatic
+        fun applyCrossfadeCurve(name: String?) {
+            instance?.player?.setCrossfadeCurve(name)
+        }
+
+        @JvmStatic
+        fun applyPlaybackFade(enabled: Boolean) {
+            instance?.player?.setPauseFadeEnabled(enabled)
+        }
+
+        /**
+         * 原生播放器此刻的位置（毫秒）；没有播放器时给 -1。
+         *
+         * 通知栏 / 锁屏那条进度条用它：原生在放的时候位置只有播放器知道，而 Web 那一推
+         * 要过 Chromium 的定时器节流 —— 挂久了就是「进度条不动」「一直是 00」。
+         */
+        @JvmStatic
+        fun currentPositionMs(): Long {
+            val current = instance
+            val player = current?.player
+            return if (current != null && player != null) player.getPositionMs() else -1L
+        }
+    }
+
+    override fun load() {
+        instance = this
+        /*
+         * 均衡器先恢复再建播放器。
+         *
+         * 冷启动时可能是通知栏 / 锁屏先把播放拉起来的（WebView 还没起来），
+         * 那一下的声音也要按用户上次的听感走。顺序反了第一首就是默认曲线。
+         */
+        NativeEqualizerState.restore(FoliaSettingsStore.get(getContext()))
+        // load() 在主线程上跑，但播放器自己会起一条专用线程（见 FoliaNativePlayer
+        // 文件头的「线程」那一节）—— 这里只是把壳子建出来。
+        player = FoliaNativePlayer(getContext(), object : FoliaNativePlayer.Listener {
+            override fun onEvent(type: String, positionMs: Long, durationMs: Long, message: String?) {
+                /*
+                 * ⚠️ 这一下是**播放器线程**上跑的（播放循环在那条专用线程上，见
+                 * FoliaNativePlayer 文件头的「线程」那一节），不在主线程。
+                 */
+                /*
+                 * 桌面歌词（壁纸 / 悬浮小窗 / 锁屏）的时间轴锚点：由播放器自己给，
+                 * **就在这里写**，不再绕一次主线程 —— 锚点记的是「收到这个位置的那一刻」，
+                 * 晚一点写（哪怕只是排到下一轮主线程消息）都会让外推偏慢一截。
+                 * `WallpaperLyricsState` 那几个字段是 volatile 的，跨线程写没问题。
+                 */
+                if ("position" == type || "playing" == type
+                    || "paused" == type || "ready" == type || "seeked" == type) {
+                    /*
+                     * seeked 既可能是播放中的单曲循环，也可能是暂停时拖进度条：
+                     * 不能用「不是 paused 就算在播」推，问播放器自己。
+                     */
+                    val playing = if ("seeked" == type)
+                        player != null && player!!.isPlaying()
+                    else
+                        "paused" != type && player?.isBuffering() != true
+                    /*
+                     * ⭐ **"position" 这一档不是每次都写锚点。**
+                     *
+                     * 每 250ms 无条件 `setAnchor(采样值)` 之前，桌面歌词就是「放着放着
+                     * 往回抽一下」，而且壁纸与叠层一起抽 —— 两处其实只是同一个锚点的
+                     * 两个读者：
+                     *   · 壁纸 / 悬浮小窗是原生自绘，直接读 `positionMs()`
+                     *     （锚点 + 墙钟外推），锚点被往回写一次，画面就往回跳一次；
+                     *   · 叠层是另一个 WebView，它**只在签名变了的时候才收一次推送**
+                     *     （WallpaperOverlay 的 lastSignature，签名里含 anchorPositionMs），
+                     *     其余时间自己按 rAF 往前插值 —— 这是刻意的设计，不是省事。
+                     *     锚点每 250ms 一变，就等于每 250ms 推一次：页面每次都把
+                     *     「自己已经走了 250ms」的时钟重设成那个采样值，于是它也往回抽。
+                     *     商籁那种「按位置选景」的视觉器上更明显：位置一抖当前那一景就换，
+                     *     背景的装饰文字跟着一会大一会小、位置乱跑。
+                     *
+                     * 采样值天然比"墙钟外推出来的位置"慢一点（播放器位置的更新粒度、
+                     * 这一下回调排到线程上的那点延迟）。1 倍速下外推速率与真实速率都是
+                     * 1.0，**这个差值是恒定的、不会累积**，所以「差得不多就干脆不写」
+                     * 是安全的：让墙钟照旧往前走，代价只是一个看不见的恒定滞后。
+                     * 差超过一个采样周期才是真出事了（缓冲 / 欠载 / 卡顿：位置停着而
+                     * 墙钟还在走），那时候必须往回对齐。
+                     *
+                     * 其余几档（playing / paused / ready）一律照写：它们是状态边界，
+                     * 锚点必须以它们为准。
+                     */
+                    /*
+                     * 只有 **1 倍速**才走这条优化。
+                     *
+                     * 外推是「锚点 + 墙钟」，速率恒为 1.0；倍速下真实位置走得更快，
+                     * 差值会线性累积、每过一会儿就撞一次容差 —— 那反而变成「隔几秒
+                     * 抽一下」。倍速时不跳过，照旧每拍写（跟改之前一样），不引入回归。
+                     * 真要把倍速也抹平，得让 WallpaperLyricsState 的外推带上速率。
+                     */
+                    val unityRate = player != null && Math.abs(player!!.getSpeed() - 1f) < 0.01f
+                    val snapshot = WallpaperLyricsState.get()
+                    if ("position" == type && playing && unityRate
+                        && !displayAnchorNeedsWrite(snapshot.playing, snapshot.positionMs(), playing, positionMs)) {
+                        // 差在一个采样周期内、播停也一致：这个采样值没有信息量，不写。
+                    } else {
+                        WallpaperLyricsState.setAnchor(positionMs, playing)
+                    }
+                }
+                /*
+                 * ⭐ **位置的每一拍不再过桥。**
+                 *
+                 * App 内（主 WebView）原来每 250ms（后来降到 500ms）就会被
+                 * `evaluateJavascript` 灌一次 JS。掉帧打点对上的正是这个节拍：
+                 * 主线程上每隔 500ms 多出一帧 `syncAndDrawFrame` 的等待，掉帧成簇出现，
+                 * 而 App 外的悬浮小窗 / 叠层几乎不卡 —— 它们不收这条事件。
+                 *
+                 * 这笔开销不在数据量上，在「往 WebView 里塞一次 JS」这件事本身：
+                 * 要切进 JS 上下文、排到渲染流水线前面，还给 GC 添一份垃圾。
+                 * 降频只是把「每 250ms 一次」变成「每 500ms 一次」，节拍还在；
+                 * 所以现在干脆不发 —— 只把**状态边界**（ready / playing / paused /
+                 * buffering / ended / error / idle）过桥，位置由 Web 侧自己的墙钟
+                 * 从最后一次锚点往前推（见 nativePlaybackEngine.getPositionSec）。
+                 *
+                 * 锚点**照旧每 250ms 算一次**（就在上面），壁纸 / 悬浮窗 / 叠层的
+                 * 时间轴精度一点没降 —— 那一侧读的是锚点，不是这条事件。
+                 * 通知栏 / 锁屏的进度条也直接问播放器（FoliaPlaybackService），
+                 * 不经过 WebView。
+                 */
+                if ("position" == type) {
+                    return
+                }
+                /*
+                 * 只有状态边界才需要构造 payload / 过桥。位置那一拍在上面已经 return，
+                 * 不在这里给播放器线程添垃圾。
+                 */
+                val payload = JSObject()
+                payload.put("type", type)
+                payload.put("positionMs", positionMs.toDouble())
+                payload.put("durationMs", durationMs.toDouble())
+                // ended / error 用事件发出时真实装着的那首（见 FoliaNativePlayer.emit），不用已被下一单提前改写的 lastMediaId。
+                val eventKey = if ("ended" == type || "error" == type) player?.lastEventMediaId() ?: "" else player?.currentMediaId() ?: ""
+                payload.put("songKey", eventKey)
+                payload.put("playing", player?.isPlaying() == true)
+                payload.put("buffering", player?.isBuffering() == true)
+                /*
+                 * ⭐ **播完了自动下一首。**
+                 *
+                 * 「ended」这个状态边界过桥给 JS 的播放管线，自动切歌一直归它管；
+                 * 但 WebView 冻结 / 已销毁时这一下没人接 —— 一首放完就停在那儿
+                 * （用户报的「播放完毕之后不会自动下一首」）。下面那段把这一下
+                 * 转成一条 next 指令进服务，由服务去分「JS 接住了没有」。
+                 */
+                /*
+                 * ⭐ 快到末尾了：交叉淡化要在**旧那台还在出声**的时候起跑。
+                 *
+                 * 等到「ended」才换，能淡的只剩静音 —— 用户听到的就是「放完没有淡出、直接断」。
+                 * 所以播放器在「还剩一个斜坡」的时候报一声，这条直接进服务让它提前换下一首；
+                 * 不过桥、也不给 JS 加新事件类型（界面那一侧不需要知道这件事）。
+                 */
+                if ("nearEnd" == type) {
+                    MAIN.post {
+                        val context = instance?.getContext()
+                        if (context != null
+                            && top.izuna.foliamajor.FoliaPlaybackService.isRunning()) {
+                            top.izuna.foliamajor.FoliaPlaybackService
+                                    .requestNativeNearEnd(context)
+                        }
+                    }
+                    return
+                }
+                /*
+         * 位置被跳过了：App 里拖动进度条（Web → player.seek）与单曲循环回绕都落到这里。
+         *
+         * 系统媒体通知 / 锁屏的进度条读的是 MediaSession 的 PlaybackState，位置只在
+         * setPlaybackState 那一刻定格、之后由系统外推 —— 不通知服务重挂一次，拖完进度条
+         * 通知栏还停在原处继续数，单曲循环回到开头也不会归零。
+         */
+        if ("seeked" == type) {
+            MAIN.post {
+                val context = instance?.getContext()
+                if (context != null
+                    && top.izuna.foliamajor.FoliaPlaybackService.isRunning()) {
+                    top.izuna.foliamajor.FoliaPlaybackService
+                        .requestNativePositionJump(context, positionMs)
+                }
+            }
+        }
+        if ("playing" == type && durationMs > 0L) {
+            MAIN.post { top.izuna.foliamajor.FoliaPlaybackService.activeService()?.onNativePlaybackStarted() }
+        }
+        if ("error" == type && !top.izuna.foliamajor.FoliaPlaybackService.appUiVisible) {
+            val failedKey = eventKey
+            MAIN.post {
+                top.izuna.foliamajor.FoliaPlaybackService.activeService()?.onNativePlayerError(failedKey)
+            }
+        }
+        if ("ended" == type) {
+                    /*
+                     * 播完了 = 这首真的走完了。**原生立即决定接下来播什么**，不再等 JS。
+                     *
+                     * 老做法是「先按 JS 那条路发一次 next，再挂一个 2.5 秒的原生兜底」：
+                     * 桥活着不等于 JS 在跑 —— 退到后台之后插件实例还在（isBridgeAlive()
+                     * 为真），WebView 的 JS 却被系统挂起，onEnded 那条回调根本不会执行。
+                     * 于是「后台放完一首就不动了」，用户报的正是这句。
+                     *
+                     * 现在反过来：FoliaPlaybackService.onTrackFinished 按原生队列的循环模式
+                     * 立刻决定（单曲循环重播 / 换下一首 / 顺序播放走到头才停），它自己不叫醒
+                     * 前台。装源后以 syncTo 通知界面认领，不再发 next 让 Web 重复切歌。
+                     */
+                    val endedKey = payload.optString("songKey", "")
+                    MAIN.post {
+                        top.izuna.foliamajor.FoliaPlaybackService.activeService()?.onTrackFinished(endedKey)
+                    }
+                }
+                if (message != null) {
+                    payload.put("message", message)
+                }
+                /*
+                 * 过桥那一下回主线程：`notifyListeners` 里的监听器表不是为并发写的
+                 * （`Plugin.eventListeners` 是个普通 HashMap，加 / 删监听器在 JS 那一侧）。
+                 */
+                MAIN.post {
+                    top.izuna.foliamajor.FoliaPlaybackService.activeService()?.refreshForSnapshot()
+                    notifyListeners(EVENT, payload)
+                }
+            }
+        })
+        // 「播放淡入淡出」跟着设置走：插件是新进程里第一个起来的东西，这里读一次就够，
+        // 之后每次写设置都会再摊一遍（见 FoliaNativePlugin.setSettings）。
+        try {
+            val settings = top.izuna.foliamajor.settings.FoliaSettingsStore.get(getContext())
+            val fadeEnabled = settings.getBoolean("playbackFade", true)
+            player?.setPauseFadeEnabled(fadeEnabled)
+            // 交叉淡化同理：窗口决定了「自然播完时到底有没有淡出」。
+            val crossfadeMs = if (settings.getBoolean("crossfadeEnabled", false))
+                settings.getInt("crossfadeMs", 0) else 0
+            player?.setCrossfadeAhead(crossfadeMs)
+            player?.setCrossfadeCurve(settings.getString("crossfadeCurve") ?: "equalPower")
+        } catch (error: Throwable) {
+            android.util.Log.w("FoliaNativePlayer", "读取淡入淡出设置失败，按开启处理", error)
+        }
+    }
+
+    override fun handleOnDestroy() {
+        val current = player
+        if (current != null) {
+            current.release()
+            player = null
+        }
+        instance = null
+        super.handleOnDestroy()
+    }
+
+    @PluginMethod
+    fun prepare(call: PluginCall) {
+        val current = player
+        val url = call.getString("url")
+        if (current == null || url == null || url.isEmpty()) {
+            call.reject("A url is required.")
+            return
+        }
+        val startPositionMs = call.getDouble("startPositionMs")
+        val repeatMode = call.getInt("repeatMode")
+        if (repeatMode != null) {
+            current.setRepeatMode(repeatMode)
+        }
+        val webSongKey = call.getString("songKey")
+        current.prepare(
+            url,
+            if (startPositionMs != null) startPositionMs.toLong() else -1L,
+            webSongKey,
+        )
+        // Web 亲自装源 = 原生那一单派发作废，服务的 pending 换成 Web 选的这首（#182 审查 M2）。
+        MAIN.post { top.izuna.foliamajor.FoliaPlaybackService.activeService()?.onWebPrepared(webSongKey) }
+        val result = JSObject()
+        result.put("ok", true)
+        call.resolve(result)
+    }
+
+    @PluginMethod
+    fun play(call: PluginCall) {
+        val current = player
+        if (current == null) {
+            call.reject("The player is not ready.")
+            return
+        }
+        current.play()
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun pause(call: PluginCall) {
+        val current = player
+        if (current == null) {
+            call.reject("The player is not ready.")
+            return
+        }
+        current.pause()
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun stop(call: PluginCall) {
+        val current = player
+        if (current == null) {
+            call.reject("The player is not ready.")
+            return
+        }
+        current.stop()
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun seek(call: PluginCall) {
+        val current = player
+        val positionMs = call.getDouble("positionMs")
+        if (current == null || positionMs == null) {
+            call.reject("positionMs is required.")
+            return
+        }
+        current.seek(positionMs.toLong())
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun setVolume(call: PluginCall) {
+        val current = player
+        val volume = call.getFloat("volume")
+        if (current == null || volume == null) {
+            call.reject("volume is required.")
+            return
+        }
+        current.setVolume(volume)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun setSpeed(call: PluginCall) {
+        val current = player
+        val speed = call.getFloat("speed")
+        if (current == null || speed == null) {
+            call.reject("speed is required.")
+            return
+        }
+        current.setSpeed(speed)
+        call.resolve()
+    }
+
+    /**
+     * 立刻改循环模式，不重新装地址。
+     *
+     * 单曲循环是随时能按的：走 prepare 的话当前这首会从头再来一遍，走「只记下来、
+     * 下次 prepare 带上」的话，正在播的这首丢了循环 —— 放完停在末尾，进度条不动，
+     * 可 Web 层还以为在循环。setSpeed 同款问题，同款解法：对已在播的播放器直接生效。
+     */
+    @PluginMethod
+    fun setRepeatMode(call: PluginCall) {
+        val current = player
+        val mode = call.getInt("repeatMode")
+        if (mode == null) {
+            call.reject("repeatMode is required.")
+            return
+        }
+        current?.setRepeatMode(mode)
+        call.resolve()
+    }
+
+    /**
+     * Web 推下来的听感设置（10 段 + punch / space / 高通低通）。
+     *
+     * 与 setSettings 分开走：EQ 变化很频繁（拖一次滑杆可能十几条），混进设置快照会把
+     * 其它字段一起重写一遍。它也不依赖 WebView —— 推一次就落盘，冷启动由 load() 恢复。
+     */
+    @PluginMethod
+    fun setEqualizer(call: PluginCall) {
+        val payload = call.getObject("settings")
+        if (payload == null) {
+            call.reject("settings is required.")
+            return
+        }
+        try {
+            val applied = NativeEqualizerState.apply(EqSettings.fromJson(payload))
+            NativeEqualizerState.persist(FoliaSettingsStore.get(getContext()), applied)
+            val result = JSObject()
+            result.put("applied", true)
+            result.put("active", applied.enabled)
+            result.put("seq", applied.seq.toDouble())
+            call.resolve(result)
+        } catch (error: Exception) {
+            call.reject("设置均衡器失败", error)
+        }
+    }
+
+    /**
+     * 诊断用：原生此刻真正在跑的那份设置。
+     *
+     * 不做轮询 —— 只在用户报「手机上没效果」时由界面按需问一次。它的意义是分清
+     * 「Web 没推下来」与「推了但原生没收到/没收下」，日志里一看就知道卡在哪一段。
+     */
+    @PluginMethod
+    fun getEqualizerState(call: PluginCall) {
+        val snapshot = NativeEqualizerState.snapshot()
+        // 整份设置按协议形状回给 Web：诊断时能一次看到「压缩器到底有没有开」，
+        // 不用再分四次问。
+        val result = snapshot.toJson()
+        result.put("seq", snapshot.seq)
+        call.resolve(JSObject.fromJSONObject(result))
+    }
+
+    /**
+     * 开关频谱取样。
+     *
+     * 关掉时音频线程上不跑 FFT —— 频谱是「看」的东西，没人看就不该占 CPU。
+     * 界面进入后置均衡器那一页时打开，离开（或窗口关掉）时关掉。
+     */
+    @PluginMethod
+    fun setSpectrumEnabled(call: PluginCall) {
+        NativeEqualizerState.spectrumEnabled = call.getBoolean("enabled", false) ?: false
+        call.resolve()
+    }
+
+    /**
+     * 取一帧频谱。
+     *
+     * 由界面按动画帧的节奏来问（约 60 ms 一次），不在原生侧主动推事件：
+     * 频谱只在那一页存在时才需要，推事件反而会让桥长期有一条常开的消息流。
+     */
+    @PluginMethod
+    fun getSpectrum(call: PluginCall) {
+        val bands = NativeEqualizerState.spectrum()
+        val array = JSArray()
+        bands.forEach { array.put(it.toDouble()) }
+        val result = JSObject()
+        result.put("bands", array)
+        call.resolve(result)
+    }
+
+    @PluginMethod
+    fun getSnapshot(call: PluginCall) {
+        val current = player
+        if (current == null) {
+            call.reject("The player is not ready.")
+            return
+        }
+        val result = JSObject()
+        result.put("positionMs", current.getPositionMs().toDouble())
+        result.put("durationMs", current.getDurationMs().toDouble())
+        result.put("playing", current.isPlaying())
+        result.put("buffering", current.isBuffering())
+        result.put("speed", current.getSpeed().toDouble())
+        // 引擎此刻装的是哪一首：Web 层判「点歌有没有真的换过去」只信这一个
+        // （服务里的 cachedSongKey 会随它自己推的 metadata 变，当判据等于自证）。
+        result.put("songKey", current.currentMediaId())
+        call.resolve(result)
+    }
+
+    @PluginMethod
+    fun release(call: PluginCall) {
+        val current = player
+        if (current != null) {
+            current.release()
+        }
+        call.resolve()
+    }
+
+    /**
+     * 只回答「这台设备有没有杜比相关的 MediaCodec 解码器」，不解码、不加载任何库。
+     *
+     * 目的：设置页如实告诉用户本机是否具备对象式杜比（E-AC-3 JOC / AC-4）硬件解码能力，
+     * 而不是让人以为应用里有个「杜比开关」。Dolby 官方的做法也是让应用先用 MIME 探测设备
+     * 解码能力（audio/eac3 → DD+ 含 Atmos，audio/ac4 → AC-4），再决定要不要走那条流。
+     *
+     * 这里**只探测**：本项目拿到的都是平台已渲染好的普通立体声文件，`audio/mpeg` / `audio/flac`
+     * 就够播；即便设备报了 eac3/ac4，应用也没有 Dolby 渲染器与授权去解对象流。所以这几个
+     * 布尔值纯粹是「设备能力事实」，不驱动播放路径，也不构成"支持杜比解码"的承诺。
+     */
+    @PluginMethod
+    fun getDolbyDeviceCapabilities(call: PluginCall) {
+        val result = JSObject()
+        try {
+            // MIME 字符串用字面量而不是 MediaFormat.MIMETYPE_AUDIO_AC4 等常量：后者是 API 28
+            // 才加入的，而本项目 minSdk 24。常量本身虽是编译期内联的 String，直接写字面量能
+            // 避开 lint 的 NewApi 争议，也与 Dolby 官方「按 MIME 探测设备解码能力」的建议一致。
+            val codecs = MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos
+            val decoders = codecs.filter { !it.isEncoder }
+            fun hasDecoder(mime: String): Boolean = decoders.any { info ->
+                try {
+                    info.supportedTypes.any { it.equals(mime, ignoreCase = true) }
+                } catch (_: Throwable) {
+                    false
+                }
+            }
+            // audio/eac3 覆盖 Dolby Digital Plus 与 DD+ Atmos 的 core；audio/ac4 是 AC-4；
+            // audio/ac3 是老 Dolby Digital。三者都只是「设备能不能解」的事实。
+            result.put("eac3", hasDecoder("audio/eac3"))
+            result.put("ac4", hasDecoder("audio/ac4"))
+            result.put("ac3", hasDecoder("audio/ac3"))
+            result.put("flac", hasDecoder("audio/flac"))
+            result.put("available", true)
+        } catch (error: Throwable) {
+            // 探测失败不该让设置页崩：全部报 false，并把原因交给界面如实显示。
+            result.put("eac3", false)
+            result.put("ac4", false)
+            result.put("ac3", false)
+            result.put("flac", false)
+            result.put("available", false)
+            result.put("error", error.message ?: "unknown")
+        }
+        call.resolve(result)
+    }
+
+    /**
+     * 只读：这台设备实际的音频输出参数。它回答「Hi-Res 音源最终会以什么采样率输出」，
+     * 而不是「应用支持 bit-perfect 输出」。这里不加载任何东西、不改播放路径、不打开
+     * 高解析输出模式。
+     *
+     * floatPcmOutput 恒为 false，不是漏配：FoliaAudioSinkFactory 主动把
+     * DefaultAudioSink.setEnableFloatOutput 钉成 false —— 打开之后 media3 会跳过整条
+     * AudioProcessor 链（原生 EQ 静默失效），且高解析源会先经 ToInt16PcmAudioProcessor
+     * 降到 16 bit 才进链。为保住 EQ，这条链路选择 16 bit PCM；bit-perfect 到 DAC 在通用
+     * Android 音频路径上本就不可达（需要 AAudio 独占 / 直通，本项目没有）。
+     *
+     * 采样率为什么要绕一圈：项目在 android/media/AudioManager.java 放了一个**编译期占位类**
+     * （为了让 FoliaAudioManager 能继承它），这份占位没有 getProperty / PROPERTY_OUTPUT_*，
+     * 直接写会编译不过；运行时加载的才是 framework 真类。所以属性走反射、常量写字面量，
+     * 读不到再用 AudioTrack 的静态方法兜底，最后才是 0 =「未探测到」。
+     */
+    @PluginMethod
+    fun getAudioOutputCapabilities(call: PluginCall) {
+        val result = JSObject()
+        try {
+            val manager = context.getSystemService(Context.AUDIO_SERVICE)
+            val propertyRate = try {
+                val method = manager?.javaClass?.getMethod("getProperty", String::class.java)
+                (method?.invoke(manager, "android.media.property.OUTPUT_SAMPLE_RATE") as? String)
+                    ?.toIntOrNull() ?: 0
+            } catch (_: Throwable) {
+                0
+            }
+            // STREAM_MUSIC = 3；占位 AudioManager 里没有 STREAM_MUSIC 常量，不能写它。
+            val trackRate = try {
+                AudioTrack.getNativeOutputSampleRate(3)
+            } catch (_: Throwable) {
+                0
+            }
+            val rate = if (propertyRate > 0) propertyRate else trackRate
+            result.put("outputSampleRate", rate)
+            result.put("floatPcmOutput", false)
+            result.put("available", rate > 0)
+        } catch (error: Throwable) {
+            // 探测失败不该让设置页崩：如实报 unavailable，采样率显示「未知」。
+            result.put("outputSampleRate", 0)
+            result.put("floatPcmOutput", false)
+            result.put("available", false)
+            result.put("error", error.message ?: "unknown")
+        }
+        call.resolve(result)
+    }
+}

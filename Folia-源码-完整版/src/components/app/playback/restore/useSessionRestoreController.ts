@@ -1,0 +1,265 @@
+import { useEffect, useRef } from 'react';
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
+import { getFromCache, getLocalSongs } from '../../../../services/db';
+import { getLocalLibraryCatalogSnapshot } from '../../../../services/localLibraryEntityRepository';
+import { buildLocalQueue } from '../../../../services/playbackAdapters';
+import { prefetchNearbySongs } from '../../../../services/prefetchService';
+import { reportYieldedQueue, wholeQueueWritesSoFar } from '../../../../services/wholeQueueWrites';
+import type { ThemeCacheSongKey } from '../../../../services/themeCache';
+import { useOnlineProviderAccountStore } from '../../../../stores/useOnlineProviderAccountStore';
+import { restorePlaybackSourceForSong, type RestorePlaybackSourceOutcome } from './restorePlaybackSource';
+import { getPlaybackSongKey, isStagePlaybackSong, normalizePlaybackSongSource } from '../../../../utils/appPlaybackGuards';
+import type { LyricData, SongResult, StatusMessage } from '../../../../types';
+import type { AudioQualityPreference, MediaId } from '../../../../types/onlineMusic';
+import { setStatusMessage as setStatusMsg } from '../../../../stores/useStatusMessageStore';
+import { setPlayQueue, usePlaybackStore } from '../../../../stores/usePlaybackStore';
+import { askedSongKeyRef, makeSongCurrent, startRestore } from '../currentSong';
+import { useAudioSettingsStore } from '../../../../stores/useAudioSettingsStore';
+import { isRestoredSongPlayable } from '../playableSong';
+import { readNativeQueueState } from '../../../../services/nativeQueueBridge';
+import { nativePlaybackEngine } from '../../../../services/playbackEngine/nativePlaybackEngine';
+import { isAndroidAppShell } from '../../../../platform/runtime';
+import { adoptNativePlaybackState } from './adoptNativePlaybackState';
+import { readSavedPlaybackPosition } from './playbackPositionCache';
+
+// src/components/app/playback/restore/useSessionRestoreController.ts
+
+type SetState<T> = Dispatch<SetStateAction<T>>;
+
+type UseSessionRestoreControllerParams = {
+    userId?: MediaId;
+    blobUrlRef: MutableRefObject<string | null>;
+    currentOnlineAudioUrlFetchedAtRef: MutableRefObject<number | null>;
+    setLyrics: (nextLyrics: LyricData | null) => void;
+    /*
+     * 结果类型只写 `unknown`，不抄那串字面量并集：这里只是把回调往下一路传，并不按返回值
+     * 分支。抄一遍的话，`restoreCachedThemeForSong` 每多一种结果（例如「本机改过」与「云端缓
+     * 存」这两种）都会让这里编译不过，而它其实根本不关心是哪种。
+     */
+    restoreCachedThemeForSong: (songId: ThemeCacheSongKey | SongResult, options?: {
+        allowLastUsedFallback?: boolean;
+        preserveCurrentOnMiss?: boolean;
+    }) => Promise<unknown>;
+    persistLastPlaybackCache: (song: SongResult | null, queue: SongResult[]) => Promise<void>;
+    clearPersistedStagePlaybackCache: () => Promise<void>;
+    loadLocalSongs: () => Promise<void>;
+    loadLocalPlaylists: () => Promise<void>;
+    canRestoreSession?: boolean;
+    /**
+     * The autoplay intent the audio bridge spends when a source lands. Restore normally leaves it
+     * alone so the session comes back paused; the lab switch below is the only thing that arms it.
+     */
+    shouldAutoPlayRef: MutableRefObject<boolean>;
+    /**
+     * Web `<audio>` 那条链的断点续播位置：音源 loadedmetadata 时由 AppSurface 消费一次。
+     * 原生 ExoPlayer 没有那个事件，位置走 nativePlaybackEngine.setPendingStartPosition。
+     */
+    pendingResumeTimeRef?: MutableRefObject<number | null>;
+    /**
+     * 「进入应用后自动播放」下面那一项：起播的同时把页面切到歌词页。
+     * 只在这一处按开关调；不跳的时候首页照旧。
+     */
+    jumpToPlayerOnLaunch?: () => void;
+};
+
+// Restores the main playback session without pushing more boot logic into App.tsx.
+export function useSessionRestoreController({
+    userId,
+    blobUrlRef,
+    currentOnlineAudioUrlFetchedAtRef,
+    setLyrics,
+    restoreCachedThemeForSong,
+    persistLastPlaybackCache,
+    clearPersistedStagePlaybackCache,
+    loadLocalSongs,
+    loadLocalPlaylists,
+    canRestoreSession = true,
+    shouldAutoPlayRef,
+    pendingResumeTimeRef,
+    jumpToPlayerOnLaunch,
+}: UseSessionRestoreControllerParams) {
+    const audioQuality = useAudioSettingsStore(state => state.audioQuality);
+
+    const hasInitializedRef = useRef(false);
+    const hasLoadedLocalLibraryRef = useRef(false);
+    // The whole-queue writes when the App first rendered, before the commit in which it hands mods
+    // replaceQueue (useFoliumHostActions). Not read when the restore starts: on the desktop that waits for
+    // the window handoff check, and a mod's replacement meanwhile would then be written over.
+    const queueWritesAtMountRef = useRef(wholeQueueWritesSoFar());
+
+    useEffect(() => {
+        if (hasLoadedLocalLibraryRef.current) {
+            return;
+        }
+
+        hasLoadedLocalLibraryRef.current = true;
+        void loadLocalSongs();
+        void loadLocalPlaylists();
+    }, [loadLocalPlaylists, loadLocalSongs]);
+
+    useEffect(() => {
+        if (!canRestoreSession) {
+            return;
+        }
+
+        if (hasInitializedRef.current) {
+            return;
+        }
+        hasInitializedRef.current = true;
+
+        const restoreSession = async () => {
+            // A mod may replace the whole queue while the session is read (from its `activate`): its queue
+            // then stands over the remembered one, and is what gets saved and fetched around. The song
+            // itself is restored all the same.
+            const writesAtStart = queueWritesAtMountRef.current;
+            const rewritten = () => wholeQueueWritesSoFar() !== writesAtStart;
+            try {
+                // WebView 重建不等于播放器重启：先问原生，不能把磁盘里的旧歌装回去。
+                const native = await readNativeQueueState();
+                if (native?.hasSong && native.nativeMedia?.songKey === native.songKey && native.nativeMedia.url) {
+                    if (askedSongKeyRef.current === null) adoptNativePlaybackState(native);
+                    shouldAutoPlayRef.current = false;
+                    return;
+                }
+                let lastSong = await getFromCache<SongResult>('last_song');
+                let lastQueue = await getFromCache<SongResult[]>('last_queue');
+
+                if (lastSong) lastSong = normalizePlaybackSongSource(lastSong);
+                if (lastQueue) lastQueue = lastQueue.map(normalizePlaybackSongSource);
+
+                if (isStagePlaybackSong(lastSong) || lastQueue?.some(song => isStagePlaybackSong(song))) {
+                    await clearPersistedStagePlaybackCache();
+                    return;
+                }
+
+                if (!lastSong) {
+                    return;
+                }
+
+                // Leave unsupported sessions cached for a build that registers their provider.
+                if (!isRestoredSongPlayable(lastSong)) return;
+                lastQueue = lastQueue?.filter(song => isRestoredSongPlayable(song)) ?? null;
+
+                const containsLocalSnapshot = [lastSong, ...(lastQueue || [])].some(song => (
+                    Boolean((song as any).isLocal)
+                    || Boolean((song as any).localRef?.songId)
+                    || Boolean((song as any).localData?.id)
+                ));
+                if (containsLocalSnapshot) {
+                    const [localSongs, catalog] = await Promise.all([
+                        getLocalSongs(),
+                        getLocalLibraryCatalogSnapshot(),
+                    ]);
+                    const songsById = new Map(localSongs.map(song => [song.id, song]));
+                    const rebuild = (cached: SongResult): SongResult | null => {
+                        const songId = (cached as any).localRef?.songId || (cached as any).localData?.id;
+                        if (!songId) return cached;
+                        const localSong = songsById.get(songId);
+                        if (!localSong) return null;
+                        return buildLocalQueue([localSong], undefined, catalog)[0] || null;
+                    };
+                    lastSong = rebuild(lastSong);
+                    lastQueue = (lastQueue || []).map(rebuild).filter((song): song is SongResult => Boolean(song));
+                    if (!lastSong) return;
+                    const lastSongKey = getPlaybackSongKey(lastSong);
+                    if (!lastQueue.some(song => getPlaybackSongKey(song) === lastSongKey)) {
+                        lastQueue.unshift(lastSong);
+                    }
+                    await persistLastPlaybackCache(lastSong, rewritten() ? usePlaybackStore.getState().playQueue : lastQueue);
+                }
+
+                // A song asked for while the remembered one was being read stands: the restore gives up.
+                if (askedSongKeyRef.current !== null) return;
+
+                console.log('[Session] Restoring last song:', lastSong.name);
+                if (lastSong.sourceRef?.kind === 'online' && lastSong.sourceRef.providerId) {
+                    const currentActiveProviderId = useOnlineProviderAccountStore.getState().activeProviderId;
+                    if (currentActiveProviderId !== lastSong.sourceRef.providerId) {
+                        console.log(`[Session] Aligning active provider to restored song provider: ${lastSong.sourceRef.providerId}`);
+                        useOnlineProviderAccountStore.getState().setActiveProviderId(lastSong.sourceRef.providerId);
+                    }
+                }
+                /*
+                 * 断点续播：只在会话恢复里读位置，主动重新点同一首歌不经过这里。
+                 * 原生服务仍在播的那个分支在上面就 return 了 —— 它自己手上有更准的位置，
+                 * 不能被磁盘上的旧快照顶掉。
+                 */
+                const savedPositionSec = await readSavedPlaybackPosition(lastSong);
+                makeSongCurrent(lastSong);
+                if (savedPositionSec !== null) {
+                    if (isAndroidAppShell()) {
+                        // 原生播放器没有 loadedmetadata 可用，起播位置随 prepare 下发。
+                        nativePlaybackEngine.setPendingStartPosition(savedPositionSec);
+                    } else if (pendingResumeTimeRef) {
+                        // Web <audio>：AppSurface 的 onLoadedMetadata 会消费并清掉它。
+                        pendingResumeTimeRef.current = savedPositionSec;
+                    }
+                }
+                const stillWanted = startRestore();
+                const rememberedQueue = lastQueue && lastQueue.length > 0 ? lastQueue : [lastSong];
+                if (rewritten()) {
+                    // Saved again now that a song is current: the replacement's own save found none, so it kept nothing.
+                    void persistLastPlaybackCache(lastSong, usePlaybackStore.getState().playQueue);
+                    // The remembered queue is the listener's: the replacement's undo puts it back.
+                    reportYieldedQueue({ queue: rememberedQueue, song: lastSong });
+                } else {
+                    setPlayQueue(rememberedQueue);
+                }
+
+                // Read at restore time rather than subscribed: this effect runs once, and the
+                // switch only ever has to answer for this one launch.
+                const autoPlayOnLaunch = useAudioSettingsStore.getState().autoPlayOnLaunch;
+                if (autoPlayOnLaunch) {
+                    // Arm before the source lands. The bridge's autoplay effect fires on the commit
+                    // that gives the deck its src, and it spends this flag there; setting it after
+                    // would miss that run and leave the deck buffered in silence.
+                    shouldAutoPlayRef.current = true;
+                    // 「同时跳转至可视化页面」：等音源落地再切会先白一下首页，而这里要的就是
+                    // 打开应用直接是那一页。两个开关一起读：下面的开关只在上面那个开着时才有页面可看。
+                    if (useAudioSettingsStore.getState().autoJumpToVisualizerOnLaunch) {
+                        jumpToPlayerOnLaunch?.();
+                    }
+                }
+
+                let outcome: RestorePlaybackSourceOutcome = 'failed';
+                try {
+                    outcome = await restorePlaybackSourceForSong(lastSong, {
+                        audioQuality,
+                        userId,
+                        blobUrlRef,
+                        currentOnlineAudioUrlFetchedAtRef,
+                        setLyrics,
+                        restoreCachedThemeForSong,
+                        persistLastPlaybackCache,
+                        queue: lastQueue || [lastSong],
+                        stillWanted,
+                        queueWritesAtStart: writesAtStart,
+                    });
+                } catch (error) {
+                    console.warn('Failed to restore audio/lyrics for last session', error);
+                }
+
+                // A song was asked for meanwhile, another one or this same one: the intent to play
+                // and what is fetched next are that play's.
+                if (outcome === 'stale' || !stillWanted() || askedSongKeyRef.current !== getPlaybackSongKey(lastSong)) return;
+                if (outcome === 'failed') {
+                    // No source ever landed (the restore failed, or threw), so the intent was never
+                    // spent. Left standing it would fire on whatever the listener plays next, which
+                    // they did not ask for.
+                    shouldAutoPlayRef.current = false;
+                }
+
+                // Restoring a session sets up the current song and stops, so until the listener
+                // changes track nothing around it has been fetched: the next song's URL and lyrics
+                // are cold, and neither track has been measured for automix. That makes the first
+                // song change of every session the slowest one and the only one that blends blind.
+                // Every other entry into playback prefetches; this one was simply never wired to.
+                void prefetchNearbySongs(lastSong, rewritten() ? usePlaybackStore.getState().playQueue : lastQueue || [lastSong], audioQuality, userId);
+            } catch (error) {
+                console.error('Session restore failed', error);
+            }
+        };
+
+        void restoreSession();
+    }, [canRestoreSession]);
+}

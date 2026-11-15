@@ -1,0 +1,207 @@
+import { defineCommand } from '../commandFactories';
+import { backgroundPickerSurface, visualizerPickerSurface } from '../surfaces/pickerSurface';
+import { LayoutGrid, Wallpaper } from 'lucide-react';
+import type { CommandPaletteCommand } from '../types';
+import { createBackgroundCommand, createToggleCommand, createVisualizerCommand } from '../commandFactories';
+import { lyricSegmentationCommand } from './lyricSegmentationCommand';
+import { openLyricsWallpaperPicker } from '../../../platform/foliaWallpaper';
+import { VISUALIZER_REGISTRY } from '../../visualizer/registry';
+import { VISUALIZER_BACKGROUND_REGISTRY } from '../../visualizer/backgrounds/registry';
+import { isAndroidAppShell } from '../../../platform/runtime';
+
+// src/components/command-palette/commands/visualizerCommands.ts
+// Commands in the `visualizer` group: switching lyric animation modes and background layouts.
+//
+// The command that switches to a lyric style or to a background is written in that mode's own
+// entry.tsx (`command`) and listed here in registry order, so a new mode adds no line to this file.
+// A mod's mode has no command of its own; the two pickers list it.
+
+// Latent's three display variants. They are listed right after Latent's own switch command.
+const LATENT_VARIANT_COMMANDS: CommandPaletteCommand[] = [
+    {
+        id: 'background-latent-dithering',
+        group: 'visualizer',
+        title: 'Latent: Pixel',
+        description: 'Show only the Dithering layer in Latent background',
+        keywords: ['latent dithering', '隐现像素', '像素层'],
+        execute: (_input, context) => {
+            context.visualizer.setVisualizerBackgroundMode('latent');
+            context.visualizer.setLatentBackgroundTuning({ displayMode: 'dithering' });
+            return true;
+        },
+    },
+    {
+        id: 'background-latent-mesh',
+        group: 'visualizer',
+        title: 'Latent: Fluid',
+        description: 'Show only the MeshGradient layer in Latent background',
+        keywords: ['latent mesh', 'mesh gradient', '隐现流体', '流体层'],
+        execute: (_input, context) => {
+            context.visualizer.setVisualizerBackgroundMode('latent');
+            context.visualizer.setLatentBackgroundTuning({ displayMode: 'mesh' });
+            return true;
+        },
+    },
+    {
+        id: 'background-latent-both',
+        group: 'visualizer',
+        title: 'Latent: Mixed',
+        description: 'Show both shader layers in Latent background',
+        keywords: ['latent both', '隐现混合', '双层背景'],
+        execute: (_input, context) => {
+            context.visualizer.setVisualizerBackgroundMode('latent');
+            context.visualizer.setLatentBackgroundTuning({ displayMode: 'both' });
+            return true;
+        },
+    },
+];
+
+// What finds any of 智能动感模式's three commands (Sonnet and Diorama on the beats, Pendolo on the drums).
+const SMART_BEAT_KEYWORDS = ['smart beat', 'beat fx', 'beat this', 'sonnet beat', 'diorama beat', 'pendolo drums', '智能动感模式', '动感', '节拍', '鼓点', '推镜裂光', '水镜涟漪', '仿真鼓面', '商籁动感', '镜台涟漪', '时计'];
+
+const ALL_VISUALIZER_COMMANDS: CommandPaletteCommand[] = [
+    lyricSegmentationCommand,
+    defineCommand({
+        id: 'visualizer-picker',
+        executeShortcut: 'm',
+        group: 'visualizer',
+        title: 'Pick a visualizer',
+        description: 'Browse lyric animation modes and click one to switch',
+        keywords: ['visualizer picker', 'pick visualizer', 'browse visualizers', '可视化选择器', '选择可视化', '歌词动画选择'],
+        icon: LayoutGrid,
+        requiresInput: true,
+        surface: visualizerPickerSurface,
+        placeholder: context => context.shared.t('commandPalette.pickerFilterPlaceholder', 'Type to filter, then click or press Enter'),
+        execute: () => false,
+    }),
+    defineCommand({
+        id: 'background-picker',
+        executeShortcut: 'g',
+        group: 'visualizer',
+        title: 'Pick a background',
+        description: 'Browse background layouts and click one to switch',
+        keywords: ['background picker', 'pick background', 'browse backgrounds', '背景选择器', '选择背景'],
+        icon: Wallpaper,
+        requiresInput: true,
+        surface: backgroundPickerSurface,
+        placeholder: context => context.shared.t('commandPalette.pickerFilterPlaceholder', 'Type to filter, then click or press Enter'),
+        execute: () => false,
+    }),
+    defineCommand({
+        // 安卓：直接呼起系统的动态壁纸选择器并定位到 Folia 的歌词壁纸（桌面端没有对应的系统入口，
+        // 这里的按钮只在安卓生效，见 platform/foliaWallpaper 的 openLyricsWallpaperPicker）。
+        id: 'lyrics-wallpaper',
+        group: 'visualizer',
+        title: 'Lyrics as the system wallpaper',
+        description: 'Open the Android live wallpaper picker to apply the lyrics wallpaper',
+        keywords: ['wallpaper', 'live wallpaper', 'lyrics wallpaper', 'system wallpaper', '壁纸', '动态壁纸', '歌词壁纸', '系统壁纸', '设置壁纸'],
+        icon: Wallpaper,
+        execute: () => {
+            void openLyricsWallpaperPicker();
+            return false;
+        },
+    }),
+    createToggleCommand('smart-beat-toggle', 'visualizer', 'Smart beat mode', 'Turn the beat effects (Sonnet and Diorama on the beats, Pendolo on the drums) on or off', ['smart beat', 'beat fx', 'beat this', 'sonnet beat', 'diorama beat', 'pendolo drums', '智能动感模式', '动感', '节拍', '鼓点', '推镜裂光', '水镜涟漪', '仿真鼓面', '商籁动感', '镜台涟漪', '时计'], context => context.visualizer.toggleSmartBeat()),
+    ...VISUALIZER_REGISTRY.flatMap(({ mode, command }) => (
+        command ? [createVisualizerCommand(mode, command.title, command.description, command.keywords)] : []
+    )),
+    // 雾笺的窗外和前面的玻璃：只在正在画雾笺时有，换完在状态栏报一声换成了哪个
+    defineCommand({
+        id: 'visualizer-nebbia-behind-cycle',
+        group: 'visualizer',
+        title: 'Nebbia: Switch window scene',
+        description: "Switch what is outside Nebbia's window: night street, Dream Sea Glow or the background; the front glass changes to the scene's usual pair",
+        keywords: ['nebbia scene', 'window scene', 'outside the window', 'aquarium', 'night street', 'dream sea glow', '雾笺', '窗外', '切换窗外', '背景样式', '梦海流萤', '雨夜街景', '水族箱'],
+        icon: Wallpaper,
+        isAvailable: context => (context ? context.visualizer.visualizerMode === 'nebbia' : false),
+        execute: (_input, context) => {
+            const { t } = context.shared;
+            const behind = context.visualizer.cycleNebbiaBehind();
+            context.shared.setStatusMsg({ type: 'success', text: `${t('options.nebbiaBehind', 'Outside the window')}: ${t(`options.nebbiaBehind_${behind}`, behind)}` });
+            return true;
+        },
+    }),
+    defineCommand({
+        id: 'visualizer-nebbia-glass-cycle',
+        group: 'visualizer',
+        title: 'Nebbia: Switch front glass',
+        description: "Switch the glass in front of Nebbia's window between rain and dew",
+        keywords: ['nebbia glass', 'front glass', 'glass style', 'rain glass', 'dew', 'condensation', '雾笺', '玻璃', '切换玻璃', '玻璃样式', '雨窗', '凝露'],
+        icon: Wallpaper,
+        isAvailable: context => (context ? context.visualizer.visualizerMode === 'nebbia' : false),
+        execute: (_input, context) => {
+            const { t } = context.shared;
+            const glass = context.visualizer.cycleNebbiaGlass();
+            context.shared.setStatusMsg({ type: 'success', text: `${t('options.nebbiaGlass', 'Front glass')}: ${t(`options.nebbiaGlass_${glass}`, glass)}` });
+            return true;
+        },
+    }),
+    createToggleCommand('video-layer-toggle', 'visualizer', 'Video layer behind lyrics', 'Show or hide the muted video layer behind the lyrics', ['video layer', 'background video', 'video behind lyrics', '视频层', '背景视频', '歌词后方视频'], context => context.visualizer.toggleVideoLayer()),
+    defineCommand({
+        id: 'video-layer-pick',
+        group: 'visualizer',
+        title: 'Video layer: pick a local video',
+        description: 'Choose a local video to play behind the lyrics',
+        keywords: ['pick video', 'local video', 'video layer', 'mv', '选择视频', '本地视频', '视频层', '背景视频'],
+        execute: (_input, context) => {
+            void context.visualizer.pickVideoLayerFile().catch((error) => {
+                console.error('[VideoLayer] Failed to pick a video:', error);
+            });
+            return true;
+        },
+    }),
+    createToggleCommand(
+        'visualizer-toggle-glow-blur-quantize',
+        'visualizer',
+        'Fix lyric animation freeze on Linux',
+        'Change how some lyric animations draw their glow, fixing occasional freezes after long playback on Linux',
+        ['lyric freeze', 'freeze fix', 'linux', 'glow', 'fd leak', 'stepped glow', '歌词卡死', '动画卡死', '画面定格', '发光半径分档', '发光', 'faguangbanjing', 'fgbj'],
+        context => context.visualizer.toggleGlowBlurQuantize(),
+    ),
+    createToggleCommand(
+        'visualizer-toggle-render-pixel-ratio',
+        'visualizer',
+        'Lower render resolution to speed up slow machines',
+        'Cap the pixel ratio canvases draw at, the biggest single win on weak GPUs and high-DPI laptops',
+        ['render resolution', 'pixel ratio', 'dpr', 'performance', 'low end', 'lag', 'slow', 'render scale', '渲染分辨率', '像素比', '性能', '卡顿', '低配', '糊一点'],
+        context => context.visualizer.toggleRenderPixelRatio(),
+    ),
+    createToggleCommand('visualizer-toggle-random-per-song', 'visualizer', 'Random visualizer for every song', 'Toggle a random lyric animation mode whenever the song changes', ['random visualizer', 'random animation', 'per song', '随机歌词动画', '每首歌随机动画'], context => context.visualizer.toggleRandomVisualizerModePerSong()),
+    {
+        id: 'background-monet-full-overlay',
+        group: 'visualizer',
+        title: 'Background: Monet Full Screen Overlay',
+        description: 'Switch background to Monet full screen overlay layout',
+        keywords: ['monet full screen', 'monet full', 'overlay', '莫奈全屏叠色', '全屏叠色', '莫奈', '背景切换到 莫奈: 全屏叠色', '背景切换到莫奈全屏叠色'],
+        execute: (_input, context) => {
+            context.visualizer.setVisualizerBackgroundMode('monet');
+            context.visualizer.setMonetBackgroundTuning({ backgroundLayout: 'full-overlay' });
+            return true;
+        },
+    },
+    {
+        id: 'background-monet-half-gradient',
+        group: 'visualizer',
+        title: 'Background: Monet Half Screen Gradient',
+        description: 'Switch background to Monet half screen gradient layout',
+        keywords: ['monet half screen', 'monet half', 'gradient', '莫奈半屏渐变', '半屏渐变', '莫奈', '背景切换到 莫奈: 半屏渐变', '背景切换到莫奈半屏渐变'],
+        execute: (_input, context) => {
+            context.visualizer.setVisualizerBackgroundMode('monet');
+            context.visualizer.setMonetBackgroundTuning({ backgroundLayout: 'half-pane-gradient' });
+            return true;
+        },
+    },
+    // Monet has no plain switch command (the two above pick a layout); Latent's variants follow its own.
+    ...VISUALIZER_BACKGROUND_REGISTRY.flatMap(({ mode, command }) => [
+        ...(command ? [createBackgroundCommand(mode, command.title, command.description, command.keywords)] : []),
+        ...(mode === 'latent' ? LATENT_VARIANT_COMMANDS : []),
+    ]),
+];
+
+/*
+ * 安卓端没做智能动感模式的分析（没有 Beat This! 的桥与模型），开关本身不显示，
+ * 这条「智能动感模式 开 / 关」命令也就没有意义 —— 一并摘掉，免得调了没反应。
+ */
+export const visualizerCommands: CommandPaletteCommand[] = isAndroidAppShell()
+    ? ALL_VISUALIZER_COMMANDS.filter(command => command.id !== 'smart-beat-toggle')
+    : ALL_VISUALIZER_COMMANDS;

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Folia Whale Pet (Float)</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* 整个页面就是鲸鱼：禁掉浏览器默认手势，拖动/缩放交给原生层处理 */
+    * { touch-action: none; -webkit-user-select: none; user-select: none; }
+    body { width: 100%; height: 100%; }
+    /* 关键：彻底隐藏 video 默认媒体控件（含那个"播放按钮"），
+       否则快速戳/拖时视频偶发停在默认帧会闪出播放按钮三角形。 */
+    video::-webkit-media-controls,
+    video::-webkit-media-controls-play-button,
+    video::-webkit-media-controls-start-playback-button,
+    video::-webkit-media-text-track-container { display: none !important; -webkit-appearance: none !important; }
+    video { background: transparent !important; }
+    /* 浮层窗口 = 鲸鱼的完整显示区域。尺寸与位置全部由原生 WindowManager 决定，
+       这里强制鲸鱼铺满 WebView 视口、贴左上角，彻底消除 pet.js 默认的
+       left:50% + margin-left:-size/2 居中定位与 --pet-size 固定 px 带来的换算偏差
+       （WebView 视口与窗口尺寸脱节时正是「调越大越只显示一部分」的根因）。
+       pet.js 在运行时把样式 append 到 head，会排在后面，因此这里必须用 !important。 */
+    .whale-pet {
+      left: 0 !important;
+      top: 0 !important;
+      margin-left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+    }
+    html, body { overflow: hidden !important; }
+  </style>
+</head>
+<body>
+  <!-- 鲸鱼桌宠运行时：零依赖播放器 pet.js 直接引入即可，挂载到 document.body -->
+  <script src="whalepet-assets/catalog.js"></script>
+  <script src="whalepet-assets/pet.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      // 浮层鲸鱼 = 桌宠本体。设置由原生 onPageFinished 注入到 window.__WHALE_SETTINGS，
+      // 这里轮询等待（最多 1.5s，超时退回默认），再据此构造 pet。
+      function start() {
+        if (typeof window.WhalePet !== 'function') {
+          setTimeout(start, 60);
+          return;
+        }
+        var s = window.__WHALE_SETTINGS;
+        if (!s) {
+          if (!window.__whaleWaitStart) window.__whaleWaitStart = Date.now();
+          if (Date.now() - window.__whaleWaitStart < 1500) {
+            setTimeout(start, 50);
+            return;
+          }
+          s = {};
+        }
+        var opts = {
+          // 资源走应用私有 assets（与主应用压缩资源隔离，浮层独立可用）
+          assetBase: 'file:///android_asset/whalepet-assets/thumb',
+          // 动画目录：浮层是独立 WebView，必须显式注入动画清单，否则 play/boot/poke 解析到错误路径
+          animList: window.WHALE_PET_ANIMS || [],
+          // 浮层内鲸鱼由原生层接管触摸（拖拽/戳一戳），pet 本体不处理指针
+          interactive: false,
+          // 浮层不写共享 localStorage；位置由原生 WindowManager 管理（x/y 始终 0，靠窗口定位）
+          persistence: false,
+          x: 0,
+          y: 0,
+          enabled: true
+        };
+        // 把注入的设置铺进构造参数（size/opacity/idle/dragAnim/tips/splash 等）
+        ['size', 'opacity', 'idle', 'dragAnim', 'tips', 'splash',
+         'beatDance', 'lyricBubble', 'sittingReminder', 'sittingReminderMin',
+         'roam', 'roamSpeed', 'duckBehindModal', 'initialAnim'].forEach(function (k) {
+          if (s[k] !== undefined) opts[k] = s[k];
+        });
+        var pet = new window.WhalePet(opts);
+        window.__whalePet = pet;
+
+        // 应用其余设置（构造后一次 applySettings 即可，enabled 不变不会再 boot）
+        try {
+          var s2 = Object.assign({}, s);
+          delete s2.x; delete s2.y;   // 位置交给原生窗口，pet 内部不动
+          if (s2.enabled === undefined) s2.enabled = true;
+          pet.applySettings(s2);
+        } catch (e) {}
+
+        // 戳一戳：浮层原生层点按时调用 pet.poke()
+        pet.eventMap = pet.eventMap || {};
+        pet.eventMap.poke = { pool: ['clicks'], label: '戳一下' };
+
+        // 一次性动作（戳一戳 / 拖拽结束）结束后按播放状态恢复，否则播放中戳一下
+        // 会停在 breathing 直到下一次播放/暂停切换。播放状态由主 WebView 经 react 转发。
+        var lastReact = 'idle';
+        try {
+          var origReact = typeof pet.react === 'function' ? pet.react.bind(pet) : null;
+          pet.react = function (ev) {
+            if (typeof ev === 'string') lastReact = ev;
+            return origReact ? origReact.apply(pet, arguments) : undefined;
+          };
+        } catch (e) {}
+        pet.onSettle = function () {
+          try { pet.react(lastReact === 'play_music' ? 'play_music' : 'idle'); } catch (e) {}
+        };
+
+        try { window.AndroidBridge && window.AndroidBridge.onWhaleReady(); } catch (e) {}
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+      } else {
+        start();
+      }
+    })();
+  </script>
+</body>
+</html>

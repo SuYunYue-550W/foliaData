@@ -1,0 +1,25 @@
+# ── 交付二进制：超过 GitHub 单文件 100MB 限制，改用 Release 附件 ──
+/Folia-Windows-Setup-*.exe
+/Folia-Android-*.apk
+/Folia-源码-完整版-*.zip
+
+# ── 本地工作区数据（不上传）──
+.workbuddy/
+
+# ── 依赖与构建产物 ──
+node_modules/
+dist/
+dist-android/
+release/
+logs/
+*.log
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/captures/
+.windowtolayer-src/target/
+packaging/windows/wallpaper-helper/target/
+.DS_Store
+Thumbs.db

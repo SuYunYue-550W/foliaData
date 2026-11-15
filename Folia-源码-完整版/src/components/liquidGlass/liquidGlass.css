@@ -1,0 +1,164 @@
+/* src/components/liquidGlass/liquidGlass.css
+ *
+ * 色散液态玻璃的外观层。SVG 折射滤镜由 LiquidGlass.tsx 通过内联 backdrop-filter
+ * 注入（filter id 是动态的，写不进静态 CSS）；这里负责玻璃本身的底色、内高光描边、
+ * 交互反馈与降级态。视觉思路致谢 Mineradio 2.2.0，样式为独立编写。
+ *
+ * 设计原则：即便 SVG backdrop filter 不生效（Firefox/Safari/远程预览/减弱动效），
+ * 半透明底 + 双层内描边仍要像一块玻璃，滤镜只是叠加折射与色散，不是唯一效果来源。 */
+
+.folia-liquid-glass {
+    --folia-glass-radius: 20px;
+    --folia-glass-tint: linear-gradient(112deg, rgba(72, 76, 80, 0.42), rgba(20, 24, 28, 0.58) 52%, rgba(8, 12, 14, 0.62));
+    --folia-glass-border: rgba(255, 255, 255, 0.14);
+    --folia-glass-inner: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -18px 40px rgba(0, 0, 0, 0.18), inset 0 0 12px rgba(255, 255, 255, 0.06);
+    --folia-glass-outer: 0 18px 48px rgba(0, 0, 0, 0.32), 0 2px 8px rgba(0, 0, 0, 0.18);
+    --folia-glass-accent: 0 245 212;
+
+    position: relative;
+    isolation: isolate;
+    border-radius: var(--folia-glass-radius);
+    border: 1px solid var(--folia-glass-border);
+    background: var(--folia-glass-tint);
+    box-shadow: var(--folia-glass-outer), var(--folia-glass-inner);
+    color: rgba(255, 255, 255, 0.92);
+    /* 兜底：JS 注入 url(#...) 之前、以及不支持 SVG 滤镜时的普通磨砂。 */
+    backdrop-filter: blur(18px) saturate(1.28);
+    -webkit-backdrop-filter: blur(18px) saturate(1.28);
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+                box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+}
+
+/* 顶部斜向高光：让平面有厚度，纯装饰、不吃滤镜。 */
+.folia-liquid-glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(150deg, rgba(255, 255, 255, 0.16), transparent 34%, transparent 68%, rgba(255, 255, 255, 0.045));
+    z-index: 0;
+}
+
+/* 内描边：折射强时边缘仍有一条清晰亮线，不至于糊成一团。 */
+.folia-liquid-glass::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.10), inset 0 0 10px 2px rgba(255, 255, 255, 0.05);
+    z-index: 0;
+}
+
+.folia-liquid-glass > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* 明暗主题：浅色下压白底、收描边，避免深色玻璃糊在浅色壁纸上发脏。 */
+.folia-liquid-glass[data-tone='light'] {
+    --folia-glass-tint: linear-gradient(112deg, rgba(255, 255, 255, 0.62), rgba(246, 248, 250, 0.54) 52%, rgba(232, 238, 242, 0.58));
+    --folia-glass-border: rgba(20, 30, 40, 0.10);
+    --folia-glass-inner: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -18px 40px rgba(20, 30, 40, 0.06), inset 0 0 12px rgba(255, 255, 255, 0.5);
+    --folia-glass-outer: 0 18px 44px rgba(20, 30, 40, 0.14), 0 2px 8px rgba(20, 30, 40, 0.06);
+    color: rgba(24, 32, 40, 0.90);
+}
+
+/* SVG 折射生效时把底色再压淡一点，让背景透进来被折射，而不是盖住。 */
+.folia-liquid-glass[data-glass-mode='svg'] {
+    background: linear-gradient(112deg, rgba(72, 76, 80, 0.16), rgba(20, 24, 28, 0.24) 52%, rgba(8, 12, 14, 0.28));
+    --folia-glass-inner: inset 0 1px 0 rgba(255, 255, 255, 0.36), inset 0 -18px 40px rgba(0, 0, 0, 0.10), inset 0 0 2px 1px rgba(255, 255, 255, 0.24);
+}
+.folia-liquid-glass[data-glass-mode='svg'][data-tone='light'] {
+    background: linear-gradient(112deg, rgba(255, 255, 255, 0.28), rgba(246, 248, 250, 0.22) 52%, rgba(232, 238, 242, 0.26));
+}
+
+/* 关闭/降级：明确的普通磨砂态，用于开关对比与不支持设备。 */
+.folia-liquid-glass[data-glass-mode='fallback'] {
+    background: var(--folia-glass-tint);
+    backdrop-filter: blur(20px) saturate(1.15);
+    -webkit-backdrop-filter: blur(20px) saturate(1.15);
+}
+
+/* ── 交互：hover 抬升 / 按压回弹 ───────────────────────────────────────────── */
+.folia-liquid-glass[data-interactive='true'] {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+.folia-liquid-glass[data-interactive='true']:hover {
+    transform: translateY(-2px);
+    border-color: rgba(var(--folia-glass-accent), 0.34);
+    box-shadow: var(--folia-glass-outer), var(--folia-glass-inner), 0 0 0 1px rgba(var(--folia-glass-accent), 0.14), 0 0 22px rgba(var(--folia-glass-accent), 0.10);
+}
+.folia-liquid-glass[data-interactive='true']:active {
+    transform: translateY(0) scale(0.975);
+    transition-duration: 0.09s;
+}
+
+/* 激活态页签：青绿色底 + 更亮描边。 */
+.folia-liquid-glass[data-active='true'] {
+    border-color: rgba(var(--folia-glass-accent), 0.42);
+    box-shadow: var(--folia-glass-outer), var(--folia-glass-inner), 0 0 0 1px rgba(var(--folia-glass-accent), 0.20), 0 0 26px rgba(var(--folia-glass-accent), 0.16);
+}
+.folia-liquid-glass[data-active='true']::before {
+    background: linear-gradient(150deg, rgba(var(--folia-glass-accent), 0.22), transparent 46%, transparent 70%, rgba(var(--folia-glass-accent), 0.08));
+}
+
+/* ── 点击涟漪（由 JS 插入 span 并读坐标，动画结束自移除）──────────────────── */
+.folia-glass-ripple {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 2;
+    transform: translate(-50%, -50%) scale(0);
+    background: radial-gradient(circle, rgba(var(--folia-glass-accent), 0.34) 0%, rgba(var(--folia-glass-accent), 0.12) 55%, transparent 72%);
+    animation: folia-glass-ripple-out 0.56s cubic-bezier(0.16, 0.8, 0.3, 1) forwards;
+}
+@keyframes folia-glass-ripple-out {
+    to { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+/* 系统/项目减弱动效：关掉位移与涟漪，只保留静态玻璃。 */
+:root[data-reduce-motion~='uiMicroMotion'] .folia-liquid-glass[data-interactive='true']:hover,
+:root[data-reduce-motion~='uiMicroMotion'] .folia-liquid-glass[data-interactive='true']:active {
+    transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+    .folia-liquid-glass[data-interactive='true']:hover,
+    .folia-liquid-glass[data-interactive='true']:active { transform: none; }
+    .folia-glass-ripple { animation-duration: 0.01ms; }
+}
+
+/* 隐藏的 defs 容器：不占位、不拦截指针。 */
+.folia-glass-defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* ── 给已有元素「贴」色散玻璃描边（不覆盖其自身底色 / 边框 / 阴影）──────────────
+ * 用法：把本 class 加到像底部播放胶囊这类自带背景的元素上，再挂
+ * inline `backdrop-filter: url(#id)`（由 useLiquidGlassFilter 提供）。本 class 只补
+ * 一层内高光与青绿描边光晕，绝不动元素原有的 background / border / box-shadow，
+ * 因此可以与项目里既有的玻璃底类并存，互不覆盖。 */
+.folia-chromatic-glass {
+    /* 不在此处设 position：使用方必须自身已是定位元素（底部胶囊 relative / 顶栏 absolute），
+     * 否则 ::after 的 inset:0 会相对更外层定位。这样可安全贴到 absolute 的顶栏背景上而不破坏其布局。 */
+    --folia-glass-accent: 0 245 212;
+}
+.folia-chromatic-glass::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    /* 内圈亮线 + 轻微青绿镶边；外层光晕会被胶囊的 overflow-hidden 裁掉，只留边缘。 */
+    box-shadow:
+        inset 0 0 0 1px rgba(var(--folia-glass-accent), 0.42),
+        inset 0 0 12px 2px rgba(var(--folia-glass-accent), 0.16);
+    z-index: 0;
+}

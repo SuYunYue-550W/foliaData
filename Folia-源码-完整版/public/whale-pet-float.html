@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Folia Whale Pet (Desktop Overlay)</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: transparent; overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+    * { touch-action: none; -webkit-user-select: none; user-select: none; }
+    /* 隐藏 video 默认媒体控件，避免快速戳/拖时闪出播放按钮 */
+    video::-webkit-media-controls,
+    video::-webkit-media-controls-play-button,
+    video::-webkit-media-controls-start-playback-button,
+    video::-webkit-media-text-track-container { display: none !important; -webkit-appearance: none !important; }
+    video { background: transparent !important; }
+    /* 窗口 = 鲸鱼的完整显示区域。尺寸与位置由主进程 BrowserWindow 决定，
+       这里强制鲸鱼铺满视口，避免 pet.js 的 --pet-size / 居中定位把放大后的角色裁掉。
+       pet.js 运行时把样式 append 到 head，会排在后面，因此必须用 !important。 */
+    .whale-pet {
+      left: 0 !important; top: 0 !important; margin-left: 0 !important;
+      width: 100vw !important; height: 100vh !important;
+    }
+    html, body { overflow: hidden !important; }
+    /* 交互命中层：独立于 pet.js（浮层里它 interactive:false，不接指针）。
+       拖拽/单击/双击由这一层上报给主进程，窗口位置由 BrowserWindow 管理。 */
+    #hit {
+      position: fixed; inset: 0; z-index: 2147483647;
+      background: transparent; pointer-events: auto; cursor: grab;
+    }
+    #hit.dragging { cursor: grabbing; }
+    /* 漫游朝向镜像：加在 body 上，选择器沿用 pet.js 的 .whale-pet--flip .whale-pet-v */
+  </style>
+</head>
+<body>
+  <div id="hit"></div>
+  <script src="whale-pet/catalog.js"></script>
+  <script src="whale-pet/pet.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      var host = window.whalePetHost || null;
+      var pet = null;
+
+      // 主进程在 did-finish-load 后注入 window.__WHALE_SETTINGS；轮询等待，超时用默认值。
+      // 无论成功失败都必须上报 ready，否则主进程的 forward 会永远堆在 pendingInvoke。
+      function reportReady() {
+        if (host) { try { host.ready(); } catch (e) {} }
+      }
+      function buildPet() {
+        if (!window.__whaleWaitStart) window.__whaleWaitStart = Date.now();
+        if (typeof window.WhalePet !== 'function') {
+          if (Date.now() - window.__whaleWaitStart < 5000) { setTimeout(buildPet, 50); return; }
+          console.error('[whalePet] WhalePet 未加载，桌宠窗口保持空白');
+          reportReady();
+          return;
+        }
+        var s = window.__WHALE_SETTINGS;
+        if (!s) {
+          if (Date.now() - window.__whaleWaitStart < 2000) { setTimeout(buildPet, 50); return; }
+          s = {};
+        }
+        var opts = {
+          assetBase: 'whale-pet/thumb',
+          animList: window.WHALE_PET_ANIMS || [],
+          interactive: false,   // 交互由 #hit 层 + 主进程接管
+          persistence: false,   // 位置由主进程持久化
+          x: 0, y: 0, enabled: true
+        };
+        ['size', 'opacity', 'idle', 'dragAnim', 'tips', 'splash',
+         'beatDance', 'lyricBubble', 'sittingReminder', 'sittingReminderMin',
+         'roam', 'roamSpeed', 'duckBehindModal', 'initialAnim'].forEach(function (k) {
+          if (s[k] !== undefined) opts[k] = s[k];
+        });
+        try { pet = new window.WhalePet(opts); }
+        catch (e) { pet = null; console.error('[whalePet] 构造桌宠失败', e); }
+        window.__whalePet = pet;
+        reportReady();
+        if (!pet) return;
+        try {
+          var s2 = Object.assign({}, s);
+          delete s2.x; delete s2.y;
+          if (s2.enabled === undefined) s2.enabled = true;
+          pet.applySettings(s2);
+        } catch (e) {}
+        pet.eventMap = pet.eventMap || {};
+        pet.eventMap.poke = { pool: ['clicks'], label: '戳一下' };
+        // 一次性动作（戳一戳 / 拖拽结束）后按播放状态恢复，不要只停在 breathing。
+        // 播放状态由主 WebView 经 react 转发，这里记下最后一次，与主 WebView 的
+        // onSettle 逻辑保持一致。
+        var lastReact = 'idle';
+        try {
+          var origReact = typeof pet.react === 'function' ? pet.react.bind(pet) : null;
+          pet.react = function (ev) {
+            if (typeof ev === 'string') lastReact = ev;
+            return origReact ? origReact.apply(pet, arguments) : undefined;
+          };
+        } catch (e) {}
+        pet.onSettle = function () {
+          try { pet.react(lastReact === 'play_music' ? 'play_music' : 'idle'); } catch (e) {}
+        };
+      }
+
+      // 主进程转发过来的桌宠实例方法（applySettings / react / play / showTip / pulse / poke ...）
+      if (host && host.onInvoke) {
+        host.onInvoke(function (data) {
+          if (!pet || !data) return;
+          var m = data.method, a = data.args || [];
+          try {
+            if (m === 'setFlip') {
+              document.body.classList.toggle('whale-pet--flip', !!a[0]);
+              return;
+            }
+            if (m === 'dblclick') { pet._onDblClick && pet._onDblClick(); return; }
+            if (m === 'dragAnim') { pet._playDragAnim && pet._playDragAnim(); return; }
+            if (typeof pet[m] === 'function') pet[m].apply(pet, a);
+          } catch (e) {}
+        });
+      }
+
+      // #hit 交互：拖拽位移上报主进程；未移动则单击回应；双击彩蛋。
+      // 必须用 screenX/screenY（屏幕绝对坐标）：窗口被主进程 setBounds 移动后，
+      // clientX 是窗口内视口坐标，会随窗口一起移动，导致位移饱和 / 拖拽减半。
+      var hit = document.getElementById('hit');
+      var down = false, moved = false, sx = 0, sy = 0, lastClick = 0;
+      if (hit && host) {
+        hit.addEventListener('pointerdown', function (e) {
+          if (e.button !== 0) return;
+          down = true; moved = false; sx = e.screenX; sy = e.screenY;
+          hit.classList.add('dragging');
+          try { hit.setPointerCapture(e.pointerId); } catch (err) {}
+          try { host.dragStart(); } catch (err) {}
+        });
+        hit.addEventListener('pointermove', function (e) {
+          if (!down) return;
+          var dx = e.screenX - sx, dy = e.screenY - sy;
+          if (!moved && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+            moved = true;
+            try { host.dragAnim(); } catch (err) {}
+          }
+          if (moved) { try { host.drag(dx, dy); } catch (err) {} }
+        });
+        var end = function (e) {
+          if (!down) return;
+          down = false; hit.classList.remove('dragging');
+          try { hit.releasePointerCapture(e.pointerId); } catch (err) {}
+          if (moved) { try { host.dragEnd(); } catch (err) {} return; }
+          // 单击（含双击的第二次点击）：戳一戳
+          try { pet && pet.poke && pet.poke(); } catch (err) {}
+          var now = Date.now();
+          if (now - lastClick < 320) {
+            try { pet && pet._onDblClick && pet._onDblClick(); } catch (err) {}
+            lastClick = 0;
+          } else { lastClick = now; }
+        };
+        hit.addEventListener('pointerup', end);
+        hit.addEventListener('pointercancel', end);
+        hit.addEventListener('lostpointercapture', end);
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', buildPet);
+      } else { buildPet(); }
+    })();
+  </script>
+</body>
+</html>
