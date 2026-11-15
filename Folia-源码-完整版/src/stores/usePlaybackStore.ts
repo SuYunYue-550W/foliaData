@@ -33,6 +33,10 @@ export interface TransitionDisplay {
 
 type SetState<T> = React.Dispatch<React.SetStateAction<T>>;
 
+/** [apple-music] 音频由谁出声：应用内 WebAudio(web) 或应用外的播放器(external)。
+ * fork 没有上游那条 hifi/mpv 引擎，所以只有两态，不留一个永不触发的第三态。 */
+export type PlaybackRoute = 'web' | 'external';
+
 type PlaybackStoreState = {
     // ---- raw ----
     currentSong: SongResult | null;
@@ -58,6 +62,7 @@ type PlaybackStoreState = {
      */
     handoffLineIndex: number;
     playQueue: SongResult[];
+    playbackRoute: PlaybackRoute;
     activePlaybackContext: PlaybackContext;
     isFmMode: boolean;
     replayGainMode: ReplayGainMode;
@@ -88,6 +93,7 @@ type PlaybackStoreState = {
     setCurrentLineIndex: SetState<number>;
     setHandoffLineIndex: SetState<number>;
     setPlayQueue: SetState<SongResult[]>;
+    setPlaybackRoute: SetState<PlaybackRoute>;
     setActivePlaybackContext: SetState<PlaybackContext>;
     setIsFmMode: SetState<boolean>;
     setReplayGainMode: SetState<ReplayGainMode>;
@@ -121,6 +127,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
     currentLineIndex: -1,
     handoffLineIndex: -1,
     playQueue: [],
+    playbackRoute: 'web',
     activePlaybackContext: 'main',
     isFmMode: false,
     replayGainMode: readStoredReplayGainMode(),
@@ -142,6 +149,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
     setCurrentLineIndex: (next) => set({ currentLineIndex: resolve(next, get().currentLineIndex) }),
     setHandoffLineIndex: (next) => set({ handoffLineIndex: resolve(next, get().handoffLineIndex) }),
     setPlayQueue: (next) => set({ playQueue: resolve(next, get().playQueue) }),
+    setPlaybackRoute: (next) => set({ playbackRoute: resolve(next, get().playbackRoute) }),
     setActivePlaybackContext: (next) => set({ activePlaybackContext: resolve(next, get().activePlaybackContext) }),
     setIsFmMode: (next) => set({ isFmMode: resolve(next, get().isFmMode) }),
     setReplayGainMode: (next) => set({ replayGainMode: resolve(next, get().replayGainMode) }),
@@ -169,6 +177,7 @@ export const endLoadingToPlay = () => usePlaybackStore.getState().endLoadingToPl
 export const setCurrentLineIndex: SetState<number> = (next) => usePlaybackStore.getState().setCurrentLineIndex(next);
 export const setHandoffLineIndex: SetState<number> = (next) => usePlaybackStore.getState().setHandoffLineIndex(next);
 export const setPlayQueue: SetState<SongResult[]> = (next) => usePlaybackStore.getState().setPlayQueue(next);
+export const setPlaybackRoute: SetState<PlaybackRoute> = (next) => usePlaybackStore.getState().setPlaybackRoute(next);
 export const setActivePlaybackContext: SetState<PlaybackContext> = (next) => usePlaybackStore.getState().setActivePlaybackContext(next);
 export const setIsFmMode: SetState<boolean> = (next) => usePlaybackStore.getState().setIsFmMode(next);
 export const setReplayGainMode: SetState<ReplayGainMode> = (next) => usePlaybackStore.getState().setReplayGainMode(next);

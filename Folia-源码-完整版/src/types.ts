@@ -1428,6 +1428,25 @@ export interface LocalLibrarySnapshot {
   tree: LocalLibrarySnapshotNode;
 }
 
+/**
+ * 跨源歌单里一条「非本地」条目的持久化引用。songIds 只放本地歌曲 id，在线 / Navidrome / 舞台
+ * 这些条目没法用本地 id 表示，于是整条可播放的 SongResult 快照连同 sourceRef、播放键一起存这里，
+ * 读回时据此重建（见 utils/localPlaylistEntries.ts 的 resolvePlaylistExternalSong）。
+ */
+export interface PlaylistExternalRef {
+    /** getPlaybackSongKey(song)：跨 provider 不冲突的身份，entryOrder 用它指回这条引用。 */
+    key: string;
+    /** 完整播放身份（providerId / mediaId / providerData / variant），点播时按它取音源。 */
+    sourceRef: PlaybackSourceRef;
+    /** 可序列化的 SongResult 快照：name / artists / album / durationMs / coverUrl 及 provider 专用字段。 */
+    song: SongResult;
+}
+
+/** 有序条目的一个位置：本地歌按 songId 指回 songIds，外部条目按 key 指回 externalRefs。 */
+export type PlaylistEntry =
+    | { kind: 'local'; songId: string }
+    | { kind: 'external'; key: string };
+
 export interface LocalPlaylist {
   id: string;
   name: string;
@@ -1435,6 +1454,13 @@ export interface LocalPlaylist {
   createdAt: number;
   updatedAt: number;
   isFavorite?: boolean;
+  /**
+   * 可选：跨源（混合 / 纯在线）歌单才有。外部条目引用与它们的有序位置，前者按 key 去重，
+   * 后者是队列的完整顺序（可含重复）。纯本地歌单（旧数据）没有这两个字段，songIds 语义不变。
+   */
+  externalRefs?: PlaylistExternalRef[];
+  /** 跨源歌单的权威顺序；缺省时按 songIds（纯本地旧数据）解释。 */
+  entryOrder?: PlaylistEntry[];
 }
 
 export type LocalLibraryGroupType = 'folder' | 'album' | 'artist' | 'playlist';

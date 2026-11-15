@@ -1,5 +1,8 @@
 import { LocalPlaylist, LocalSong } from '../types';
+import type { PlaylistEntry, PlaylistExternalRef } from '../types';
 import { getFromCache, getLocalSongs, saveToCache } from './db';
+import { normalizeEntryOrder, normalizeExternalRefs } from '../utils/localPlaylistEntries';
+import type { PlaylistEntries } from '../utils/localPlaylistEntries';
 
 const LOCAL_PLAYLISTS_CACHE_KEY = 'local_playlists';
 const FAVORITE_PLAYLIST_NAME = 'Liked Songs';
@@ -163,6 +166,92 @@ const repairPlaylistSongIds = (
     return { songIds: repairedSongIds, changed };
 };
 
+/**
+ * 读盘修复跨源字段。songIds 的本地修复照旧（丢失效 id、canonical 化重复导入），但外部引用不依赖
+ * 本地曲库，必须原样留住；entryOrder 的本地项按同一 canonical 规则改写、外部项只要 key 还在
+ * externalRefs 里就保留。于是「在线 / 外部条目 + 队列顺序」都不会在 repair 流程里消失。
+ */
+const repairPlaylistEntries = (
+    playlist: LocalPlaylist,
+    validSongById: Map<string, LocalSong>,
+    duplicateCanonicalSongIds: Map<string, string>,
+    repairedSongIds: string[],
+): { externalRefs?: PlaylistExternalRef[]; entryOrder?: PlaylistEntry[]; changed: boolean } => {
+    if (!playlist.externalRefs?.length && !playlist.entryOrder?.length) {
+        return { changed: false };
+    }
+
+    const externalRefs = normalizeExternalRefs(playlist.externalRefs);
+    const externalKeys = new Set(externalRefs.map(ref => ref.key));
+    const repairedSongIdSet = new Set(repairedSongIds);
+    const entryOrder: PlaylistEntry[] = [];
+    let changed = false;
+
+    (playlist.entryOrder || []).forEach(entry => {
+        if (entry.kind === 'external') {
+            if (externalKeys.has(entry.key)) {
+                entryOrder.push(entry);
+            } else {
+                changed = true;
+            }
+            return;
+        }
+
+        const song = validSongById.get(entry.songId);
+        const duplicateKey = song ? getDuplicateImportSongKey(song) : null;
+        const canonicalId = duplicateKey
+            ? (duplicateCanonicalSongIds.get(duplicateKey) || entry.songId)
+            : entry.songId;
+        if (song && repairedSongIdSet.has(canonicalId)) {
+            if (canonicalId !== entry.songId) {
+                changed = true;
+                entryOrder.push({ kind: 'local', songId: canonicalId });
+            } else {
+                entryOrder.push(entry);
+            }
+        } else {
+            changed = true;
+        }
+    });
+
+    if (externalRefs.length !== (playlist.externalRefs?.length ?? 0)) changed = true;
+    if (entryOrder.length !== (playlist.entryOrder?.length ?? 0)) changed = true;
+
+    const hasExternalEntry = entryOrder.some(entry => entry.kind === 'external');
+    if (!hasExternalEntry && externalRefs.length) changed = true;
+
+    return {
+        ...(hasExternalEntry && externalRefs.length ? { externalRefs } : {}),
+        ...(entryOrder.length ? { entryOrder } : {}),
+        changed,
+    };
+};
+
+const repairPlaylist = (
+    playlist: LocalPlaylist,
+    validSongById: Map<string, LocalSong>,
+    duplicateCanonicalSongIds: Map<string, string>,
+): { playlist: LocalPlaylist; changed: boolean } => {
+    const base = repairPlaylistSongIds(playlist.songIds, validSongById, duplicateCanonicalSongIds);
+    const entries = repairPlaylistEntries(playlist, validSongById, duplicateCanonicalSongIds, base.songIds);
+    if (!base.changed && !entries.changed) {
+        return { playlist, changed: false };
+    }
+
+    const next: LocalPlaylist = { ...playlist, songIds: base.songIds };
+    if (entries.externalRefs?.length) {
+        next.externalRefs = entries.externalRefs;
+    } else {
+        delete next.externalRefs;
+    }
+    if (entries.entryOrder?.length) {
+        next.entryOrder = entries.entryOrder;
+    } else {
+        delete next.entryOrder;
+    }
+    return { playlist: next, changed: true };
+};
+
 const normalizeSongIdRef = (value: LegacyPlaylistSongRef): string | null => {
     if (typeof value === 'string') {
         return value;
@@ -210,16 +299,28 @@ const resolvePlaylistSongIds = (playlist: LegacyLocalPlaylist): string[] => {
     return [];
 };
 
-const normalizePlaylist = (playlist: LegacyLocalPlaylist): LocalPlaylist => ({
-    id: typeof playlist.id === 'string' && playlist.id ? playlist.id : createPlaylistId(),
-    name: typeof playlist.name === 'string' && playlist.name
-        ? playlist.name
-        : (playlist.isFavorite ? FAVORITE_PLAYLIST_NAME : UNNAMED_PLAYLIST_NAME),
-    songIds: resolvePlaylistSongIds(playlist),
-    createdAt: typeof playlist.createdAt === 'number' ? playlist.createdAt : Date.now(),
-    updatedAt: typeof playlist.updatedAt === 'number' ? playlist.updatedAt : Date.now(),
-    isFavorite: Boolean(playlist.isFavorite),
-});
+// 跨源歌单的 externalRefs / entryOrder 也在这里过一遍校验并保留：persistPlaylists 写盘、
+// getLocalPlaylists 读盘都走它，漏掉任一个都会把在线 / 外部条目在保存或读取时弄丢。
+// 旧歌单没有这两个字段，normalize* 返回空数组，于是产物与从前逐字段一致。
+const normalizePlaylist = (playlist: LegacyLocalPlaylist): LocalPlaylist => {
+    const normalized: LocalPlaylist = {
+        id: typeof playlist.id === 'string' && playlist.id ? playlist.id : createPlaylistId(),
+        name: typeof playlist.name === 'string' && playlist.name
+            ? playlist.name
+            : (playlist.isFavorite ? FAVORITE_PLAYLIST_NAME : UNNAMED_PLAYLIST_NAME),
+        songIds: resolvePlaylistSongIds(playlist),
+        createdAt: typeof playlist.createdAt === 'number' ? playlist.createdAt : Date.now(),
+        updatedAt: typeof playlist.updatedAt === 'number' ? playlist.updatedAt : Date.now(),
+        isFavorite: Boolean(playlist.isFavorite),
+    };
+
+    const externalRefs = normalizeExternalRefs(playlist.externalRefs);
+    const entryOrder = normalizeEntryOrder(playlist.entryOrder);
+    if (externalRefs.length) normalized.externalRefs = externalRefs;
+    if (entryOrder.length) normalized.entryOrder = entryOrder;
+
+    return normalized;
+};
 
 const playlistNeedsNormalization = (playlist: LegacyLocalPlaylist): boolean => {
     if (!Array.isArray(playlist.songIds)) {
@@ -239,6 +340,23 @@ const playlistNeedsNormalization = (playlist: LegacyLocalPlaylist): boolean => {
         return true;
     }
 
+    // 畸形 / 非数组的跨源字段在 normalizePlaylist 里会被清掉，落盘一次免得每次读都再修。
+    if (playlist.externalRefs !== undefined) {
+        const raw = playlist.externalRefs as unknown;
+        const rawLength = Array.isArray(raw) ? raw.length : 0;
+        if (normalizeExternalRefs(raw).length !== rawLength) {
+            return true;
+        }
+    }
+
+    if (playlist.entryOrder !== undefined) {
+        const raw = playlist.entryOrder as unknown;
+        const rawLength = Array.isArray(raw) ? raw.length : 0;
+        if (normalizeEntryOrder(raw).length !== rawLength) {
+            return true;
+        }
+    }
+
     return typeof playlist.createdAt !== 'number' || typeof playlist.updatedAt !== 'number';
 };
 
@@ -254,16 +372,11 @@ export const getLocalPlaylists = async (): Promise<LocalPlaylist[]> => {
     const duplicateCanonicalSongIds = buildDuplicateImportCanonicalSongIds(localSongs);
     let shouldPersist = cachedPlaylists.some(playlistNeedsNormalization);
     const playlists = cachedPlaylists.map(normalizePlaylist).map(playlist => {
-        const repaired = repairPlaylistSongIds(playlist.songIds, validSongById, duplicateCanonicalSongIds);
+        const repaired = repairPlaylist(playlist, validSongById, duplicateCanonicalSongIds);
         if (repaired.changed) {
             shouldPersist = true;
-            return {
-                ...playlist,
-                songIds: repaired.songIds,
-            };
         }
-
-        return playlist;
+        return repaired.playlist;
     });
 
     const favoritePlaylist = playlists.find(playlist => playlist.isFavorite);
@@ -305,6 +418,27 @@ export const createLocalPlaylist = async (name: string, songs: LocalSong[] = [])
         songIds: dedupeSongIds(songs.map(song => song.id)),
         createdAt: now,
         updatedAt: now,
+    };
+
+    await persistPlaylists([...playlists, playlist]);
+    return playlist;
+};
+
+/**
+ * 跨源队列另存为歌单：songIds 只放去重后的本地 id（语义与旧歌单一致），外部条目引用与队列的
+ * 有序位置单独存。纯本地队列仍走 createLocalPlaylist，不给旧数据凭空加上这两个字段。
+ */
+export const createLocalPlaylistFromQueue = async (name: string, entries: PlaylistEntries): Promise<LocalPlaylist> => {
+    const playlists = await getLocalPlaylists();
+    const now = Date.now();
+    const playlist: LocalPlaylist = {
+        id: createPlaylistId(),
+        name: name.trim(),
+        songIds: dedupeSongIds(entries.songIds),
+        createdAt: now,
+        updatedAt: now,
+        externalRefs: entries.externalRefs,
+        entryOrder: entries.entryOrder,
     };
 
     await persistPlaylists([...playlists, playlist]);

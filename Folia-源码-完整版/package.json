@@ -8,9 +8,9 @@
     "email": "hjm184563@gmail.com"
   },
   "private": true,
-  "version": "0.7.30",
-  "displayVersion": "0.7.30",
-  "androidVersionCode": 7030100,
+  "version": "0.7.31",
+  "displayVersion": "0.7.31",
+  "androidVersionCode": 7031100,
   "license": "AGPL-3.0",
   "type": "module",
   "main": "electron/main.cjs",
@@ -175,6 +175,10 @@
         {
           "from": "build/mac-helper/darwin-${arch}",
           "to": "."
+        },
+        {
+          "from": "build/apple-music-native/darwin-${arch}/FoliaAppleMusicCompanion.app",
+          "to": "apple-music/FoliaAppleMusicCompanion.app"
         }
       ],
       "target": [
@@ -202,7 +206,19 @@
         "nsis"
       ],
       "icon": "build/icon.png",
-      "extraResources": []
+      "extraResources": [
+        {
+          "from": "build/apple-music-native/windows",
+          "to": "apple-music/windows",
+          "filter": [
+            "FoliaAppleMusicCompanion.exe",
+            "FoliaAppleMusicCompanion.exe.config",
+            "Microsoft.Web.WebView2.Core.dll",
+            "Microsoft.Web.WebView2.WinForms.dll",
+            "WebView2Loader.dll"
+          ]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,

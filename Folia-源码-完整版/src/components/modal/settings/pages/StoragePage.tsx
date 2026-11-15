@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { RotateCcw } from 'lucide-react';
 import { LYRIC_EXPORT_COMMAND_ID } from '../../../command-palette/commands/lyricExportCommands';
 import ConfirmDialog from '../../../shared/ConfirmDialog';
 import { clearAllCaches } from '../../../../services/db';
@@ -28,7 +29,17 @@ const StoragePage: React.FC = () => {
     const { t } = useTranslation();
     const { isElectron, viewProps } = useSettingsPage();
     const { isDaylight } = useSettingsKitTheme();
-    const { cacheDirectory, cacheDirectoryIsDefault, cacheDirectoryStatus, cacheSizes, isCleaning, mediaCount, onChooseCacheDirectory, onClear } = viewProps.storage;
+    const {
+        cacheDirectory,
+        cacheDirectoryIsDefault,
+        cacheDirectoryStatus,
+        cacheSizes,
+        isCleaning,
+        mediaCount,
+        onChooseCacheDirectory,
+        onResetCacheDirectory,
+        onClear,
+    } = viewProps.storage;
     const mediaCacheEnabled = useAudioSettingsStore(state => state.enableMediaCache);
     const setMediaCacheEnabled = useAudioSettingsStore(state => state.handleToggleMediaCache);
     const cacheLimitGb = useAudioSettingsStore(state => state.mediaCacheLimitGb);
@@ -59,6 +70,15 @@ const StoragePage: React.FC = () => {
                             {cacheDirectory ? <CopyValue value={cacheDirectory} /> : <Value>...</Value>}
                             <Button onClick={onChooseCacheDirectory} disabled={cacheDirectoryStatus !== 'idle'}>
                                 {t('options.chooseCacheDirectory')}
+                            </Button>
+                            {/* 恢复默认目录只在真的改过目录时可点：默认态下这是个 no-op，别放出来。 */}
+                            <Button
+                                variant="quiet"
+                                icon={RotateCcw}
+                                onClick={onResetCacheDirectory}
+                                disabled={cacheDirectoryIsDefault || cacheDirectoryStatus !== 'idle'}
+                            >
+                                {t('options.resetCacheDirectory')}
                             </Button>
                         </Row>
                         <Row option={O.cacheLimit} hint={t('options.mediaCacheLimitDesc')}>

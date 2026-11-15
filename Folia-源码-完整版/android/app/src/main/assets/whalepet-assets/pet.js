@@ -727,9 +727,10 @@
   /** 启动漫游循环（幂等：已在跑则直接返回） */
   WhalePet.prototype._startRoam = function () {
     if (!this.settings.enabled || !this.settings.roam || !this.settings.idle || this.isReducedMotion()) return;
-    // 浮层模式（interactive:false）：位置由原生 WindowManager 窗口控制，pet 内部用 CSS transform
-    // 在固定尺寸的 WebView 里移动 DOM 只会让鲸鱼跑出窗口被裁切/闪烁。此处直接禁用漫游，
-    // 鲸鱼原地待机/播放动画（漫游需改为驱动原生窗口移动，留待后续）。
+    // 浮层模式（interactive:false）：漫游由桌面端主进程的置顶窗口负责
+    // （electron/whalePetWindow.cjs 的 startRoam() 按 workArea 夹取坐标后 setBounds 移动窗口）。
+    // 这里再用 CSS transform 在固定尺寸 WebView 里移动 DOM，只会和主进程双份循环抢同一个窗口，
+    // 所以这一侧只保留原地动画 —— 浮层漫游本身已经实装，不是待补功能。
     if (!this.interactive) return;
     if (this._roamRAF) return;
     if (typeof this._roamTX !== 'number') this._pickRoamTarget();

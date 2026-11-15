@@ -13,6 +13,7 @@ import type {
 } from '../../../library/core/collection/collection.contract';
 import { buildLocalLibraryIndex, followEntityRedirect } from '../../../utils/localLibraryIndex';
 import { getLocalCoverAssetUrl } from '../../../services/localCoverAssetUrl';
+import { resolvePlaylistExternalSong } from '../../../utils/localPlaylistEntries';
 
 // src/components/app/home/gridViewCollectionAdapters.ts
 // Converts home-surface collections into small GridView descriptors and resolves non-Netease tracks outside GridView.
@@ -199,7 +200,30 @@ export const resolveLocalGridViewTracks = (
         .filter((song): song is LocalSong => Boolean(song));
 
     // Row-sized covers: GridView renders these as list thumbnails, never full-bleed.
-    return buildLocalQueue(orderedSongs, undefined, catalog, LIST_ROW_COVER_SIZE) as SongResult[];
+    const localTracks = buildLocalQueue(orderedSongs, undefined, catalog, LIST_ROW_COVER_SIZE) as SongResult[];
+
+    // 纯本地歌单（旧数据）：没有 entryOrder，直接按 songIds 顺序返回，行为不变。
+    if (!descriptor.entryOrder?.length) {
+        return localTracks;
+    }
+
+    const localBySongId = new Map<string, SongResult>();
+    orderedSongs.forEach((song, index) => localBySongId.set(song.id, localTracks[index]));
+    const externalByKey = new Map<string, SongResult>();
+    (descriptor.externalRefs || []).forEach(ref => {
+        externalByKey.set(ref.key, resolvePlaylistExternalSong(ref));
+    });
+
+    // 跨源歌单：按 entryOrder 交错还原，本地项指回本地曲目、外部项用持久化的引用重建可播放的
+    // SongResult，顺序与保存队列时完全一致。本地曲目仍走 buildLocalQueue（封面 / 实体展示照旧）。
+    const tracks: SongResult[] = [];
+    descriptor.entryOrder.forEach(entry => {
+        const track = entry.kind === 'local'
+            ? localBySongId.get(entry.songId)
+            : externalByKey.get(entry.key);
+        if (track) tracks.push(track);
+    });
+    return tracks;
 };
 
 const getLocalGridViewCoverSource = (songs: LocalSong[]): string | undefined => {

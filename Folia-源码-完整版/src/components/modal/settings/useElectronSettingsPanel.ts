@@ -358,6 +358,25 @@ export const useElectronSettingsPanel = ({
         }
     };
 
+    // 主进程删掉自定义配置后返回默认路径；音频缓存目录每次调用都会重读配置，
+    // 但封面资源路径是启动时固化的，所以这里只更新 UI，不打断用户去 reload。
+    const handleResetCacheDirectory = async () => {
+        if (!(window as any).electron) {
+            return;
+        }
+
+        setCacheDirectoryStatus('choosing');
+        try {
+            const result = await (window as any).electron.resetCacheDirectory();
+            if (result?.path) {
+                setCacheDirectory(result.path);
+                setCacheDirectoryIsDefault(result.isDefault);
+            }
+        } finally {
+            setCacheDirectoryStatus('idle');
+        }
+    };
+
     const updateBadgeLabel = (() => {
         if (!electronSettings.ENABLE_UPDATE_CHECK || updateStatus?.status === 'disabled') {
             return t('options.updateCheckDisabled') || 'Disabled';
@@ -408,6 +427,7 @@ export const useElectronSettingsPanel = ({
         cacheDirectoryIsDefault,
         cacheDirectoryStatus,
         chooseCacheDirectory: handleChooseCacheDirectory,
+        resetCacheDirectory: handleResetCacheDirectory,
         updateBadgeLabel,
         canDownloadUpdate,
         canEnableAutoUpdate,

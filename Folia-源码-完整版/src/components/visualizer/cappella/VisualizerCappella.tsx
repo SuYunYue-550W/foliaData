@@ -5,6 +5,7 @@ import { DEFAULT_CAPPELLA_TUNING, type CappellaTuning } from '../../../types';
 import { getLineRenderEndTime } from '../../../utils/lyrics/renderHints';
 import { shouldPreheatLine, useVisualizerRuntime } from '../runtime';
 import { type VisualizerSharedProps } from '../definition';
+import { useVisualizerSettingsStore } from '../../../stores/useVisualizerSettingsStore';
 import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { builtinEmoImages } from './emoImages';
@@ -47,6 +48,8 @@ const VisualizerCappella: React.FC<VisualizerCappellaProps> = (props) => {
         isPreviewMode = false,
     } = props;
     const { t } = useTranslation();
+    // 关键词着色是全局开关（useVisualizerSettingsStore），与莫奈 / 舞台等样式同一颗总闸。
+    const keywordColoringEnabled = useVisualizerSettingsStore(state => state.keywordColoringEnabled);
     const [viewportSize, setViewportSize] = useState(() => (
         typeof window === 'undefined'
             ? { width: 1280, height: 900 }
@@ -188,6 +191,7 @@ const VisualizerCappella: React.FC<VisualizerCappellaProps> = (props) => {
                                     metricsCache={bubbleMetricsCacheRef}
                                     intensityConfig={intensityConfig}
                                     customAvatarImages={customAvatarImages}
+                                    keywordColoringEnabled={keywordColoringEnabled}
                                 />
                             ))}
                         </AnimatePresence>

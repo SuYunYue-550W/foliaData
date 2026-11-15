@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useLyricMatchSources } from '../../../../hooks/useLyricMatchSources';
 import { resyncAllFolders } from '../../../../services/localMusicService';
-import { useLyricSettingsStore } from '../../../../stores/useLyricSettingsStore';
+import { selectLyricPatternErrors, useLyricSettingsStore } from '../../../../stores/useLyricSettingsStore';
 import { setStatusMessage } from '../../../../stores/useStatusMessageStore';
 import { DEFAULT_LOCAL_LYRIC_FORMAT_ORDER, isSameLocalLyricFormatOrder, type LocalLyricFileFormat } from '../../../../utils/lyrics/localLyricFormatOrder';
 import { getLyricSourcePreferenceLabel } from '../../../../utils/lyrics/lyricSourceLabels';
@@ -46,6 +46,9 @@ const LyricsPage: React.FC = () => {
         setLocalPriority: state.handleSetLocalLyricsPriority,
         setFormatOrder: state.handleSetLocalLyricFormatOrder,
     })));
+    // 过滤规则写错时，在入口行下面直接把错误摆出来；原来这两个值只在 store 里算、没人读。
+    const patternErrors = useLyricSettingsStore(useShallow(selectLyricPatternErrors));
+    const patternError = patternErrors.filterError ?? patternErrors.staffError;
     const sources = useLyricMatchSources();
     // 「跟随播放平台来源」永远在，具体平台只列现在提供得出来的那些。
     const choices: LyricSourcePreference[] = [LYRIC_SOURCE_FOLLOW_PLAYBACK, ...sources];
@@ -111,6 +114,9 @@ const LyricsPage: React.FC = () => {
                     <Value>{`${lyric.globalOffsetMs > 0 ? '+' : ''}${lyric.globalOffsetMs} ms`}</Value>
                 </Row>
                 <Row option={O.filter} hint={t('options.lyricFilterRegexDesc')} onClick={onOpenLyricFilterSettings} />
+                <Reveal when={Boolean(patternError)}>
+                    <Row notice={t('lyricFilter.invalidRegex', { error: patternError ?? '' })} />
+                </Reveal>
             </Group>
 
             <FoldedGroup def={FORMATS} summary={t('options.localLyricFormatOrderFirst', { format: `.${lyric.formatOrder[0]}` })}>

@@ -895,6 +895,11 @@ declare global {
       getCacheDirectory: () => Promise<ElectronCacheDirectoryResult>;
       chooseCacheDirectory: () => Promise<ElectronCacheDirectoryResult>;
       resetCacheDirectory: () => Promise<ElectronCacheDirectoryResult>;
+      /** Apple Music companion 的唯一 IPC 入口；桌面端恒暴露，宿主未编译时请求回 unavailable。 */
+      appleMusicRequest: (operation: string, params?: Record<string, unknown>) => Promise<
+        | { ok: true; data: unknown }
+        | { ok: false; error: string; httpStatus?: number | null; playbackStage?: string }
+      >;
       getUpdateStatus: () => Promise<ElectronUpdateStatus>;
       checkForUpdates: () => Promise<ElectronUpdateStatus>;
       markUpdateSeen: (version?: string | null) => Promise<ElectronUpdateStatus>;

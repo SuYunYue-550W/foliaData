@@ -17,6 +17,8 @@ import { feiniuProvider } from './feiniuProvider';
  * 上游那份连同 `test/unit/qishui/` 先留着（vite-env 的桥类型还引它），不注册。
  */
 import { qishuiProvider } from './qishuiProvider';
+// Apple Music 的音频在应用外的 companion 播放器里出声（DRM），走 externalPlayback 路由。
+import { appleMusicProvider } from './appleMusicProvider';
 
 // src/services/onlineMusic/providerRegistry.ts
 
@@ -102,7 +104,14 @@ export const keepProviderSongAudio = (song: SongResult, url: string): Promise<bo
 
 export const canPlayOnlineMusicSong = (song: SongResult): boolean => {
     const provider = getOnlineMusicProviderForSong(song);
-    return providerSupports(provider, 'playback') && Boolean(provider?.playback);
+    return (providerSupports(provider, 'playback') && Boolean(provider?.playback))
+        || (canPlaySongExternally(song) && provider?.externalPlayback?.canPlay?.(song) !== false);
+};
+
+/** 这首歌由应用外的播放器出声（Apple Music 的 companion），应用只发指令、跟随时钟。 */
+export const canPlaySongExternally = (song: SongResult): boolean => {
+    const provider = getOnlineMusicProviderForSong(song);
+    return providerSupports(provider, 'externalPlayback') && Boolean(provider?.externalPlayback);
 };
 
 export const requireOnlineMusicProviderForSong = (song: SongResult): OnlineMusicProvider => {
@@ -121,3 +130,4 @@ registerOnlineMusicProvider(ytmProvider);
 registerOnlineMusicProvider(spotifyProvider);
 registerOnlineMusicProvider(feiniuProvider);
 registerOnlineMusicProvider(qishuiProvider);
+registerOnlineMusicProvider(appleMusicProvider);

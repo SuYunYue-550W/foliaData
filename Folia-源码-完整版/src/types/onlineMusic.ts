@@ -59,6 +59,11 @@ export type PlaybackSourceRef =
     | { kind: 'stage'; mediaId: string };
 
 export interface ProviderCapabilities {
+    /** 音频在应用外的播放器里出声（DRM 拿不到 URL），应用只负责操控与跟随时钟。 */
+    externalPlayback?: boolean;
+    listeningRank?: boolean;
+    dailyStyleRecommendations?: boolean;
+    recommendationPreferences?: boolean;
     search: boolean;
     playback: boolean;
     lyrics: boolean;
@@ -97,6 +102,8 @@ export interface ProviderCapabilities {
 }
 
 export interface ProviderAvailability {
+    /** 平台在此运行环境不可用时，给界面的一段 i18n key；不实现就走通用提示。 */
+    messageKey?: string;
     configured: boolean;
     reason?: 'not-configured' | 'runtime-unavailable';
     /**
@@ -517,6 +524,10 @@ export interface OnlinePlaybackReportProvider {
 }
 
 export interface OnlineLyricsProvider {
+    /** 同一首歌在别的平台上的标题/歌手别名，供逐字歌词检索兜底。 */
+    getSearchAlias?(song: SongResult): Promise<ProviderLyricSearchAlias | null>;
+    /** 平台自带的歌词已是逐字级别时，自动选源不要拿别的来源替换它。 */
+    prefersOwnWordByWord?: boolean;
     getLyrics(song: SongResult, context?: { userId?: MediaId | null }): Promise<ProviderLyricsResult>;
     getChorusRanges?(songId: MediaId): Promise<ChorusRange[]>;
     // 这首歌的歌手在别的平台上可能用的另一个名字；没有就返回 null。
@@ -760,6 +771,8 @@ export interface ProviderLikedSongIds {
 }
 
 export interface OnlineLibraryProvider {
+    /** 收藏列表里用来认领这首歌的 id；没有就回 null。 */
+    getSongLikeId?(song: SongResult): string | number | null;
     getUserPlaylists(userId: MediaId, limit: number, offset: number): Promise<ProviderPage<ProviderCollection>>;
     /**
      * The id of every liked song. A page the adapter knows it could not read throws. An adapter
@@ -972,6 +985,10 @@ export interface OnlineNativeGatewayProvider {
 }
 
 export interface OnlineMusicProvider {
+    /** 平台短名的 i18n key；没有时回落到 displayName。 */
+    shortNameKey?: string;
+    /** 音频在应用外播放时，操控那个播放器与读取它状态的接口。 */
+    externalPlayback?: OnlineExternalPlaybackProvider;
     id: OnlineProviderId;
     displayName: string;
     shortName?: string;
@@ -1065,3 +1082,58 @@ export type OmniSongDetail =
     | { status: 'missing' }
     | { status: 'failed'; error: unknown }
     | { status: 'skipped'; error: unknown };
+
+/*
+ * [apple-music] 外部播放契约。
+ *
+ * 上游主线从 v0.7.26 起支持 Apple Music：它的音频受 DRM 保护，Folia 永远拿不到播放 URL，
+ * 只能由 Apple 官方页面里的 MusicKit 出声，应用负责发指令并跟随外部播放器的时钟。
+ * 本仓库是 folia-sonnet fork，没有上游那套 hifi 播放路由，所以这里只补契约类型，
+ * 播放引擎由 services/onlineMusic/externalPlayback.ts 落地。
+ */
+export interface ProviderExternalPlaybackStatus {
+    /** Live broadcasts have no seekable song timeline or natural track ending. */
+    live?: boolean;
+    mediaId: string;
+    isPlaying: boolean;
+    positionMs: number;
+    durationMs: number;
+    /** The player's own state says the track ran out. */
+    ended: boolean;
+    /** An intentional player-side seek, so small backward jumps must not be smoothed away. */
+    seeking?: boolean;
+    /** The player accepted a start/resume and is still buffering; this is not a user pause. */
+    starting?: boolean;
+}
+
+export interface OnlineExternalPlaybackProvider {
+    /** False only for songs this external route already knows it cannot start; no network reads. */
+    canPlay?(song: SongResult): boolean;
+    /** Prepare a bounded successor queue without interrupting the current song. */
+    prepareNext?(song: SongResult, upcoming: SongResult[]): Promise<void>;
+    /** Whether a handoff can reuse an already prepared successor. */
+    isPrepared?(song: SongResult): boolean;
+    /** Starts `song` in the player at `startSec`, replacing whatever it played. */
+    play(song: SongResult, startSec: number): Promise<void>;
+    /** A window rebuild keeps the player sounding: adopt it instead of starting it again. */
+    adopt?(song: SongResult): void;
+    pause(): Promise<void>;
+    resume(): Promise<void>;
+    seek(seconds: number): Promise<void>;
+    /** The player's own output level (0 to 1). Its audio never passes through the app's gain. */
+    setVolume?(volume: number): Promise<void>;
+    /** The player's own single-track repeat. Without it the route restarts the track itself. */
+    setRepeatOne?(enabled: boolean): Promise<void>;
+    /** The player's state now, from no cache. */
+    getStatus(song: SongResult): Promise<ProviderExternalPlaybackStatus>;
+    /** Whether the player's loaded track is `song`. */
+    isStatusForSong(song: SongResult, status: ProviderExternalPlaybackStatus): boolean;
+}
+
+/** An alternate title and artist that belong to the same song. */
+export interface ProviderLyricSearchAlias {
+    song: SongResult;
+    title: string;
+    artist: string;
+    album?: string;
+}

@@ -44,6 +44,8 @@ describe('what each platform declares for the sign-in window', () => {
             // 汽水与飞牛是我们自己接的平台：登录窗口要认得它们，不然会退化成中性灰的第一个字。
             qishui: { letter: '汽', color: '#f97316' },
             feiniu: { letter: '飞', color: '#0ea5e9' },
+            // Apple Music 由原生 companion 宿主代为登录：红底白字的官方辨识色。
+            appleMusic: { letter: 'A', color: '#fa243c' },
         });
     });
 
@@ -63,6 +65,7 @@ describe('what each platform declares for the sign-in window', () => {
             spotify: { title: 'home.loginTitleSpotify', note: 'home.loginNoteSpotify' },
             qishui: { title: 'home.loginTitleQishui', note: 'home.loginNoteQishui' },
             feiniu: { title: 'home.loginTitleFeiniu', note: 'home.loginNoteFeiniu' },
+            appleMusic: { title: 'home.loginTitleAppleMusic', note: 'home.loginNoteAppleMusic' },
         });
     });
 

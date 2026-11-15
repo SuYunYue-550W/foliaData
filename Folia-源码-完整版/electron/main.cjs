@@ -6919,6 +6919,48 @@ ipcMain.handle('bodian-api-request', (event, operation, params) => {
   }
   return bodianApiBridge.request(operation, params);
 });
+// [apple-music] Apple Music 的音频受 DRM 保护，Folia 拿不到播放地址，只能由系统 WebView
+// （macOS WKWebView / Windows WebView2）里的 Apple 官方页面出声。companion 是按需拉起的
+// 独立原生宿主：本机没编译宿主时 resolveNativeExecutable 返回空路径，client.request 会安全
+// 回 runtime-unavailable，不会在应用启动时拉子进程、也不会让主进程崩。
+let appleMusicClient = null;
+function getAppleMusicClient() {
+  if (appleMusicClient) return appleMusicClient;
+  const { createCompanionClient } = require('./appleMusic/companionClient.cjs');
+  const { resolveNativeExecutable } = require('./appleMusic/nativePaths.cjs');
+  appleMusicClient = createCompanionClient({
+    nativeExecutablePath: resolveNativeExecutable({
+      platform: process.platform,
+      isPackaged: app.isPackaged,
+      resourcesPath: process.resourcesPath,
+      projectRoot: path.join(__dirname, '..'),
+      arch: process.arch,
+      override: process.env.ELECTRON_DEV === 'true' ? process.env.FOLIA_APPLE_MUSIC_NATIVE : '',
+    }),
+    profilePath: path.join(app.getPath('userData'), 'apple-music-companion'),
+  });
+  return appleMusicClient;
+}
+
+const { createCompanionRequestHandler } = require('./appleMusic/companionIpc.cjs');
+let appleMusicRequestHandler = null;
+function getAppleMusicRequestHandler() {
+  if (!appleMusicRequestHandler) {
+    appleMusicRequestHandler = createCompanionRequestHandler({
+      isTrusted: isTrustedMainWindowContents,
+      client: getAppleMusicClient(),
+    });
+  }
+  return appleMusicRequestHandler;
+}
+
+ipcMain.handle('apple-music-request', (event, operation, params) => {
+  if (process.platform !== 'darwin' && process.platform !== 'win32') {
+    return { ok: false, error: 'unavailable' };
+  }
+  return getAppleMusicRequestHandler()(event, operation, params);
+});
+
 ipcMain.handle('ytm-api-request', (event, operation, params) => {
   if (!isTrustedMainWindowContents(event.sender)) {
     return { ok: false, error: { code: 'unavailable', message: 'Untrusted YouTube Music request' } };
@@ -7333,6 +7375,7 @@ app.on('will-quit', () => {
   jamLanRelay?.stop();
   // 保存桌宠窗口最后位置并销毁，避免退出流程被一个常驻置顶窗口拖住。
   try { getWhalePetHost().stop(); } catch { /* 忽略 */ }
+  if (appleMusicClient) appleMusicClient.close();
 });
 
 // 「一起听」局域网中继：渲染进程创建房间前拉起服务，拿到可给手机填的局域网地址；

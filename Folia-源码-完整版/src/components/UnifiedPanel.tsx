@@ -442,7 +442,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                         onMoveSongToEnd={onMoveSongToEnd}
                         onMoveSongToNext={onMoveSongToNext}
                         onOpenLattice={queue.onOpenLattice}
-                        // TODO: Define cross-source playlist export before enabling playlist creation for mixed queues.
+                        // 跨源队列也可存：在线 / 外部条目与顺序会写进歌单的 externalRefs / entryOrder。
                         canSaveLocalPlaylist={canSaveQueueAsLocalPlaylist(currentSong, playQueue)}
                         onSaveCurrentQueueAsPlaylist={onSaveCurrentQueueAsPlaylist}
                         isDaylight={isDaylight}

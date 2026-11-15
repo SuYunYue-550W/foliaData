@@ -506,6 +506,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 isCleaning: cache.isCleaning,
                 mediaCount: cache.mediaCount,
                 onChooseCacheDirectory: electron.chooseCacheDirectory,
+                onResetCacheDirectory: electron.resetCacheDirectory,
                 onClear: cache.clearCategory,
             },
             desktop: {

@@ -1,5 +1,31 @@
 # 更新日志 / CHANGELOG
 
+## v0.7.31 · 2026-11-15
+
+**Apple Music 与功能补齐版。** 由本仓库源码重新编译 Windows EXE 与 Android APK，新增 Apple Music 平台，并把此前「声明了但没实装 / 写好了没接线」的功能补上。
+
+- **Apple Music（重点）**：
+  - 从上游 `chthollyphile/folia-major` v0.7.26~0.7.28 移植 `src/services/onlineMusic/appleMusic/` 6 个 provider 文件、外部播放引擎（`externalPlayback.ts` / `externalQueue.ts` / `externalClock.ts` / `mediaShim.ts`）与 `electron/appleMusic/` 25 个 companion 源码文件。
+  - **定点补契约，不整体替换**：在 `src/types/onlineMusic.ts` 只插入 5 组可选字段与 3 个接口（`ProviderExternalPlaybackStatus` / `OnlineExternalPlaybackProvider` / `ProviderLyricSearchAlias`），保留 fork 独有的 `passwordLogin` / `nativeGateway` / `canSignIn`。这正是 v0.7.28 文件级同步造成 1092 条类型错误的地方，本版未重演（搬入后 61 个错误全部定点消除，`tsc --noEmit` 0 错误）。
+  - 新增 `src/services/onlineMusic/omni/externalPlaybackMethods.ts`（12 个方法）拼进 fork 的分模块 `omni.ts`；`usePlaybackStore` 补 `playbackRoute` / `setPlaybackRoute`；`providerRegistry.ts` 注册 provider 并补 `canPlaySongExternally`。
+  - 桌面接线：`preload.cjs` / `vite-env.d.ts` / `main.cjs`（懒加载 companion，宿主缺失时安全回 `runtime-unavailable`）/ 三语文案 / `docs/contracts/manifest/` 三份清单。
+  - **Windows WebView2 原生宿主在本机编译成功**（.NET Framework 4.8 + WebView2 SDK 1.0.4314.35，0 警告 0 错误），接进 `build/beforePack.cjs`（每次打包现编）、`build/afterPack.cjs`（强制校验 5 个宿主文件）与 `package.json` 的 `extraResources`。
+  - 搬入上游 3 个单元测 + 新增 `appleMusicForkWiring.test.ts` 验证 fork 适配层；`authMembers.test.ts` 补登录成员行；补 `nextPlayableQueueIndex` 队列辅助函数。
+  - **限制**：音频受 DRM 保护，只能由 Apple 官方页面出声，需订阅账号实机验收；Android / Linux 不提供该平台；依赖 Apple 未公开的网页接口，页面变化可能导致失效。另外 fork 目前仍让 Media Session / 听歌上报等观察者直接读原生 `<audio>`，尚未切到 `hifiMediaShim.getObservedMedia`，因此**外部播放器发声时这些观察者拿不到它的进度**；这份 shim 已注册但不被读取，接上属于后续独立改动。
+- **功能补齐**：
+  - Cappella **AI 语义词着色**：解开被注释的实现，改用项目公共的 `resolveWordColor`（不复活手写 `.find`），新增 `cappellaWordColors.ts` 做气泡底色与词色的对比度兜底（当初正因为可读性差才禁用），新增 9 个单测。
+  - **跨源队列另存为本地歌单**：解除 `Mixed-source queues cannot be saved as playlists yet` 拦截，给 `LocalPlaylist` 增加外部条目引用并保序，读取侧同步支持。
+  - 歌词过滤 / 职员规则的两个校验错误从 store 接到设置页入口行提示。
+  - 存储页补「恢复默认目录」按钮（IPC 与类型声明原本齐备，只缺入口）。
+- **清理与更正**：
+  - 三语各删 506 行死文案（旧 7 页用户指南 37 键、19 个历史发行说明块），保留仍在用的 `releaseNotes.v0_7_22`；`dev/i18n/traditionalTerms.mjs` 移除随之失效的 1 条繁中转换规则；删除 14 个空目录。
+  - **更正上一版的盘点结论**：安卓原生 `EqAudioProcessor.kt` 早已实装饱和 / 黑胶 / 声场宽度 / 混响 / 压缩（由另一套设置页驱动，Web 端 `AUDIO_CONSOLE_EFFECT_IDS` 有意只留 2 个滑杆）；桌宠浮层漫游也已由主进程 `whalePetWindow.cjs` 的 `startRoam()` 驱动窗口实现。两者不是缺失功能，本版只纠正过时注释，不重复造循环。
+  - 汽水 / 波点的「专辑详情、创建歌单、收藏写入」仍需第三方私有接口，未实装，README 里的关闭说明保留。
+- **复验**：`tsc --noEmit` 0 错误；`check:ui` / `check:size` / `check:versions`（0.7.31 → 7031100）/ `checkSecrets` / 契约清单 全部通过；Apple Music 相关 29 个单测通过；界面预览 PNG 与 `layoutCheck`（dev-probe 首页 0 findings）。
+- 版本号升到 `0.7.31`，安卓 `versionCode` `7031100`；重新生成 `latest.yml` / `update.json`，更新源继续指向本仓库 Releases。
+
+> Apple Music 的原生宿主、公证与版权合规说明见 `electron/appleMusic/README.md`；构建与发布步骤见 `release-manifests/构建与发布.md`。
+
 ## v0.7.30 · 2026-11-15
 
 **稳定修复版。** 回到可完整类型检查与单元测试的健康代码基线，由本仓库源码重新编译 Windows EXE 与 Android APK。

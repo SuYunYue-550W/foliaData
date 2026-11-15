@@ -216,7 +216,9 @@ export const buildLocalHomeGroups = (
             coverUrl: getLocalCoverUrlOf(playlistSongs),
             id: `playlist-${playlist.id}`,
             playlistId: playlist.id,
-            trackCount: playlistSongs.length,
+            // 跨源歌单的条目数按完整顺序算（外部条目不在这张 3D 卡片的 LocalSong[] 里，
+            // 但点开后的集合页会按 entryOrder 把它们连同本地歌一起显示、点播）。
+            trackCount: playlist.entryOrder?.length ?? playlistSongs.length,
             description: playlist.isFavorite ? t('localMusic.favoritePlaylist') : t('home.playlists'),
             isVirtual: playlist.isFavorite,
         };

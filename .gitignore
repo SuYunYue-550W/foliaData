@@ -9,6 +9,7 @@
 # ── 依赖与构建产物 ──
 node_modules/
 dist/
+dist_backup*/
 dist-android/
 release/
 release-v*/
@@ -29,3 +30,7 @@ Thumbs.db
 **/models/*.bin
 **/build/ffmpeg/*/ffmpeg.exe
 **/build/ffmpeg/*/*.dll
+**/build/apple-music-native/
+__pycache__/
+dev-dist/
+preview/

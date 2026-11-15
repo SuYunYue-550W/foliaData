@@ -4,6 +4,7 @@ import { type Line, type Theme } from '../../../types';
 import type { CappellaIntensityConfig, CappellaMessage, ChatSide } from './cappellaTypes';
 import { DEFAULT_CHAR_FADE_MS, LEFT_AVATAR_INDICES, RIGHT_AVATAR_INDEX } from './cappellaConstants';
 import { getCharacterRevealPlan } from './cappellaReveal';
+import { buildCappellaLineColorRanges, resolveCappellaCharacterColors } from './cappellaWordColors';
 import { formatTimestamp, getAvatarPosition } from './cappellaMessageLayout';
 
 // src/components/visualizer/cappella/CappellaBubbleParts.tsx
@@ -133,10 +134,31 @@ export const AnimatedBubbleFrame: React.FC<{
 export const ActiveCappellaText: React.FC<{
     line: Line;
     visibleCharacterCount: number;
-}> = ({ line, visibleCharacterCount }) => {
+    wordColors: Theme['wordColors'];
+    keywordColoringEnabled: boolean;
+    bubbleBackgroundColor: string;
+    defaultTextColor: string;
+}> = ({
+    line,
+    visibleCharacterCount,
+    wordColors,
+    keywordColoringEnabled,
+    bubbleBackgroundColor,
+    defaultTextColor,
+}) => {
     const revealPlan = useMemo(() => getCharacterRevealPlan(line), [line]);
+    const characterColors = useMemo(
+        () => resolveCappellaCharacterColors(
+            revealPlan.characters,
+            buildCappellaLineColorRanges(line.fullText, wordColors, keywordColoringEnabled),
+            bubbleBackgroundColor,
+            defaultTextColor,
+        ),
+        [bubbleBackgroundColor, defaultTextColor, keywordColoringEnabled, line.fullText, revealPlan.characters, wordColors]
+    );
     const visibleCharacters = revealPlan.characters.slice(0, Math.max(0, visibleCharacterCount));
     const visibleFadeDurations = revealPlan.fadeDurationsMs.slice(0, Math.max(0, visibleCharacterCount));
+    const visibleColors = characterColors.slice(0, Math.max(0, visibleCharacterCount));
 
     return (
         // 保持普通 inline 文本流，使 DOM 的字形塑形和换行规则与 pretext 的连续文本量度一致。
@@ -148,6 +170,7 @@ export const ActiveCappellaText: React.FC<{
                         animationName: 'cappella-char-fade',
                         animationDuration: `${visibleFadeDurations[index] ?? DEFAULT_CHAR_FADE_MS}ms`,
                         animationTimingFunction: 'ease-out',
+                        color: visibleColors[index] ?? defaultTextColor,
                     }}
                 >
                     {character}

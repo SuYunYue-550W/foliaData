@@ -65,12 +65,17 @@ export const resolveLiveLocalCollection = (
 
     const validSongIds = new Set(surfaceProps.localSongs.map(song => song.id));
     const songIds = playlist.songIds.filter(songId => validSongIds.has(songId));
+    // 跨源歌单把外部引用与有序位置一起交给描述；trackCount 用完整条目数，别只按本地 songIds 算。
+    const externalRefs = playlist.externalRefs;
+    const entryOrder = playlist.entryOrder;
 
     return {
         ...collection,
         name: playlist.name,
         songIds,
-        trackCount: songIds.length,
+        trackCount: entryOrder ? entryOrder.length : songIds.length,
         isVirtual: playlist.isFavorite,
+        ...(externalRefs?.length ? { externalRefs } : {}),
+        ...(entryOrder?.length ? { entryOrder } : {}),
     };
 };

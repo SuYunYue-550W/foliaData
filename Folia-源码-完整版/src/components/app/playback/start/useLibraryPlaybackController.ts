@@ -6,7 +6,7 @@ import { resolveLyricSourcePreference } from '../../../../utils/lyrics/lyricSour
 import { getFromCacheWithMigration, getLocalSong, getLocalSongs, removeFromCache, saveLocalSong, saveToCache } from '../../../../services/db';
 import { getCachedCoverUrl, loadCachedOrFetchCover } from '../../../../services/coverCache';
 import { ensureLocalSongCoverAsset } from '../../../../services/localMusicService';
-import { addSongsToLocalPlaylist, buildCanonicalLocalSongIdIndex, createLocalPlaylist, getLocalPlaylists, setLocalSongFavorite } from '../../../../services/localPlaylistService';
+import { addSongsToLocalPlaylist, buildCanonicalLocalSongIdIndex, createLocalPlaylist, createLocalPlaylistFromQueue, getLocalPlaylists, setLocalSongFavorite } from '../../../../services/localPlaylistService';
 import { applyLocalLibraryEntityDisplay, buildLocalQueue, buildNavidromeQueue, buildUnifiedLocalSong, buildUnifiedNavidromeSong, resolveLocalSongMetadata } from '../../../../services/playbackAdapters';
 import { getPrefetchedData, prefetchNearbySongs } from '../../../../services/prefetchService';
 import { retireBlobUrl } from '../../../../services/playbackBlobUrls';
@@ -18,12 +18,12 @@ import {
     isSamePlaybackSong,
     isStagePlaybackSong,
     getPlaybackSongKey,
-    hasMixedPlaybackSources,
     replacePlaybackSongInQueue,
     replacePlaybackSongWhereQueued,
     resolveNavidromePlaybackCarrier,
     getPlaybackSourceRef,
 } from '../../../../utils/appPlaybackGuards';
+import { buildPlaylistEntriesFromQueue } from '../../../../utils/localPlaylistEntries';
 import { hydrateNavidromeLyricPayload, resolvePreferredNavidromeLyrics } from '../../../../utils/appNavidromeLyrics';
 import { migrateLyricDataRenderHints } from '../../../../utils/lyrics/renderHints';
 import { migrateMatchedLyricsCarrierRenderHints } from '../../../../utils/lyrics/storageMigration';
@@ -380,21 +380,27 @@ export function useLibraryPlaybackController({
         if (!trimmedName) {
             throw new Error('Playlist name is empty');
         }
-
-        // TODO: Define cross-source playlist export before allowing mixed queues to be saved.
-        if (hasMixedPlaybackSources(playQueue)) {
-            throw new Error('Mixed-source queues cannot be saved as playlists yet');
+        if (!playQueue.length) {
+            throw new Error('Queue is empty');
         }
 
-        const queueSongs = playQueue
-            .map(resolveLocalSongRecord)
-            .filter((song): song is LocalSong => Boolean(song?.id));
+        // 跨源队列：本地 id 与在线 / 外部引用按队列顺序一起存进歌单的 externalRefs / entryOrder，
+        // 读回时按 entryOrder 重建可播放的 SongResult（见 utils/localPlaylistEntries）。
+        // 纯本地队列仍走原来的 createLocalPlaylist，产物与旧数据逐字段一致。
+        const entries = buildPlaylistEntriesFromQueue(playQueue);
+        if (entries.externalRefs.length) {
+            await createLocalPlaylistFromQueue(trimmedName, entries);
+        } else {
+            const queueSongs = playQueue
+                .map(resolveLocalSongRecord)
+                .filter((song): song is LocalSong => Boolean(song?.id));
 
-        if (!queueSongs.length) {
-            throw new Error('No local songs in queue');
+            if (!queueSongs.length) {
+                throw new Error('No local songs in queue');
+            }
+
+            await createLocalPlaylist(trimmedName, queueSongs);
         }
-
-        await createLocalPlaylist(trimmedName, queueSongs);
         await loadLocalPlaylists();
     }, [loadLocalPlaylists, playQueue, resolveLocalSongRecord]);
 

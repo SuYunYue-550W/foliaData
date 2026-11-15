@@ -7,6 +7,7 @@ import { mutationMethods } from './omni/mutationMethods';
 import { playbackMethods } from './omni/playbackMethods';
 import { providerMethods } from './omni/providerMethods';
 import { rawMethods } from './omni/rawMethods';
+import { externalPlaybackMethods } from './omni/externalPlaybackMethods';
 
 // src/services/onlineMusic/omni.ts
 // Online Music Network Interface (Omni) - a unified interface for interacting with multiple online music providers.
@@ -22,6 +23,7 @@ const omni = {
     ...accountMethods,
     ...mutationMethods,
     ...rawMethods,
+    ...externalPlaybackMethods,
 };
 
 bindOmniService(omni);

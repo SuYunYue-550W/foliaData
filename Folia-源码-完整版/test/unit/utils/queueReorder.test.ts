@@ -69,15 +69,20 @@ describe('moveQueueItemToNext', () => {
 });
 
 describe('canSaveQueueAsLocalPlaylist', () => {
-    it('needs a local current song and an all-local, non-empty queue', () => {
+    it('allows any non-empty queue regardless of the current song or its sources', () => {
         const queue = [localSong(1), localSong(2)];
         expect(canSaveQueueAsLocalPlaylist(queue[0], queue)).toBe(true);
-        expect(canSaveQueueAsLocalPlaylist(queue[0], [])).toBe(false);
-        expect(canSaveQueueAsLocalPlaylist(null, queue)).toBe(false);
-        expect(canSaveQueueAsLocalPlaylist(onlineSong(9), queue)).toBe(false);
+        expect(canSaveQueueAsLocalPlaylist(null, queue)).toBe(true);
+        expect(canSaveQueueAsLocalPlaylist(onlineSong(9), queue)).toBe(true);
+        expect(canSaveQueueAsLocalPlaylist(onlineSong(9), [onlineSong(9)])).toBe(true);
     });
 
-    it('refuses mixed-source queues', () => {
-        expect(canSaveQueueAsLocalPlaylist(localSong(1), [localSong(1), onlineSong(2)])).toBe(false);
+    it('allows mixed-source queues (cross-source export is supported)', () => {
+        expect(canSaveQueueAsLocalPlaylist(localSong(1), [localSong(1), onlineSong(2)])).toBe(true);
+    });
+
+    it('refuses an empty queue', () => {
+        expect(canSaveQueueAsLocalPlaylist(null, [])).toBe(false);
+        expect(canSaveQueueAsLocalPlaylist(localSong(1), [])).toBe(false);
     });
 });

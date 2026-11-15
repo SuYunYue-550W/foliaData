@@ -24,19 +24,21 @@ from pathlib import Path
 OWNER, REPO = 'SuYunYue-550W', 'foliaData'
 RELEASES = f'https://github.com/{OWNER}/{REPO}/releases'
 
-NOTES = """## v0.7.30 · 稳定修复版
+NOTES = """## v0.7.31 · Apple Music 与功能补齐版
 
-本版回到可完整类型检查与单元测试的健康代码基线，由本仓库源码在本机真实编译，
-包含自研的色散玻璃导航条与 microRender GPU 调度微内核；软件更新地址指向本仓库 Releases。
+本版由本仓库源码在本机真实编译，新增 Apple Music 平台与一批补齐功能；桌面与安卓的「检查更新」继续指向本仓库 Releases。
 
-- 撤销 v0.7.28 的文件级上游同步：该合并把上游新版引用方与 fork 旧版契约混在一起，
-  造成 typecheck 上千条错误、单测数百个失败；实测局部替换无法修复，故回到健康基线。
-- 自研改动与清理结果全部保留：色散玻璃、microRender、HiRes 音质、导出补帧、
-  鲸鱼桌宠、三语文案、本仓库更新源等。
-- 修复全部已知问题：package.json 非法 JSON、package-lock 版本、平台依赖版本不一致、
-  印尼语缺失词条、UI 门禁基线、正式版 versionCode 策略、无人引用的 vendor 残留。
-- 版本号 0.7.30，安卓 versionCode 7030100（高于上一版，覆盖安装不会判为降级）。
-- 桌面与安卓「检查更新」继续指向本仓库 Releases。
+- **Apple Music**：从上游 v0.7.26~0.7.28 移植 provider、外部播放引擎与 Electron companion，
+  定点补齐 fork 契约（未整体替换类型文件，避免重演契约混血）；Windows WebView2 原生宿主
+  在本机编译成功并随安装包分发。音频受 DRM 保护，由 Apple 官方页面出声，需 Apple 订阅账号登录；
+  Android 与 Linux 端不提供该平台。
+- **功能补齐**：Cappella AI 语义词着色（含对比度兜底）、混合来源队列另存为本地歌单、
+  歌词过滤规则错误提示、存储页「恢复默认目录」按钮。
+- **清理**：三语各移除 506 行死文案（旧 7 页用户指南 + 19 个历史发行说明块）、
+  繁中转换表 1 条死规则、14 个空目录；纠正桌宠浮层漫游与安卓原生音效的过时注释
+  （这两项本就已实装，不是缺失功能）。
+- 版本号 0.7.31，安卓 versionCode 7031100（高于上一版，覆盖安装不会判为降级）。
+- 全套门禁通过：tsc 0 错误、全量单测、UI / 体积 / 版本 / 密钥 / 契约检查、vite build。
 
 逐项记录见仓库 CHANGELOG.md 与 release-manifests/构建与发布.md。
 """
@@ -75,8 +77,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--exe', required=True, type=Path, help='Windows 安装包路径')
     parser.add_argument('--apk', required=True, type=Path, help='Android 安装包路径')
-    parser.add_argument('--tag', default='v0.7.30')
-    parser.add_argument('--version', default='0.7.30')
+    parser.add_argument('--tag', default='v0.7.31')
+    parser.add_argument('--version', default='0.7.31')
     parser.add_argument('--out', default='release-manifests', type=Path)
     args = parser.parse_args()
 

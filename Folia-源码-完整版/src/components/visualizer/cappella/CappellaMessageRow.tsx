@@ -27,6 +27,7 @@ interface CappellaMessageRowProps {
     metricsCache: React.MutableRefObject<Map<string, PreparedBubbleMetrics>>;
     intensityConfig: CappellaIntensityConfig;
     customAvatarImages?: CappellaAvatarImage[];
+    keywordColoringEnabled: boolean;
 }
 
 export const CappellaMessageRow = React.forwardRef<HTMLDivElement, CappellaMessageRowProps>(({
@@ -42,6 +43,7 @@ export const CappellaMessageRow = React.forwardRef<HTMLDivElement, CappellaMessa
     metricsCache,
     intensityConfig,
     customAvatarImages,
+    keywordColoringEnabled,
 }, ref) => {
     const isRight = message.side === 'right';
     const timedData: CappellaTimedMessage | null = isTimedMessage(message) ? message : null;
@@ -336,6 +338,10 @@ export const CappellaMessageRow = React.forwardRef<HTMLDivElement, CappellaMessa
                                         <ActiveCappellaText
                                             line={message.line}
                                             visibleCharacterCount={visibleCharacterCount}
+                                            wordColors={theme.wordColors}
+                                            keywordColoringEnabled={keywordColoringEnabled}
+                                            bubbleBackgroundColor={bubbleColors.backgroundColor}
+                                            defaultTextColor={bubbleColors.textColor}
                                         />
                                     )
                                     : (

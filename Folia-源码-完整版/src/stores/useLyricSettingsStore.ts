@@ -315,3 +315,15 @@ export const selectLyricSettingsSnapshot = (state: LyricSettingsState) => ({
     lyricFilterPatternError: state.lyricFilterEnabled ? getLyricFilterError(state.lyricFilterPattern) : null,
     lyricStaffPatternError: getLyricStaffPatternError(state.lyricStaffPattern),
 });
+
+/**
+ * 设置页「歌词过滤」入口行用的校验错误。
+ *
+ * 和 LyricFilterSettingsModal 的判定保持一致：切到「始终显示制作人员」时自定义规则输入框
+ * 会收起来，那条规则不算错；否则这里会一直报错，用户只能切回去清空才能保存。
+ * 上面 snapshot 里的两个字段是历史遗留（算出结果却没有人读），保留以免改动既有消费者。
+ */
+export const selectLyricPatternErrors = (state: LyricSettingsState) => ({
+    filterError: state.lyricFilterEnabled ? getLyricFilterError(state.lyricFilterPattern) : null,
+    staffError: state.lyricStaffPolicy === 'keep' ? null : getLyricStaffPatternError(state.lyricStaffPattern),
+});

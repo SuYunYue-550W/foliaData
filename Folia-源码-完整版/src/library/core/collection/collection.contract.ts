@@ -1,4 +1,4 @@
-import type { LocalLibraryGroup } from '../../../types';
+import type { LocalLibraryGroup, PlaylistEntry, PlaylistExternalRef } from '../../../types';
 import type {
     OnlineProviderId,
     ProviderArtistSummary,
@@ -56,6 +56,13 @@ export interface LocalGridViewCollectionDescriptor extends BaseGridViewCollectio
     entityId?: string;
     playlistId?: string;
     isVirtual?: boolean;
+    /**
+     * 跨源歌单的外部条目引用与有序位置：resolveLiveLocalCollection 从 LocalPlaylist 带过来，
+     * resolveLocalGridViewTracks 据此把在线 / 外部曲目与本地曲目按 entryOrder 交错还原。
+     * 缺省（纯本地旧歌单）时整份描述仍只按 songIds 解释。
+     */
+    externalRefs?: PlaylistExternalRef[];
+    entryOrder?: PlaylistEntry[];
     /**
      * 由集合里的歌推出来的自动封面（宿主在交给集合层的描述上写；没有时为 null）。设了自定义集合封面时 coverUrl 是那张，
      * 这里仍是自动的：画曲目本身（专辑墙）的地方用它，集合封面不影响集合里的歌。没写（undefined）时就是 coverUrl。

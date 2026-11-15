@@ -4,6 +4,7 @@
       "members": [
         "abortVideoExportFile",
         "appendVideoExportChunk",
+        "appleMusicRequest",
         "bodianRequest",
         "cancelTranscodeFallback",
         "checkForUpdates",
@@ -213,6 +214,7 @@
         "ai-list-models",
         "ai-test-connection",
         "app-quit",
+        "apple-music-request",
         "automix-beat-this",
         "automix-beat-this-gpu-weights",
         "automix-htdemucs",

@@ -140,6 +140,7 @@ export type SettingsPageContextValue = {
             isCleaning: CacheCategory | null;
             mediaCount: number;
             onChooseCacheDirectory: () => void;
+            onResetCacheDirectory: () => void;
             onClear: (category: CacheCategory) => void;
         };
         desktop: {

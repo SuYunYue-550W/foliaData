@@ -63,6 +63,28 @@ export const hasTrackAfter = (queueLength: number, currentIndex: number, loopMod
 );
 
 /**
+ * 当前曲目之后第一首通过 isPlayable 的歌的**下标**，没有则 -1。
+ *
+ * [apple-music] 外部播放路由需要跳过「平台已明确标记不可播」的行，又不把它们从队列里删掉：
+ * 用户看到的列表要保持原样，只是自动切歌与预取不要指向它们。上游主线有这个导出，
+ * 本 fork 只有返回歌曲对象的 nextPlayableQueueSong，故补上下标版本供 externalQueue 一侧使用。
+ */
+export const nextPlayableQueueIndex = <T>(
+    queue: T[],
+    currentIndex: number,
+    loopMode: StageLoopMode,
+    isPlayable: (song: T) => boolean,
+): number => {
+    let index = currentIndex;
+    for (let step = 0; step < queue.length; step++) {
+        index = nextQueueIndex(queue.length, index, loopMode);
+        if (index < 0) return -1;
+        if (isPlayable(queue[index])) return index;
+    }
+    return -1;
+};
+
+/**
  * 当前曲目之后第一首通过 isPlayable 的歌，没有则 null。
  * 按 nextQueueIndex 一首一首往后找，列表循环时绕回队首接着找，其余的歌都问过一遍为止
  * （不会回到当前曲目）；当前曲目不在队列里时不找。

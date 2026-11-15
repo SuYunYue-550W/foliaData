@@ -125,6 +125,7 @@ contextBridge.exposeInMainWorld('electron', {
     getCacheDirectory: () => ipcRenderer.invoke('get-cache-directory'),
     chooseCacheDirectory: () => ipcRenderer.invoke('choose-cache-directory'),
     resetCacheDirectory: () => ipcRenderer.invoke('reset-cache-directory'),
+    appleMusicRequest: (operation, params) => ipcRenderer.invoke('apple-music-request', operation, params),
     getUpdateStatus: () => ipcRenderer.invoke('updates-get-status'),
     checkForUpdates: () => ipcRenderer.invoke('updates-check'),
     markUpdateSeen: (version) => ipcRenderer.invoke('updates-mark-seen', version),

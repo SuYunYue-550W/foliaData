@@ -174,24 +174,3 @@ export const getCharacterRevealPlan = (line: Line): CharacterRevealPlan => {
 
     return { characters, fadeDurationsMs };
 };
-
-// Disabled for now: AI semantic word coloring reduced bubble-text readability in cappella.
-// const getActiveColor = (wordText: string, theme: Theme) => {
-//     if (!theme.wordColors || theme.wordColors.length === 0) {
-//         return null;
-//     }
-//
-//     const cleanCurrent = wordText.trim();
-//     const matched = theme.wordColors.find(entry => {
-//         const target = entry.word;
-//         if (isCJK(cleanCurrent)) {
-//             return target.includes(cleanCurrent) || cleanCurrent.includes(target);
-//         }
-//
-//         const targetWords = target.split(/\s+/).map(value => value.toLowerCase().replace(/[^\w]/g, ''));
-//         const normalizedCurrent = cleanCurrent.toLowerCase().replace(/[^\w]/g, '');
-//         return targetWords.includes(normalizedCurrent);
-//     });
-//
-//     return matched?.color ?? null;
-// };

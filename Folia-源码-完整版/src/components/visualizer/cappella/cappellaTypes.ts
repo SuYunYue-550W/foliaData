@@ -43,8 +43,6 @@ export type CappellaTimedMessage = CappellaLineMessage | CappellaEmoMessage;
 export const isTimedMessage = (m: CappellaMessage): m is CappellaTimedMessage =>
     m.kind === 'lyric' || m.kind === 'emo';
 
-// Disabled for now: AI semantic word coloring reduced bubble-text readability in cappella.
-// const isCJK = (text: string) => /[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/.test(text);
 export interface BubbleSize {
     width: number;
     height: number;

@@ -8,6 +8,13 @@ import { getOnlineMusicProvider, listOnlineMusicProviders } from '@/services/onl
 // A member added or removed on purpose changes its row here.
 
 const AUTH_MEMBERS: Record<string, string[]> = {
+    // [apple-music] 登录发生在 companion 自己的 WebView 窗口里：没有二维码、没有独立浏览器页，
+    // 由 provider 自己开门（opensLoginPageItself），companion 缺席时 describeLoginFailure
+    // 报「本地服务暂时不可用」而不是网络错误。
+    appleMusic: [
+        'cancelLogin', 'checkLogin', 'describeLoginFailure', 'getLoginStatus', 'getLoginTexts', 'logout',
+        'openLoginPage', 'opensLoginPageItself', 'showsKeptAccountAtStart', 'signInRanOut', 'startLogin',
+    ],
     netease: [
         'canRunLoginSelfCheck', 'checkLogin', 'createQr', 'describeLoginFailure', 'forgetOldKeptAccount', 'getLoginDiagnostics', 'getLoginStatus', 'getLoginTexts', 'localService',
         'logout', 'oldKeptAccount', 'runLoginSelfCheck', 'showsKeptAccountAtStart', 'signInRanOut', 'startLogin',
