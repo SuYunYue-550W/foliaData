@@ -11,6 +11,7 @@ node_modules/
 dist/
 dist-android/
 release/
+release-v*/
 logs/
 *.log
 android/.gradle/

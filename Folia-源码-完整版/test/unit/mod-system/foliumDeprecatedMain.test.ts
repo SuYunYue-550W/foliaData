@@ -42,6 +42,18 @@ const { computeModDigest } = require('../../../electron/modSystem/modDigest.cjs'
 
 const FIXTURES = path.resolve(__dirname, '../../fixtures/folium-1.5-mods');
 
+// Windows 上 fs.cpSync 的递归复制会被环境拦截（EIO, Access is denied），
+// 改成逐文件复制，语义一致且不依赖平台实现细节。
+const copyFixture = (source: string, target: string): void => {
+    fs.mkdirSync(target, { recursive: true });
+    for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
+        const from = path.join(source, entry.name);
+        const to = path.join(target, entry.name);
+        if (entry.isDirectory()) copyFixture(from, to);
+        else fs.copyFileSync(from, to);
+    }
+};
+
 const baseManifest = { folium: 1, id: 'old-mod', name: 'Old mod', version: '1.0.0', main: 'index.cjs' };
 
 /* A validated manifest, with the warnings the layer kept for it. */
@@ -189,7 +201,7 @@ describe('Folium 1.5 main entries in the loader', () => {
     /* Copies a fixture mod into userData/mods, enabled as if the user had confirmed it. */
     const install = (name: string) => {
         const directory = path.join(root, 'userData/mods', name);
-        fs.cpSync(path.join(FIXTURES, name), directory, { recursive: true });
+        copyFixture(path.join(FIXTURES, name), directory);
         const { id } = JSON.parse(fs.readFileSync(path.join(directory, 'mod.json'), 'utf8'));
         persisted.set(`mods.enabled.${id}`, { enabled: true, digest: computeModDigest(directory) });
         return id as string;

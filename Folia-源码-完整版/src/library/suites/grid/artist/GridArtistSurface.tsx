@@ -21,7 +21,6 @@ const GridArtistSurface: React.FC<LibraryArtistSurfaceProps> = ({
     onDone,
     onOpenAlbum,
     onOpenArtist,
-    onOpenCollection,
 }) => {
     const morphPlan = useGridMorphPlan();
 
@@ -38,7 +37,6 @@ const GridArtistSurface: React.FC<LibraryArtistSurfaceProps> = ({
             theme={theme}
             isDaylight={isDaylight}
             onEditEntity={onEditEntity}
-            onOpenCollection={onOpenCollection}
             isInteractive={isInteractive}
             morphPlan={morphPlan}
         />

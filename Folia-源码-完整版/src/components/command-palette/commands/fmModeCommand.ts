@@ -1,13 +1,12 @@
 import { Radio } from 'lucide-react';
 import { defineCommand } from '../commandFactories';
 import { fmModeSurface } from '../surfaces/fmModeSurface';
-import { getPersonalFmPickerTitle, getPersonalFmSelectionLabel } from '../../../services/onlineMusic/fmModes';
+import { getPersonalFmSelectionLabel } from '../../../services/onlineMusic/fmModes';
 import type { CommandPaletteCommand } from '../types';
 
 // src/components/command-palette/commands/fmModeCommand.ts
 // A state command: the list row already shows which Personal FM mode is in effect, and opening it
-// reveals the picker surface. Hidden when the active provider has no FM modes, and while FM plays an extra
-// radio, whose modes the radio mode command offers instead.
+// reveals the picker surface. Hidden when the active provider has no FM modes.
 
 /** Shared with the player panel's FM tab, which opens this command's surface directly. */
 export const PERSONAL_FM_MODE_COMMAND_ID = 'playback-fm-mode';
@@ -23,9 +22,8 @@ export const fmModeCommand: CommandPaletteCommand = defineCommand({
     icon: Radio,
     surface: fmModeSurface,
     requiresInput: true,
-    isAvailable: context => Boolean(context?.playback.isPersonalFmModeSupported && !context.playback.personalFmStation),
+    isAvailable: context => context?.playback.isPersonalFmModeSupported ?? false,
     placeholder: context => context.shared.t('commandPalette.fmModeFilterPlaceholder', 'Type to filter modes and scenes'),
-    activeTitle: context => getPersonalFmPickerTitle(context.playback.personalFmCatalog),
     getPreview: (_input, context) => getPersonalFmSelectionLabel(context.playback.personalFmSelection, context.shared.t, context.playback.personalFmCatalog),
     execute: () => false,
 });

@@ -1,5 +1,18 @@
 # 更新日志 / CHANGELOG
 
+## v0.7.30 · 2026-11-15
+
+**稳定修复版。** 回到可完整类型检查与单元测试的健康代码基线，由本仓库源码重新编译 Windows EXE 与 Android APK。
+
+- **撤销 v0.7.28 的文件级上游同步**：该合并把「上游 v0.7.28 新版引用方」与「folia-sonnet fork 旧版契约定义」混进同一棵源码树，造成 `tsc --noEmit` 1092 条错误、`test:unit` 476 个用例失败。实测把 707 个差异文件全部换成上游版仍剩 865 条错误，而两个未混血基线（纯上游 v0.7.28、本仓库初始提交 `1466b37`）本身几乎零错误 —— 因此回到 `1466b37` 健康基线：删除 520 个同步新增文件、恢复 372 个被改动文件。
+- **自研内容与清理结果全部保留**：色散玻璃导航条、microRender GPU 调度微内核、HiRes 音质、导出补帧、鲸鱼桌宠、三语文案，以及指向 `SuYunYue-550W/foliaData` Releases 的更新源与原项目社区群清理。
+- **修复全部已知问题**：`package.json` 的 `build.publish` 非法 JSON（补 `owner`）、`package-lock.json` 版本同步、Docker 部署的 qq-music-api 版本对齐（3.3.6 → 3.3.3）、印尼语缺失的 8 个词条、UI 门禁基线登记、正式版允许显式 `androidVersionCode` 的策略、删除无人引用的 `node-forge.mjs` vendor 残留。
+- **复验**：`tsc --noEmit` **0 错误**；`check:ui` / `check:size` / `check:versions` / `checkSecrets` / `build:vercel-api` 全部通过；`test:unit` 与 `vite build` 结果见下方实测记录。
+- 版本号升到 `0.7.30`，安卓 `versionCode` `7030100`（高于 v0.7.29 的 `7029100`，覆盖安装不会判为降级）；重新生成 `latest.yml` / `update.json`，桌面与安卓「检查更新」继续指向本仓库 Releases。
+
+> 上游 v0.7.26–v0.7.28 的功能清单仍保留在 `上游同步说明-v0.7.28.md`；后续若再同步上游，需做完整三方合并，不能文件级覆盖。
+> 本机复现步骤与环境记录见 `release-manifests/构建与发布.md`。
+
 ## v0.7.29 · 2026-11-15
 
 **自编译完整版。** 首次由本仓库源码在本机真实编译出 Windows EXE 与 Android APK，

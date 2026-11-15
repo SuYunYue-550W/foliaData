@@ -16,8 +16,6 @@ vi.mock('@/services/onlineMusic/omni', () => ({
     omni: {
         getAudioSource: (...args: unknown[]) => mocks.getAudioSource(...args),
         canPlaySong: () => true,
-        canPlayExternally: () => false,
-        prefersOwnWordByWordLyrics: () => false,
         resolveAudioQuality: (_providerId: string, quality: string) => quality,
     },
 }));

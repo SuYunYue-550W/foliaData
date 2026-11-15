@@ -152,11 +152,21 @@ export function checkVersionPolicy(root: string = repoRoot): string[] {
             failures.push(`displayVersion 的数字部分是 ${declaredBase}，与 version ${pkg.version} 对不上`);
         }
     } else {
-        if (pkg.displayVersion !== undefined) {
-            failures.push('displayVersion 只给测试版用（写成 A.B.C.devN）；正式版不要写');
+        // [fork-release] 本仓库自行发布 Release，安卓 versionCode 显式钉在 package.json 里。
+        // 上游的「正式版由版本号推导」规则直接用在这里会出问题：v0.7.30 按 7030100 发版，
+        // 改回推导值 703000 会让下一次覆盖安装被 Android 判为降级（INSTALL_FAILED_VERSION_DOWNGRADE）。
+        // 因此正式版也允许显式 code，只要求它不小于推导值；displayVersion 允许写成与 version 相同
+        // 的显式展示名，其它值仍按测试版规则拒绝。
+        if (pkg.displayVersion !== undefined && String(pkg.displayVersion).trim() !== String(pkg.version).trim()) {
+            failures.push('displayVersion 只给测试版用（写成 A.B.C.devN）；正式版不要写，或写成与 version 相同');
         }
         if (pkg.androidVersionCode !== undefined) {
-            failures.push('正式版不该写 androidVersionCode：它由版本号推导（见 versionCodeOf）');
+            const base = versionCodeOf(String(pkg.version));
+            if (!Number.isInteger(pkg.androidVersionCode)) {
+                failures.push('androidVersionCode 必须是整数');
+            } else if (pkg.androidVersionCode < base) {
+                failures.push(`androidVersionCode ${pkg.androidVersionCode} 小于正式码 ${base}，覆盖安装会被判为降级`);
+            }
         }
         failures.push(...versionNumberIssues(pkg.version));
     }

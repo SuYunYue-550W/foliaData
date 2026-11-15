@@ -24,17 +24,19 @@ from pathlib import Path
 OWNER, REPO = 'SuYunYue-550W', 'foliaData'
 RELEASES = f'https://github.com/{OWNER}/{REPO}/releases'
 
-NOTES = """## v0.7.29 · 自编译完整版
+NOTES = """## v0.7.30 · 稳定修复版
 
-本版安装包由本仓库源码在本机真实编译，包含自研的色散玻璃导航条与
-microRender GPU 调度微内核；软件更新地址指向本仓库 Releases。
+本版回到可完整类型检查与单元测试的健康代码基线，由本仓库源码在本机真实编译，
+包含自研的色散玻璃导航条与 microRender GPU 调度微内核；软件更新地址指向本仓库 Releases。
 
-- 修复 v0.7.28 文件级上游同步造成的构建链断裂：补齐 44 个缺失模块、
-  对齐 5 处接口错配、对三处文件做并集合并，渲染层构建通过。
-- 补齐构建环境：Electron 43 Windows 运行时、Android SDK 36、Gradle 8.14.3、
-  JDK 21、ffmpeg 与分析模型（哈希均与项目清单一致）。
-- 版本号 0.7.29，安卓 versionCode 7029100；桌面与安卓「检查更新」继续指向本仓库。
-- 自研改动全部保留：色散玻璃、microRender、HiRes 音质、导出补帧等。
+- 撤销 v0.7.28 的文件级上游同步：该合并把上游新版引用方与 fork 旧版契约混在一起，
+  造成 typecheck 上千条错误、单测数百个失败；实测局部替换无法修复，故回到健康基线。
+- 自研改动与清理结果全部保留：色散玻璃、microRender、HiRes 音质、导出补帧、
+  鲸鱼桌宠、三语文案、本仓库更新源等。
+- 修复全部已知问题：package.json 非法 JSON、package-lock 版本、平台依赖版本不一致、
+  印尼语缺失词条、UI 门禁基线、正式版 versionCode 策略、无人引用的 vendor 残留。
+- 版本号 0.7.30，安卓 versionCode 7030100（高于上一版，覆盖安装不会判为降级）。
+- 桌面与安卓「检查更新」继续指向本仓库 Releases。
 
 逐项记录见仓库 CHANGELOG.md 与 release-manifests/构建与发布.md。
 """
@@ -73,8 +75,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--exe', required=True, type=Path, help='Windows 安装包路径')
     parser.add_argument('--apk', required=True, type=Path, help='Android 安装包路径')
-    parser.add_argument('--tag', default='v0.7.28')
-    parser.add_argument('--version', default='0.7.28')
+    parser.add_argument('--tag', default='v0.7.30')
+    parser.add_argument('--version', default='0.7.30')
     parser.add_argument('--out', default='release-manifests', type=Path)
     args = parser.parse_args()
 

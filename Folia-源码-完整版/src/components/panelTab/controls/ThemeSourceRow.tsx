@@ -70,7 +70,7 @@ const ThemeSourceRow: React.FC<ThemeSourceRowProps> = ({
                 ]}
             />
             <PanelIconButton
-                size="m"
+                size="s"
                 filled
                 label={editableSource === 'custom'
                     ? t('options.customThemeQuickEditTitle')

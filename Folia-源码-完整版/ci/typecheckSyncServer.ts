@@ -17,7 +17,12 @@ if (!fs.existsSync(tsc)) {
 }
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const result = spawnSync(npm, ['run', 'build:node'], { cwd: serverDir, stdio: 'inherit' });
+// Windows 上直接 spawn .cmd 会被 Node 判为 EINVAL（需要 shell 才能解析批处理）。
+const result = spawnSync(npm, ['run', 'build:node'], {
+    cwd: serverDir,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+});
 if (result.error || result.status !== 0) {
     console.error('[ci] sync-server 的 typecheck 失败了。');
     process.exit(result.status ?? 1);

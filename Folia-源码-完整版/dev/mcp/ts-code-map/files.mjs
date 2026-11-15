@@ -53,7 +53,7 @@ export function listFiles(root) {
         files = execFileSync(
             'git',
             ['ls-files', '--cached', '--others', '--exclude-standard'],
-            { cwd: root, encoding: 'utf8', maxBuffer: 64 << 20, timeout: 15_000, stdio: ['ignore', 'pipe', 'ignore'] },
+            { cwd: root, encoding: 'utf8', maxBuffer: 64 << 20, timeout: 15_000 },
         )
             .split('\n')
             .filter(Boolean);

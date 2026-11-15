@@ -48,14 +48,14 @@ describe('selectPrTarget（PR 建到哪个仓库）', () => {
 
     it('没有 upstream 时建到 origin 本身，head 不加前缀', () => {
         expect(selectPrTarget(forkOrigin, null)).toEqual({
-            repo: { owner: 'qlzhj03', repo: 'foliaData' },
+            repo: { owner: 'qlzhj03', repo: 'folia-sonnet' },
             headOwner: null,
         });
     });
 
     it('origin 和 upstream 是同一个仓库时不算 fork', () => {
         expect(selectPrTarget(forkOrigin, 'git@github.com:qlzhj03/folia-sonnet.git')).toEqual({
-            repo: { owner: 'qlzhj03', repo: 'foliaData' },
+            repo: { owner: 'qlzhj03', repo: 'folia-sonnet' },
             headOwner: null,
         });
     });
@@ -66,7 +66,7 @@ describe('selectPrTarget（PR 建到哪个仓库）', () => {
             headOwner: 'qlzhj03',
         });
         expect(selectPrTarget(forkOrigin, null, 'qlzhj03/folia-sonnet.git')).toEqual({
-            repo: { owner: 'qlzhj03', repo: 'foliaData' },
+            repo: { owner: 'qlzhj03', repo: 'folia-sonnet' },
             headOwner: null,
         });
     });

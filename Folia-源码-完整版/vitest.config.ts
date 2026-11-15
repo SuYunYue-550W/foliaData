@@ -40,6 +40,18 @@ export default defineConfig({
      */
     testTimeout: 20_000,
     /*
+     * hook 的超时是 vitest 单独一项，默认 10 秒，且不受上面的 testTimeout 影响。
+     *
+     * 全量跑时这两个 hook 会稳定踩到它：
+     *   - icuFolia.test.ts 的 beforeAll 要加载 jieba 词典与 HMM 表（构建期虚拟模块）；
+     *   - adminSecurity.test.ts 的 beforeEach 每次 vi.resetModules() 后重新 import 整个
+     *     sync-server 模块图。
+     * 单跑各自 2~3 秒，全量并行时被别的 worker 抢走 CPU 就超过 10 秒，报
+     * `Hook timed out in 10000ms`，但用例本身一个都没失败。放宽到 30 秒只影响加载阶段，
+     * 不会掩盖用例里的真挂死。
+     */
+    hookTimeout: 30_000,
+    /*
      * 限制并发，别让一千多个文件把 8 核抢穿。
      *
      * vitest 默认按 CPU 数量开 worker，每个 worker 还要自己加载模块图 + jsdom。

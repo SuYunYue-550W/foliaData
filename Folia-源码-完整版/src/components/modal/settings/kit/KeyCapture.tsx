@@ -10,12 +10,10 @@ import { useRowNaming } from './Row';
 // one: press it, then press the key. While it listens every key press is its own and no shortcut
 // of the app acts on it; modifier keys alone and a held key's repeats are waited through, Escape
 // gives up, a key the page refuses shows the reason under the field and the field keeps listening,
-// and leaving the field stops it. A field that records a whole combination reads the modifiers with
-// the key (`control+shift+p`) and shows every part as its own cap.
+// and leaving the field stops it.
 
 const CAP_CLASS = 'inline-grid h-[22px] min-w-6 place-items-center rounded-md px-1.5 font-mono text-[11px]';
 const QUIET_CAP_CLASS = `${CAP_CLASS} bg-[var(--st-fill)] text-[color:var(--st-t2)] shadow-[inset_0_0_0_1px_var(--st-line2)]`;
-const RAISED_CAP_CLASS = `${CAP_CLASS} bg-[var(--st-raise)] text-[color:var(--st-t1)] shadow-[0_1px_2px_rgba(0,0,0,0.2)]`;
 
 const Plus: React.FC = () => <span aria-hidden className="text-[11px] text-[color:var(--st-t3)]">+</span>;
 
@@ -39,10 +37,9 @@ export const Keys: React.FC<KeysProps> = ({ keys }) => (
 );
 
 type KeyCaptureProps = {
-    /** The key that is set, or null. A whole combination comes as `control+shift+p`. */
+    /** The key that is set, or null. */
     value: string | null;
-    /** Called with the key that was pressed, in lower case (a whole combination as `control+shift+p`), or
-     * with null when the key is cleared. */
+    /** Called with the key that was pressed, in lower case, or with null when the key is cleared. */
     onChange: (key: string | null) => void;
     /** Refuses a key and says why. */
     validate?: (key: string) => string | null;
@@ -50,11 +47,9 @@ type KeyCaptureProps = {
     prefix?: ReadonlyArray<string>;
     /** Reads the key a press means; the default is the press's `key` in lower case. */
     readKey?: (event: KeyboardEvent) => string;
-    /** Writes one part of the shown value; the default is that part in upper case. */
-    formatKey?: (part: string) => string;
 };
 
-export const KeyCapture: React.FC<KeyCaptureProps> = ({ value, onChange, validate, prefix, readKey, formatKey }) => {
+export const KeyCapture: React.FC<KeyCaptureProps> = ({ value, onChange, validate, prefix, readKey }) => {
     const { t } = useTranslation();
     const { labelId, hintId } = useRowNaming();
     const keysId = useId();
@@ -62,26 +57,11 @@ export const KeyCapture: React.FC<KeyCaptureProps> = ({ value, onChange, validat
     // The reason stays while its line folds away; `refused` is whether the line shows.
     const [reason, setReason] = useState('');
     const [refused, setRefused] = useState(false);
-    const parts = value ? value.split('+') : [];
 
     useEffect(() => {
         if (!listening) {
             return;
         }
-        // Records the press that ends the waiting; a refused key keeps the field listening.
-        const record = (event: KeyboardEvent) => {
-            const key = readKey ? readKey(event) : event.key.toLowerCase();
-            const refusal = validate?.(key);
-            if (refusal) {
-                setReason(refusal);
-                setRefused(true);
-                return;
-            }
-            onChange(key);
-            setListening(false);
-            setRefused(false);
-        };
-
         const handleKeyDown = (event: KeyboardEvent) => {
             // Capture phase, and it stops here: the app's own keys listen for exactly the kind of
             // press that is being recorded. The listeners put on `window` in this phase before this
@@ -99,38 +79,20 @@ export const KeyCapture: React.FC<KeyCaptureProps> = ({ value, onChange, validat
                 setRefused(false);
                 return;
             }
-            record(event);
-        };
-
-        // Alt+Space: Windows gives the Space keydown to its window menu (refused while this field
-        // records, see the effect below, but the keydown is consumed all the same), so only the
-        // release arrives. With Alt held, a released Space counts as the press.
-        const handleKeyUp = (event: KeyboardEvent) => {
-            if (event.key !== ' ' || !event.altKey) {
+            const key = readKey ? readKey(event) : event.key.toLowerCase();
+            const refusal = validate?.(key);
+            if (refusal) {
+                setReason(refusal);
+                setRefused(true);
                 return;
             }
-            event.preventDefault();
-            event.stopPropagation();
-            record(event);
+            onChange(key);
+            setListening(false);
+            setRefused(false);
         };
-
         window.addEventListener('keydown', handleKeyDown, true);
-        window.addEventListener('keyup', handleKeyUp, true);
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown, true);
-            window.removeEventListener('keyup', handleKeyUp, true);
-        };
+        return () => window.removeEventListener('keydown', handleKeyDown, true);
     }, [listening, onChange, readKey, validate]);
-
-    // The desktop app keeps Windows' window menu away from this window only while the field records
-    // (electron/windowSystemMenu.cjs), so Alt+Space stays the menu everywhere else.
-    useEffect(() => {
-        if (!listening) {
-            return;
-        }
-        window.electron?.setKeyCaptureActive?.(true);
-        return () => window.electron?.setKeyCaptureActive?.(false);
-    }, [listening]);
 
     return (
         <div className="flex max-w-full flex-col items-end">
@@ -167,14 +129,7 @@ export const KeyCapture: React.FC<KeyCaptureProps> = ({ value, onChange, validat
                                 {t(listening ? 'options.settingsKeyCaptureListening' : 'options.settingsKeyCaptureEmpty')}
                             </span>
                         ) : (
-                            parts.map((part, index) => (
-                                <React.Fragment key={part}>
-                                    {index > 0 && <Plus />}
-                                    <kbd className={index === parts.length - 1 ? RAISED_CAP_CLASS : QUIET_CAP_CLASS}>
-                                        {formatKey ? formatKey(part) : part.toUpperCase()}
-                                    </kbd>
-                                </React.Fragment>
-                            ))
+                            <kbd className={`${CAP_CLASS} bg-[var(--st-raise)] text-[color:var(--st-t1)] shadow-[0_1px_2px_rgba(0,0,0,0.2)]`}>{value.toUpperCase()}</kbd>
                         )}
                     </span>
                 </button>

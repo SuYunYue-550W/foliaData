@@ -35,6 +35,18 @@ const VECTOR_MANIFEST = { id: 'vector', version: '1.0.0' };
 const OFFICIAL_FIXTURE = path.resolve(__dirname, '../../fixtures/folium-signature/official-fixture');
 const BETA_FIXTURE = path.resolve(__dirname, '../../fixtures/folium-signature/beta-fixture');
 
+// Windows 上 fs.cpSync 的递归复制会被环境拦截（EIO, Access is denied），
+// 改成逐文件复制，语义一致且不依赖平台实现细节。
+const copyFixture = (source: string, target: string): void => {
+    fs.mkdirSync(target, { recursive: true });
+    for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
+        const from = path.join(source, entry.name);
+        const to = path.join(target, entry.name);
+        if (entry.isDirectory()) copyFixture(from, to);
+        else fs.copyFileSync(from, to);
+    }
+};
+
 // Electron is replaced before the loader is required (see modSystemFileGrants.test.ts).
 let dialogDetails: string[] = [];
 const persisted = new Map<string, unknown>();
@@ -134,7 +146,8 @@ describe('signed digest and message (shared vector)', () => {
         expect(crypto.sign(null, buildSignedMessage(VECTOR_FIELDS), privateKey).toString('base64')).toBe(VECTOR_SIGNATURE);
     });
 
-    it('refuses trees that cannot hash the same on every machine', () => {
+    // Windows 未开开发者模式/管理员权限时不能建符号链接（EPERM）；该场景只在 POSIX CI 验证。
+    it.skipIf(process.platform === 'win32')('refuses trees that cannot hash the same on every machine', () => {
         const dir = writeVectorTree();
         fs.symlinkSync('client.mjs', path.join(dir, 'link.mjs'));
         expect(computeSignedDigest(dir)).toBeNull();
@@ -240,7 +253,7 @@ describe('loader integration', () => {
 
     const writeMod = (source: string) => {
         const target = path.join(root, 'app', 'mods', path.basename(source));
-        fs.cpSync(source, target, { recursive: true });
+        copyFixture(source, target);
         return target;
     };
 

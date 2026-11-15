@@ -89,10 +89,8 @@ const getSearchHistorySnapshot = (): NavigationHistoryState['search'] => {
     const searchState = useSearchNavigationStore.getState();
     return searchState.isSearchOpen
         ? {
-            // 记下的是搜出当前结果的词：恢复时按它查缓存，输入框里没提交的字查不到。
-            query: searchState.submittedQuery,
+            query: searchState.searchQuery,
             sourceTab: searchState.searchSourceTab,
-            kind: searchState.searchKind,
             returnView: searchState.searchReturnView,
         }
         : null;
@@ -488,8 +486,7 @@ export function useAppNavigation() {
         returnView?: SearchReturnView;
     }) => {
         useCollectionNavigationStore.getState().clear();
-        // 搜索先提交、再压历史：种类按提交时定下的记（来源搜不到的种类已退回单曲）。
-        const search = { query, sourceTab, kind: useSearchNavigationStore.getState().searchKind, returnView };
+        const search = { query, sourceTab, returnView };
         pushNavigationState({
             view: 'home',
             replace,

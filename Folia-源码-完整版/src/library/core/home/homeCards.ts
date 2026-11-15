@@ -157,10 +157,3 @@ export const onlineCardCollection = (card: LibraryHomeCard): Record<string, unkn
         ? { ...(card.raw as Record<string, unknown>), type: card.type }
         : { ...card }
 );
-
-
-// [fork-compat] 来自上游 v0.7.28：电台卡片判定（homeSpecialCards.ts 引用）。
-// 只依赖本文件已有的 ProviderCollection 类型，保持 fork 其余实现不变。
-export const isStationCard = (card: Pick<LibraryHomeCard, 'raw'>): boolean => (
-    Boolean((card.raw as ProviderCollection | undefined)?.personalFm?.station)
-);

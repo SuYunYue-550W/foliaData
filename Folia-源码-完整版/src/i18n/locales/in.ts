@@ -6657,6 +6657,14 @@ export default {
     "sittingReminder": "Pengingat istirahat",
     "sittingReminderNote": "Setelah total waktu mendengarkan mencapai batas, hewan peliharaan mengingatkan untuk beristirahat; jeda tidak mengatur ulang",
     "sittingReminderInterval": "Interval pengingat",
-    "sittingReminderTip": "Sudah lama mendengarkan, waktunya istirahat sejenak"
+    "sittingReminderTip": "Sudah lama mendengarkan, waktunya istirahat sejenak",
+    "roam": "Jelajah layar",
+    "roamNote": "Saat menganggur, paus berjalan sendiri di layar (memantul di tepi, menempel di sudut). Catatan: fitur ini dapat menutupi kontrol antarmuka dan masih ada masalah tampilan pada beberapa kondisi; sebaiknya tetap nonaktif dan aktifkan hanya untuk melihatnya bergerak",
+    "roamSpeed": "Kecepatan jelajah",
+    "alwaysOnTop": "Selalu di atas",
+    "alwaysOnTopNote": "Jika aktif, paus tetap berada di atas segalanya meski tertutup jendela modal; jika nonaktif, paus otomatis tersembunyi saat tertutup agar tidak menghalangi tombol",
+    "floatMode": "Mode jendela mengambang",
+    "floatModeNote": "Menempatkan paus pada overlay tingkat sistem agar tetap terlihat, dapat digeser, dan dapat disentuh di atas aplikasi lain (layar utama, obrolan, game). Memerlukan izin 'Tampilkan di atas aplikasi lain'; saat aktif, paus di dalam aplikasi otomatis disembunyikan agar tidak dobel",
+    "floatNeedPermission": "Berikan izin 'Tampilkan di atas aplikasi lain' di pengaturan sistem terlebih dahulu, lalu aktifkan mode mengambang"
   },
 } as const;

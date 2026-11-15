@@ -21,7 +21,6 @@ import { rerunLyricsTransform } from '@/services/hostExtensionHooks';
 import { resolveFoliumSongRef, toFoliumLines, toFoliumSong } from '../folium/dto';
 import { emitFoliumEvent } from '../folium/events';
 import { registerFoliumHostActions } from '../folium/services';
-import { stepFoliumHostBack } from './hostBack';
 import { showRefreshedLyrics } from './hostEvents';
 import { registerFoliumQueueWriter, replaceFoliumQueue } from './queue/hostQueueReplace';
 
@@ -48,11 +47,6 @@ export interface FoliumAppActions {
     enqueue: (song: SongResult) => void;
     navigateToPlayer: () => void;
     navigateToHome: () => void;
-    /** Folium 1.9: the in-app back of the player, the wall, a collection page and the search page (hostBack.ts). */
-    navigateBackFromPlayer: () => void;
-    navigateBackFromLattice: () => void;
-    backCollection: () => void;
-    closeSearchView: () => void;
     shuffleQueue: () => void;
     toggleLike: () => void | Promise<void>;
     openVolume: () => void;
@@ -159,12 +153,6 @@ export const useFoliumHostActions = (actions: FoliumAppActions) => {
             },
             navigate: (target) => (target === 'player' ? actionsRef.current.navigateToPlayer() : actionsRef.current.navigateToHome()),
             openVolume: () => actionsRef.current.openVolume(),
-            back: () => stepFoliumHostBack({
-                backFromPlayer: () => actionsRef.current.navigateBackFromPlayer(),
-                backFromWall: () => actionsRef.current.navigateBackFromLattice(),
-                backCollection: () => actionsRef.current.backCollection(),
-                closeSearch: () => actionsRef.current.closeSearchView(),
-            }),
             getLyricLines: () => toFoliumLines(selectDisplayLyrics(usePlaybackStore.getState())?.lines),
             refreshLyrics: () => {
                 // While the song's lyrics are still loading there is nothing finished to run on.

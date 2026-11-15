@@ -2,8 +2,8 @@
 
 全屏沉浸式歌词播放器 **Folia** 的整合增强版。基于 Folia-major 0.7.25，叠加色散玻璃导航条与自研 **microRender** GPU 调度微内核，提供 Windows 与 Android 双端构建。
 
-> **当前版本：`v0.7.29`（自编译完整版，2026-11-15）。**
-> 本版安装包由**本仓库源码在本机真实编译**，包含自研的色散玻璃导航条与 microRender GPU 调度微内核；桌面与安卓的「检查更新」均指向本仓库 Releases。上一版 v0.7.28 使用上游官方二进制的限制至此解除。
+> **当前版本：`v0.7.30`（稳定修复版，2026-11-15）。**
+> 本版回到可完整类型检查与单元测试的健康代码基线，由**本仓库源码在本机真实编译**，包含自研的色散玻璃导航条与 microRender GPU 调度微内核；桌面与安卓的「检查更新」均指向本仓库 Releases。v0.7.28 的文件级上游同步因造成源码契约错配已撤销，详见 `CHANGELOG.md`。
 > v0.7.28 的上游同步清单见 [`上游同步说明-v0.7.28.md`](上游同步说明-v0.7.28.md)，版本记录见 [`CHANGELOG.md`](CHANGELOG.md)，出包与发布步骤见 [`release-manifests/构建与发布.md`](release-manifests/构建与发布.md)。
 
 > 本仓库由维护者独立整理上传。上传前已移除原发布渠道的更新地址、旧仓库来源指向与原项目社区群信息；**软件更新源现统一指向本仓库的 Releases**。
@@ -15,8 +15,8 @@
 
 | 项 | 内容 |
 |---|---|
-| 基础项目 | Folia（`folia-major`）v0.7.25，源码已增量同步至上游 v0.7.28 |
-| 当前版本 | `0.7.29`（`package.json` 的 `version` / `displayVersion`；安卓 `versionCode` `7029100`） |
+| 基础项目 | Folia（`folia-major`）v0.7.25 的 `folia-sonnet` fork；v0.7.30 起回到健康基线 |
+| 当前版本 | `0.7.30`（`package.json` 的 `version` / `displayVersion`；安卓 `versionCode` `7030100`） |
 | 定位 | Lyrics Reimagine —— 桌面 + 移动端的在线音乐播放与全屏歌词可视化 |
 | 技术栈 | React 19 + TypeScript 6 + Vite 8；three / React Three Fiber / pixi.js / framer-motion / animejs；桌面 Electron 43，移动 Capacitor 8 |
 | 规模 | 28 个可视化模式 + 6 种背景模式；`src/` 下约 2790 个 TS/TSX 文件 |
@@ -26,7 +26,9 @@
 
 ---
 
-## 二、v0.7.28 同步了什么
+## 二、v0.7.28 同步了什么（历史记录）
+
+> **状态更新（v0.7.30）**：这次文件级增量同步已撤销。它把「上游 v0.7.28 新版引用方」与「fork 旧版契约定义」混进同一棵源码树，造成 `tsc --noEmit` 1092 条错误、单测 476 个用例失败；实测把 707 个差异文件全部换成上游版也只能降到 865 条，而两个未混血基线本身几乎零错误。故回到初始健康基线，以下清单保留为历史记录；后续再同步上游需做完整三方合并，不能文件级覆盖。
 
 | 来源 | 版本 | 主要内容 |
 |---|---|---|
@@ -132,7 +134,7 @@ npm run build:android:debug   # Android debug APK
 
 ---
 
-## 七、软件更新机制（现指向本仓库，v0.7.29 已生效）
+## 七、软件更新机制（现指向本仓库，v0.7.30 继续生效）
 
 | 端 | 机制 | 地址 |
 |---|---|---|
@@ -144,9 +146,9 @@ npm run build:android:debug   # Android debug APK
 
 ```json
 {
-  "version": "0.7.29",
-  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.29/Folia-Android-0.7.29.apk",
-  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.29",
+  "version": "0.7.30",
+  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.30/Folia-Android-0.7.30.apk",
+  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.30",
   "notes": "更新说明",
   "published_at": "2026-11-15T05:50:37.167Z",
   "size": 124079060
@@ -160,7 +162,18 @@ npm run build:android:debug   # Android debug APK
 
 ## 八、交付物（Release 附件）
 
-### v0.7.29（当前版本 · 自编译完整版）
+### v0.7.30（当前版本 · 稳定修复版）
+
+| 文件 | 体积 | 说明 |
+|---|---:|---|
+| `Folia-Setup-0.7.30.exe` | 见 Release 附件 | 本仓库源码编译的 Windows NSIS 安装包，未做代码签名 |
+| `Folia-Android-0.7.30.apk` | 见 Release 附件 | 本仓库源码编译的 Android release 包，`Folia Whale Pet` 证书签名，`versionCode` 7030100 |
+| `latest.yml` | — | 桌面端更新清单（含 SHA-512） |
+| `update.json` | — | 安卓端更新清单 |
+
+两个包均内含本仓库的更新地址；自研的色散玻璃导航条与 microRender 微内核都在包内。
+
+### v0.7.29（历史版本 · 自编译完整版）
 
 | 文件 | 体积 | 说明 |
 |---|---:|---|
