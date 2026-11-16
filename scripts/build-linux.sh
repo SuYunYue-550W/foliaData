@@ -109,6 +109,10 @@ node - "$PKG" "$OUT" "$TARGETS" <<'NODE'
 const fs = require('fs');
 const [pkgPath, outDir, targets] = process.argv.slice(2);
 const config = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+// fpm（rpm/deb）打包要求 metadata 有 homepage，否则报 "Please specify project homepage"；
+// repository 顺带补上消掉 electron-builder 的仓库探测警告。只在构建期注入，trap 退出时恢复。
+config.homepage = 'https://github.com/SuYunYue-550W/foliaData';
+config.repository = { type: 'git', url: 'git+https://github.com/SuYunYue-550W/foliaData.git' };
 // electron-builder 在裁剪语言包时会批量删除 .pak，某些受限沙箱会拦截；
 // 置空后它跳过裁剪（Linux 包体积略大，但构建可靠）。
 config.build.electronLanguages = [];
