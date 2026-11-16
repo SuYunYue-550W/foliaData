@@ -2,8 +2,8 @@
 
 全屏沉浸式歌词播放器 **Folia** 的整合增强版。基于 Folia-major 0.7.25，叠加色散玻璃导航条与自研 **microRender** GPU 调度微内核，提供 Windows 与 Android 双端构建。
 
-> **当前版本：`v0.7.32`（Apple Music 双端登录与音质设置版，2026-11-16）。**
-> 本版由**本仓库源码在本机真实编译**，把 Apple Music 从桌面端扩展到 Android（原生 WebView 宿主），修好登录入口要点两次的问题，并把音质偏好搬进设置弹窗重新编排；桌面与安卓的「检查更新」均指向本仓库 Releases。v0.7.28 的文件级上游同步因造成源码契约错配已撤销，本版 Apple Music 采用定点契约适配而非文件级覆盖，详见 `CHANGELOG.md`。
+> **当前版本：`v0.7.33`（启动卡住修复与新平台构建版，2026-11-16）。**
+> 本版由**本仓库源码在本机真实编译**，修复 Windows 打开后停在 Folia logo 加载页、永不进入主界面的问题；Linux 构建扩展到 ARM64，HarmonyOS 壳工程补齐到可在 DevEco 中构建的结构。桌面与安卓的「检查更新」均指向本仓库 Releases。v0.7.32 的 Apple Music 双端登录与音质设置改动全部保留，详见 `CHANGELOG.md`。
 > v0.7.28 的上游同步清单见 [`上游同步说明-v0.7.28.md`](上游同步说明-v0.7.28.md)，版本记录见 [`CHANGELOG.md`](CHANGELOG.md)，出包与发布步骤见 [`release-manifests/构建与发布.md`](release-manifests/构建与发布.md)。
 
 > 本仓库由维护者独立整理上传。上传前已移除原发布渠道的更新地址、旧仓库来源指向与原项目社区群信息；**软件更新源现统一指向本仓库的 Releases**。
@@ -167,23 +167,26 @@ npm run build:android:debug   # Android debug APK
 
 ## 八、交付物（Release 附件）
 
-### v0.7.32（当前版本 · Apple Music 双端登录与音质设置版）
+### v0.7.33（当前版本 · 启动卡住修复与新平台构建版）
+
+| 文件 | 体积 | 说明 |
+|---|---:|---|
+| `Folia-Setup-0.7.33.exe` | 见 Release 附件 | 本仓库源码编译的 Windows NSIS 安装包，含启动卡死修复与 Apple Music WebView2 原生宿主，未做代码签名 |
+| `Folia-Android-0.7.33.apk` | 见 Release 附件 | 本仓库源码编译的 Android release 包，`Folia Whale Pet` 证书签名，`versionCode` 7031300，含 Apple Music 原生 WebView 宿主 |
+| `latest.yml` | — | 桌面端更新清单（含 SHA-512） |
+| `update.json` | — | 安卓端更新清单 |
+
+**本版修复 Windows 启动卡在 Folia logo 加载页**：`index.tsx` 顶层副作用（microRender / 调试 / 限帧等）任一同步抛错曾中断 bootstrap 加载，使 React 永不挂载、遮罩无法移除。现用两道独立护栏——`index.html` 内联 12 秒看门狗强制摘遮罩 + 诊断标记，`index.tsx` 顶部 `queueMicrotask` 排队 bootstrap；见 `test/unit/startup/splashBootGuard.test.ts`。
+
+同时：Linux 构建 workflow 支持 x64 + ARM64 双架构（MNN 各架构本机编译，v0.7.32 已实测 8 个包全绿）；HarmonyOS 壳工程补齐标准构建文件并修正 ArkTS 严格模式写法（仍需 DevEco SDK 才能出 HAP）。两个包内含本仓库更新地址，自研色散玻璃导航条与 microRender 微内核都在包内。**Apple Music 在桌面与 Android 均可用**（需订阅账号；网页侧最高 AAC，不支持 Lossless/Hi-Res/对象式 Dolby；Linux / 纯网页不提供）。
+
+### v0.7.32（历史版本 · Apple Music 双端登录与音质设置版）
 
 | 文件 | 体积 | 说明 |
 |---|---:|---|
 | `Folia-Setup-0.7.32.exe` | 见 Release 附件 | 本仓库源码编译的 Windows NSIS 安装包，内含 Apple Music WebView2 原生宿主，未做代码签名 |
 | `Folia-Android-0.7.32.apk` | 见 Release 附件 | 本仓库源码编译的 Android release 包，`Folia Whale Pet` 证书签名，`versionCode` 7031200，含 Apple Music 原生 WebView 宿主 |
-| `latest.yml` | — | 桌面端更新清单（含 SHA-512） |
-| `update.json` | — | 安卓端更新清单 |
-
-两个包均内含本仓库的更新地址；自研的色散玻璃导航条与 microRender 微内核都在包内。
-**Apple Music 在桌面与 Android 均可用**：音频由 Apple 官方页面出声，需要订阅账号；Linux / 纯网页不提供。网页侧最高 AAC，不支持 Lossless / Hi-Res / 对象式 Dolby，请用官方客户端。
-
-v0.7.32 交付包之后追加的修复（已进源码，随下一次打包生效）：
-
-- **Windows 启动卡在 Folia logo 加载页**：根因是 `index.tsx` 顶层副作用（microRender / 调试 / 限帧等）任一同步抛错会中断 `import('./bootstrap')`，React 永不挂载、遮罩无法移除。修复为 `index.html` 内联看门狗（12 秒强制摘遮罩 + 诊断标记）与 `index.tsx` 顶部 `queueMicrotask` 排队 bootstrap 两道护栏，见 `test/unit/startup/splashBootGuard.test.ts`。
-- **Linux ARM64**：`build-linux.yml` 改为 x64（ubuntu-24.04）与 arm64（ubuntu-24.04-arm）双 job，MNN 运行时各架构本机编译。
-- **HarmonyOS 壳工程**：补齐 `hvigor/hvigor-config.json5`、模块级构建配置、混淆规则与包装器，修正 ArkTS 严格模式写法；仍需 DevEco SDK 才能编译出 HAP。
+| 4 个 Linux 包 | 见 Release 附件 | x64 与 arm64 各 tar.gz / deb / rpm / AppImage，云端构建实测 HTTP 200 |
 
 ### v0.7.31（历史版本 · Apple Music 与功能补齐版）
 

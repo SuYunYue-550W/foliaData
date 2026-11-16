@@ -1,5 +1,18 @@
 # 更新日志 / CHANGELOG
 
+## v0.7.33 · 2026-11-16
+
+**启动卡住修复与新平台构建版。** 由本仓库源码重新编译 Windows EXE 与 Android APK，修复部分 Windows 环境下打开后停在 Folia logo 加载页、永不进入主界面的问题；Linux 构建扩展到 ARM64；HarmonyOS 壳工程补齐到可在 DevEco 中 Sync/构建的结构。
+
+- **Windows 启动卡住（重点）**：根因是 `src/index.tsx` 的顶层副作用（`installConsoleLogCapture` / `installDebugModule` / 帧率限制器 / microRender 调度器等）任一同步抛错，会中断写在文件中段的 `void import('./bootstrap')`，使 React 永不挂载、`#app-splash` 遮罩永久停留（波形动画由纯内联脚本驱动仍在动，看起来像"卡住"而非崩溃）。两道互不依赖的护栏：
+  - 治本：`index.tsx` 顶部用 `queueMicrotask(() => { void import('./bootstrap'); })` 排队 bootstrap，微任务在所有同步初始化后执行（顺序不变），JS 语义保证即使中途抛错也已排队、仍会挂载 React。
+  - 兜底：`index.html` 内联看门狗（12 秒，晚于 bootstrap 内 8 秒兜底 4 秒），到点遮罩还在就走同一套淡出移除，并打 `data-app-splash-watchdog="1"` 诊断标记、暴露 `window.__foliaSplashWatchdogFired()`。
+  - 验证：`test/unit/startup/splashBootGuard.test.ts` 7 例（含确认修复打进 `dist/index.html`），`tsc` 与 `vite build` 通过。
+- **Linux 双架构**：`.github/workflows/build-linux.yml` 改为 `build-x64`（ubuntu-24.04）与 `build-arm64`（ubuntu-24.04-arm）两个独立 job，`workflow_dispatch` 可用 `arch` 选 `both`/`x64`/`arm64`；MNN 按 `arch === process.arch` 各架构本机编译，不交叉。此前 v0.7.32 已实测 x64 四种包云端全绿并上传 Release，本版工作流补上 ARM64，实测全绿、四个 arm64 包（tar.gz/deb/aarch64.rpm/AppImage）下载 HTTP 200。
+- **HarmonyOS 壳工程补齐**：新增 `hvigor/hvigor-config.json5`、`entry/build-profile.json5`、`entry/obfuscation-rules.txt`、`hvigorw.bat`、`.gitignore`、`local.properties.example`；修正 ArkTS 严格模式写法（`Record` 索引访问、`JSON.stringify as Object`、`EntryAbility` 导入 `Want`/`AbilityConstant`）；新增 `test/unit/harmony/harmonyBridgeContract.test.ts` 11 例钉住桥契约。**仍无 DevEco SDK，未编译出 HAP**，需在 SDK 环境首次构建并按报错微调 API 签名。
+- **构建链修复**：云端 Linux 构建修掉两处 CI 坑（ubuntu-24.04 的 `libasound2`→`libasound2t64` 探测、fpm 打 rpm 需构建期临时注入 `homepage`/`repository`）；workflow 从无效的复杂动态 matrix 改为两个显式 job。
+- 版本号升到 `0.7.33`，安卓 `versionCode` `7031300`；重新生成 `latest.yml` / `update.json`，更新源继续指向本仓库 Releases。
+
 ## v0.7.32 · 2026-11-16
 
 **Apple Music 双端登录与音质设置版。** 由本仓库源码重新编译 Windows EXE 与 Android APK，把 v0.7.31 只在桌面端可用的 Apple Music 扩展到 Android，修好登录入口要点两次的流程，并把音质偏好搬进设置弹窗。
