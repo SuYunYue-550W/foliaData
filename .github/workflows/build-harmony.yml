@@ -47,8 +47,8 @@ jobs:
 
       - name: Build HAP with hvigorw
         working-directory: harmony/folia
-        env:
-          DEVECO_SDK_HOME: ${{ env.DEVECO_SDK_HOME }}
+        # DEVECO_SDK_HOME 由自托管 runner 的环境直接提供，不要在这里显式赋值：
+        # 顶层未定义同名 env 时，${{ env.DEVECO_SDK_HOME }} 会求值为空，反而清掉 runner 的配置。
         run: |
           ./hvigorw assembleHap --mode module -p product=default --no-daemon
           mkdir -p "$GITHUB_WORKSPACE/harmony-out"
