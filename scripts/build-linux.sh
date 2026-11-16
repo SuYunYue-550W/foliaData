@@ -46,9 +46,24 @@ if [[ "$SKIP_DEPS" != 1 ]]; then
         sudo apt-get install -y -qq \
             build-essential cmake git curl wget ruby-dev \
             rpm libarchive-tools xz-utils zsync file \
-            libgtk-3-0 libnss3 libnspr4 libasound2 libgbm1 \
+            libgtk-3-0 libnss3 libnspr4 libgbm1 \
             libxss1 libxtst6 libx11-xcb1 libxcb-dri3-0 libdrm2 libatk-bridge2.0-0 \
             libatspi2.0-0 libcups2 libxrandr2 libxcomposite1 libxdamage1
+        # Ubuntu 24.04 起 ALSA 运行库由 libasound2 改名为 libasound2t64；
+        # 固定写死任一名字都会让另一代发行版的 apt 以 100 退出，这里按可用性探测。
+        alsa_pkg=""
+        for candidate in libasound2t64 libasound2; do
+            if apt-cache show "$candidate" >/dev/null 2>&1; then
+                alsa_pkg="$candidate"
+                break
+            fi
+        done
+        if [[ -n "$alsa_pkg" ]]; then
+            info "安装 ALSA 运行库：$alsa_pkg"
+            sudo apt-get install -y -qq "$alsa_pkg"
+        else
+            info "未找到 ALSA 运行库包，Electron 的音频设备可能无法工作"
+        fi
     elif command -v dnf >/dev/null; then
         sudo dnf install -y gcc-c++ cmake git ruby-devel rpm-build \
             libarchive xz zsync file gtk3 nss nspr alsa-lib libgbm libXScrnSaver \
