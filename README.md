@@ -134,7 +134,7 @@ npm run build:android:debug   # Android debug APK
 
 | 平台 | 入口 | 说明 |
 |---|---|---|
-| Linux（tar.gz / deb / rpm / AppImage） | `bash scripts/build-linux.sh` | **必须在 Linux 本机跑**（MNN 运行时拒绝交叉编译）；或 push `v*` 标签触发 `.github/workflows/build-linux.yml`，由 GitHub runner 构建并自动上传 Release。**v0.7.32 四种包已在云端构建并上传 Release，下载实测 HTTP 200** |
+| Linux（tar.gz / deb / rpm / AppImage） | `bash scripts/build-linux.sh` | **必须在 Linux 本机跑**（MNN 运行时拒绝交叉编译）；或 push `v*` 标签触发 `.github/workflows/build-linux.yml`，由 GitHub runner 构建并自动上传 Release。**v0.7.32 x64 四种包已在云端构建并上传 Release，下载实测 HTTP 200**；workflow 现支持 x64 + arm64 双架构（`workflow_dispatch` 可单选 `arch`），MNN 各架构本机编译 |
 | HarmonyOS NEXT | 见 [`harmony/README.md`](harmony/README.md) | ArkWeb 壳工程 + Capacitor 自定义平台桥（前端零改动）；需 DevEco Studio + SDK 编译 HAP，`.github/workflows/build-harmony.yml` 配好自托管 runner 自动发布。**当前为未编译验证的源码骨架**，详见该文档的诚实能力清单 |
 
 ---
@@ -178,6 +178,12 @@ npm run build:android:debug   # Android debug APK
 
 两个包均内含本仓库的更新地址；自研的色散玻璃导航条与 microRender 微内核都在包内。
 **Apple Music 在桌面与 Android 均可用**：音频由 Apple 官方页面出声，需要订阅账号；Linux / 纯网页不提供。网页侧最高 AAC，不支持 Lossless / Hi-Res / 对象式 Dolby，请用官方客户端。
+
+v0.7.32 交付包之后追加的修复（已进源码，随下一次打包生效）：
+
+- **Windows 启动卡在 Folia logo 加载页**：根因是 `index.tsx` 顶层副作用（microRender / 调试 / 限帧等）任一同步抛错会中断 `import('./bootstrap')`，React 永不挂载、遮罩无法移除。修复为 `index.html` 内联看门狗（12 秒强制摘遮罩 + 诊断标记）与 `index.tsx` 顶部 `queueMicrotask` 排队 bootstrap 两道护栏，见 `test/unit/startup/splashBootGuard.test.ts`。
+- **Linux ARM64**：`build-linux.yml` 改为 x64（ubuntu-24.04）与 arm64（ubuntu-24.04-arm）双 job，MNN 运行时各架构本机编译。
+- **HarmonyOS 壳工程**：补齐 `hvigor/hvigor-config.json5`、模块级构建配置、混淆规则与包装器，修正 ArkTS 严格模式写法；仍需 DevEco SDK 才能编译出 HAP。
 
 ### v0.7.31（历史版本 · Apple Music 与功能补齐版）
 
