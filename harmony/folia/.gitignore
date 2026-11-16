@@ -1,0 +1,21 @@
+# HarmonyOS 构建产物 / 本地缓存 / SDK 路径（不入库）
+/node_modules/
+/oh_modules/
+/build/
+/.preview/
+/entry/build/
+/entry/oh_modules/
+/.cxx/
+/local.properties
+
+# DevEco Sync 生成的真实包装器实现（体积大、按本机版本生成，不强制入库；
+# 若要在 CI 用自托管 runner 构建，可把生成的 hvigorw.real* 加入版本控制）
+/hvigorw.real
+/hvigorw.real.cmd
+/hvigorw.real.bat
+
+# 同步脚本写入的前端产物（从 Folia dist 复制，不入库）
+/entry/src/main/resources/rawfile/dist/
+
+*.log
+.DS_Store

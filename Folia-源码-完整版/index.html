@@ -282,6 +282,30 @@
           // 字体轮盘失败就保持静态词标。
         }
       })();
+
+      // 首屏遮罩看门狗（独立于任何 JS bundle 的最后一道保险）。
+      // 遮罩正常由 src/utils/appSplash.ts 在 React 挂载后移除，bootstrap 里还有一条 8 秒兜底。
+      // 但这两条都在 bundle 里：若 index.tsx 的顶层副作用（microRender / 调试 / 限帧等）
+      // 在 import('./bootstrap') 之前抛错，bundle 执行中断，兜底不会被设置，React 永不挂载，
+      // 遮罩就会永久停在首屏动画上——而这段内联脚本仍在跑，看起来像「卡在启动页」。
+      // 这里用纯内联定时器兜底：到点遮罩还在，就走同一套淡出把它摘掉，并打标记供诊断。
+      // 正常路径下 React 在几秒内挂载、8 秒兜底更早触发，看门狗到点时遮罩早已不存在，空操作。
+      (function () {
+        var WATCHDOG_MS = 12000; // 比 bootstrap 的 8s 兜底晚 4s，绝不干扰正常启动
+        var FADE_MS = 320;       // 与 #app-splash 的 transition 一致
+        window.__foliaSplashWatchdogFired = function () {
+          return document.documentElement.getAttribute('data-app-splash-watchdog') === '1';
+        };
+        window.setTimeout(function () {
+          var splash = document.getElementById('app-splash');
+          if (!splash) return; // 已正常移除（或 splash=0 / OBS 入口），无需兜底
+          // 若 bundle 根本没起来，root 会是空的；此时也把遮罩摘掉，至少不再是一张卡死的加载图。
+          document.documentElement.setAttribute('data-app-splash-watchdog', '1');
+          try { console.warn('[AppSplash] watchdog fired: JS bundle did not remove the splash in time'); } catch (e) {}
+          splash.classList.add('is-hiding');
+          window.setTimeout(function () { if (splash.parentNode) splash.parentNode.removeChild(splash); }, FADE_MS);
+        }, WATCHDOG_MS);
+      })();
     </script>
     <div id="root"></div>
     <script type="module" src="/src/index.tsx"></script>

@@ -35,6 +35,11 @@ React 前端 (dist)  ── registerPlugin() ──▶  capacitor-harmony-bridge
 | `entry/src/main/ets/entryability/EntryAbility.ets` | 应用入口，全屏窗口 |
 | `entry/src/main/resources/rawfile/capacitor-harmony-bridge.js` | Capacitor 自定义平台桥（注入到 HTML） |
 | `scripts/sync-web-assets.sh` | 构建前端 → 拷进 rawfile → 在 index.html 注入桥脚本 |
+| `hvigor/hvigor-config.json5` | Hvigor 版本与 `@ohos/hvigor-ohos-plugin` 依赖（API 12+ 必需，版本需按本机 DevEco 校准） |
+| `entry/build-profile.json5` | 模块级构建配置 + Release 混淆规则引用 |
+| `entry/obfuscation-rules.txt` | 保留桥方法名不被混淆（JS 侧按字符串调用） |
+| `hvigorw` / `hvigorw.bat` | 包装器转发占位，首次 Sync 后由 DevEco 替换为真实实现 |
+| `.gitignore` / `local.properties.example` | 忽略本地构建产物 / SDK 路径模板 |
 
 ## 三、能力状态（诚实清单）
 
@@ -51,9 +56,19 @@ React 前端 (dist)  ── registerPlugin() ──▶  capacitor-harmony-bridge
 1. 安装 DevEco Studio（5.0+）与 HarmonyOS SDK 5.0.0(12)。
 2. 在本机跑 `bash harmony/folia/scripts/sync-web-assets.sh`：构建 `dist` 并拷进 `rawfile/dist`，
    同时把桥脚本作为 `index.html` 的第一个 `<script>` 注入。
-3. 用 DevEco 打开 `harmony/folia`，首次打开会生成 `hvigorw` 包装器；`File > Sync and Refresh Project`。
+3. 用 DevEco 打开 `harmony/folia`，执行 `File > Sync and Refresh Project`。
+   - 首次 Sync 会用 `hvigor/hvigor-config.json5` 下载构建插件；若报版本不符，用 DevEco
+     新建一个 Empty Ability 工程，复制它的 `hvigor/hvigor-config.json5` 覆盖本文件再 Sync。
+   - Sync 会生成真实的 `hvigorw` / `hvigorw.bat` / `hvigor/hvigor-wrapper.js` 与 `local.properties`。
+     DevEco 生成的 `hvigorw.real*` 被 `.gitignore` 排除；若要让自托管 runner 的 CI 也能构建，
+     把这些真实包装器文件提交进仓库（workflow 会用 `./hvigorw`）。
 4. `Build > Build HAP(s)/APP(s)`，产物在 `entry/build/default/outputs/default/`。
+   命令行等价：`./hvigorw assembleHap --mode module -p product=default --no-daemon`。
 5. 真机（HarmonyOS NEXT）安装验证；签名需在 DevEco 里配置自动签名或手动证书。
+
+> ArkTS 严格模式提示：桥里对 `Record` 一律用索引访问（`o['text']`），`JSON.stringify` 对
+> interface 显式 `as Object`，`EntryAbility` 从 `@kit.AbilityKit` 导入 `Want`/`AbilityConstant`。
+> 这些已按 NEXT/API 12 的常见写法处理；个别 SDK 版本若仍有签名差异，按 DevEco 报错逐处微调。
 
 ## 五、自动发布
 

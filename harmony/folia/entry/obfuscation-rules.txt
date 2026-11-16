@@ -1,0 +1,19 @@
+# HarmonyOS 代码混淆规则（Release 构建启用）。
+# 壳工程自身没有敏感逻辑，主要保护桥方法名不被重命名——JS 侧按方法名字符串调用它们。
+-keep-property-name
+  foliaHarmonyInvoke
+  foliaHarmonyNative
+  __foliaHarmonyResolve
+  callbackId
+  pluginName
+  methodName
+  options
+  ok
+  value
+  error
+  code
+  message
+
+-keep-global-name
+  FoliaHarmonyBridge
+  EntryAbility

@@ -20,6 +20,15 @@ import { installHdrProjectionPreference } from './services/hdrProjection';
 // import { installCoverSizeAudit } from './services/debug/coverSizeSamples';
 // @ts-ignore
 globalThis.Buffer = Buffer;
+
+// 挂载 React 必须万无一失：下面的顶层副作用（microRender / 调试 / 限帧 / 手机适配等）任意一个
+// 若同步抛错，模块执行就会中断，写在文件中间的 `import('./bootstrap')` 便不会运行，React 永不
+// 挂载，index.html 的 #app-splash 遮罩也就永久停在首屏动画上（表现为「卡在启动页」）。
+// 用微任务在最顶部就把 bootstrap 排队：它在本轮全部同步初始化之后才执行（顺序不变，所有 shim
+// 都先装好），而 JS 语义保证即便中途有同步代码抛错，已排队的微任务依然会被清空执行。
+// 这是治本的一道；index.html 里另有一道纯内联看门狗兜底，两道都不依赖对方。
+queueMicrotask(() => { void import('./bootstrap'); });
+
 // First, so the debug overlay's console tab has the startup lines too - they are where a failure
 // to reach a library or restore a session shows up.
 installConsoleLogCapture();
@@ -110,7 +119,7 @@ installDeviceProfilePreference();
 // 亮度由它自己那 5 秒倒计时带过去 —— 那时 React 还没挂载，界面上没人看着。
 installHdrProjectionPreference();
 
-void import('./bootstrap');
+// bootstrap 已在本文件顶部用 queueMicrotask 排队挂载（见开头说明），此处不再重复 import。
 
 // 鲸鱼开屏：全屏纯黑 + 中央随机鲸鱼动画，播完鲸鱼飞到桌宠位置；
 // 桌宠提前挂载并静默预载同一段动画，飞到位后 takeOver 瞬间接管（视觉连续，无跳变）

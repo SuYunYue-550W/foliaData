@@ -19,18 +19,30 @@ on:
         required: false
         default: 'tar.gz,deb,rpm,AppImage'
         type: string
+      arch:
+        description: '构建哪种架构'
+        required: false
+        default: 'both'
+        type: choice
+        options: [both, x64, arm64]
 
 permissions:
   contents: write
 
-concurrency:
-  group: linux-build-${{ github.ref }}
-  cancel-in-progress: true
+# 不用 concurrency：x64 / arm64 两个 job 属同一次 run，若共用带 cancel-in-progress 的
+# group 会互相取消。重复触发由 GitHub 自己排队即可。
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    # MNN 运行时必须在目标架构本机构建（buildMnnRuntime.mjs 要求 arch === process.arch），
+    # 所以 arm64 用 GitHub 免费提供的 ubuntu-24.04-arm runner，不能交叉编译。
+    strategy:
+      fail-fast: false
+      # workflow_dispatch 可用 arch 输入只跑一种：both / x64 / arm64。
+      # push 标签时 inputs.arch 为空，默认 both 全跑。
+      matrix: ${{ (inputs.arch == 'x64' && fromJSON('[{"arch":"x64","runner":"ubuntu-24.04"}]')) || (inputs.arch == 'arm64' && fromJSON('[{"arch":"arm64","runner":"ubuntu-24.04-arm"}]')) || fromJSON('[{"arch":"x64","runner":"ubuntu-24.04"},{"arch":"arm64","runner":"ubuntu-24.04-arm"}]') }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,7 +59,7 @@ jobs:
       - name: Build Linux packages
         env:
           TARGETS: ${{ inputs.targets || 'tar.gz,deb,rpm,AppImage' }}
-          ARCH: x64
+          ARCH: ${{ matrix.arch }}
           SKIP_DEPS: '0'
         run: bash scripts/build-linux.sh
 

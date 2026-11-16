@@ -55,7 +55,9 @@ export class FoliaHarmonyBridge {
   }
 
   private reply(reply: BridgeReply): void {
-    const script = `window.__foliaHarmonyResolve(${JSON.stringify(reply)});`;
+    // ArkTS 严格模式下 JSON.stringify 对自定义 interface 需要显式转成 Object/ESObject。
+    const payload: string = JSON.stringify(reply as Object);
+    const script: string = `window.__foliaHarmonyResolve(${payload});`;
     try {
       this.controller.runJavaScript(script);
     } catch (e) {
@@ -93,12 +95,16 @@ export class FoliaHarmonyBridge {
   private registerHandlers(): void {
     // ── 真正实现了的：无需厂商私有 API、HarmonyOS 标准能力能覆盖 ──
     this.handlers.set('FoliaNative.showToast', async (o) => {
-      const text = typeof o.text === 'string' ? o.text.slice(0, 500) : '';
-      promptAction.showToast({ message: text, duration: o.long === true ? 3500 : 2000 });
+      // ArkTS 严格模式：Record 只能用索引访问，且取出的值需收窄为具体类型再调方法。
+      const raw: Object | undefined = o['text'];
+      const text: string = typeof raw === 'string' ? raw.slice(0, 500) : '';
+      const long: Object | undefined = o['long'];
+      promptAction.showToast({ message: text, duration: long === true ? 3500 : 2000 });
       return {};
     });
     this.handlers.set('FoliaNative.setScreenAwake', async (o) => {
-      this.awake = o.awake === true;
+      const awake: Object | undefined = o['awake'];
+      this.awake = awake === true;
       // HarmonyOS 用窗口的保持亮屏标志；Ability 的 windowStage 在 EntryAbility 里设置。
       return { awake: this.awake };
     });

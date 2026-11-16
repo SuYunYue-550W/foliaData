@@ -1,0 +1,38 @@
+{
+  "apiType": "stageMode",
+  "buildOption": {
+    // ArkTS 严格模式：桥里的 Record 访问等若需放宽，可在这里按需调整。
+    // 保持默认严格，编译报错时按 DevEco 的提示逐处修正，而非一上来就关掉。
+    "arkOptions": {}
+  },
+  "buildOptionSet": [
+    {
+      "name": "release",
+      "arkOptions": {
+        "obfuscation": {
+          "ruleOptions": {
+            "enable": true,
+            "files": ["./obfuscation-rules.txt"]
+          }
+        }
+      }
+    },
+    {
+      "name": "debug",
+      "arkOptions": {
+        "obfuscation": {
+          "ruleOptions": {
+            "enable": false,
+            "files": ["./obfuscation-rules.txt"]
+          }
+        }
+      }
+    }
+  ],
+  "targets": [
+    {
+      "name": "default",
+      "runtimeOS": "HarmonyOS"
+    }
+  ]
+}
