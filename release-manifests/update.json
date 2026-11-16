@@ -1,15 +1,15 @@
 {
-  "version": "0.7.32",
-  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.32/Folia-Android-0.7.32.apk",
-  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.32",
-  "notes": "## v0.7.32 · Apple Music 双端登录与音质设置版\n\n本版由本仓库源码在本机真实编译，Apple Music 扩展到 Android 双端可用，修好登录入口两步流程，并把音质偏好搬进设置弹窗；桌面与安卓的「检查更新」继续指向本仓库 Releases。\n\n- **Apple Music 双端**：v0.7.31 的桌面 companion 之外，安卓新增原生 WebView 宿主（FoliaAppleMusicPlugin / AppleMusicHostActivity / AppleMusicHoldService），\n  页面逻辑从桌面 companion 忠实移植成单一自包含 TS 运行时，两个平台共用同一套档位与操作；登录入口选中即开，不再要点两次。\n- **音质与设置**：播放控制页新增独立「在线音质」组，按当前平台档位画下拉框（与账户页共用档位表），Apple Music 这类外部播放平台如实说明无需假选项；\n  安卓 YouTube Music 的 Premium ultra（约 256 kbit/s）档打通。\n- 版本号 0.7.32，安卓 versionCode 7031200（高于上一版，覆盖安装不会判为降级）。\n- 全套门禁通过：tsc（8GB 堆）0 错误、全量单测、UI / 体积 / 版本 / 密钥 / 契约检查、界面预览与 layoutCheck。\n\n逐项记录见仓库 CHANGELOG.md 与 release-manifests/构建与发布.md。",
-  "published_at": "2026-11-16T04:12:06.630Z",
-  "size": 124017893,
+  "version": "0.7.33",
+  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.33/Folia-Android-0.7.33.apk",
+  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.33",
+  "notes": "## v0.7.33 · 启动卡住修复与新平台构建版\n\n本版由本仓库源码在本机真实编译，修复 Windows 启动卡在 Folia logo 加载页的问题，并为 Linux 增加 ARM64 构建、补齐 HarmonyOS 壳工程；桌面与安卓的「检查更新」继续指向本仓库 Releases。\n\n- **Windows 启动卡住修复**：`index.tsx` 顶层副作用（microRender / 调试 / 限帧等）任一同步抛错会中断 bootstrap 的加载，导致 React 永不挂载、首屏遮罩永久停留。现改为顶部用 queueMicrotask 排队 bootstrap（同步抛错也挡不住微任务），`index.html` 另加纯内联 12 秒看门狗强制摘遮罩并打诊断标记，两道护栏互不依赖。\n- **Linux 双架构**：`.github/workflows/build-linux.yml` 改为 x64（ubuntu-24.04）与 ARM64（ubuntu-24.04-arm）双 job，MNN 运行时各架构本机编译；v0.7.32 已实测两种架构共 8 个包全部上传 Release、下载 HTTP 200。\n- **HarmonyOS 壳工程补齐**：新增 hvigor 配置、模块级构建配置、混淆规则与包装器，修正 ArkTS 严格模式写法与桥契约；仍需 DevEco SDK 才能编译 HAP。\n- 版本号 0.7.33，安卓 versionCode 7031300（高于上一版，覆盖安装不会判为降级）。\n- 验证：tsc（8GB 堆）0 错误、vite build 通过、启动护栏与桥契约单测全绿。\n\n逐项记录见仓库 CHANGELOG.md 与 release-manifests/构建与发布.md。",
+  "published_at": "2026-11-16T15:11:25.772Z",
+  "size": 124018885,
   "assets": [
     {
-      "name": "Folia-Android-0.7.32.apk",
-      "browser_download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.32/Folia-Android-0.7.32.apk",
-      "size": 124017893
+      "name": "Folia-Android-0.7.33.apk",
+      "browser_download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.33/Folia-Android-0.7.33.apk",
+      "size": 124018885
     }
   ]
 }
