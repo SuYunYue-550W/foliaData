@@ -130,6 +130,13 @@ npm run build:android:debug   # Android debug APK
 
 完整的环境要求、出包与发布步骤见 [`release-manifests/构建与发布.md`](release-manifests/构建与发布.md)。
 
+### 新增平台的构建入口（v0.7.32 配套）
+
+| 平台 | 入口 | 说明 |
+|---|---|---|
+| Linux（tar.gz / deb / rpm / AppImage） | `bash scripts/build-linux.sh` | **必须在 Linux 本机跑**（MNN 运行时拒绝交叉编译）；或 push `v*` 标签触发 `.github/workflows/build-linux.yml`，由 GitHub runner 构建并自动上传 Release |
+| HarmonyOS NEXT | 见 [`harmony/README.md`](harmony/README.md) | ArkWeb 壳工程 + Capacitor 自定义平台桥（前端零改动）；需 DevEco Studio + SDK 编译 HAP，`.github/workflows/build-harmony.yml` 配好自托管 runner 自动发布。**当前为未编译验证的源码骨架**，详见该文档的诚实能力清单 |
+
 ---
 
 ## 七、软件更新机制（现指向本仓库，v0.7.32 继续生效）

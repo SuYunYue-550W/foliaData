@@ -1,0 +1,11 @@
+{
+  "app": {
+    "bundleName": "top.izuna.foliamajor.harmony",
+    "vendor": "foliaData",
+    "versionCode": 7031200,
+    "versionName": "0.7.32",
+    "icon": "$media:app_icon",
+    "label": "$string:app_name",
+    "description": "$string:app_desc"
+  }
+}

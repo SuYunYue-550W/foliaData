@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# DevEco Studio 新建 HarmonyOS 工程时会生成完整的 hvigorw / hvigorw.bat 包装器。
+# 本仓库只提供工程源码与配置，首次在 DevEco 中打开工程时请选择 File > Sync 生成包装器，
+# 再把生成的 hvigorw/hvigorw.bat 提交进仓库以让 CI 可用。
+set -euo pipefail
+if [ -f "$PWD/hvigorw.real" ]; then
+  exec ./hvigorw.real "$@"
+fi
+echo "hvigorw wrapper 尚未生成：请用 DevEco Studio 打开本工程并同步一次（File > Sync and Refresh Project）" >&2
+exit 1

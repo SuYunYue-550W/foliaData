@@ -29,7 +29,10 @@ Thumbs.db
 # ── 打包时按需下载的第三方二进制（构建脚本会自动拉取并校验 SHA-256）──
 **/models/*.bin
 **/build/ffmpeg/*/ffmpeg.exe
+**/build/ffmpeg/*/ffmpeg
 **/build/ffmpeg/*/*.dll
+**/build/ffmpeg/*/BUNDLE-INFO.txt
+**/build/ffmpeg/*/share/
 **/build/apple-music-native/
 __pycache__/
 dev-dist/

@@ -1,0 +1,8 @@
+{
+  "string": [
+    { "name": "app_name", "value": "Folia 整合增强版" },
+    { "name": "app_desc", "value": "全屏沉浸式歌词播放器（鸿蒙版）" },
+    { "name": "module_desc", "value": "Folia 鸿蒙主模块" },
+    { "name": "EntryAbility_desc", "value": "Folia 主入口" }
+  ]
+}

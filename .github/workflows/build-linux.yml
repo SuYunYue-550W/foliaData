@@ -1,0 +1,85 @@
+name: Build Linux packages
+
+# Linux 包必须在真正的 Linux runner 上构建：MNN 运行时是从 pin 住的 commit 用 CMake+gcc
+# 编出来的，build/buildMnnRuntime.mjs 明确拒绝在别的平台交叉编译。Windows 本机打包
+# 只能出 EXE，所以这里交给 GitHub 的 ubuntu runner。
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要上传到的 Release tag（留空则用当前分支版本 vX.Y.Z）'
+        required: false
+        type: string
+      targets:
+        description: 'electron-builder 目标，逗号分隔'
+        required: false
+        default: 'tar.gz,deb,rpm,AppImage'
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: linux-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Folia-源码-完整版/package-lock.json
+
+      - name: Build Linux packages
+        env:
+          TARGETS: ${{ inputs.targets || 'tar.gz,deb,rpm,AppImage' }}
+          ARCH: x64
+          SKIP_DEPS: '0'
+        run: bash scripts/build-linux.sh
+
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        run: |
+          version="$(node -p "require('./Folia-源码-完整版/package.json').version")"
+          tag="${{ inputs.tag }}"
+          if [ -z "$tag" ]; then
+            tag="v$version"
+          fi
+          echo "value=$tag" >> "$GITHUB_OUTPUT"
+          echo "[Linux Build] Release tag: $tag"
+
+      - name: Upload to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.value }}
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(release-linux-*/*.tar.gz release-linux-*/*.deb release-linux-*/*.rpm release-linux-*/*.AppImage)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "没有找到安装包" >&2
+            exit 1
+          fi
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "Folia $TAG" --generate-notes
+          fi
+          for file in "${files[@]}"; do
+            echo "上传 $file ($(stat -c%s "$file") B)"
+            gh release upload "$TAG" "$file" --clobber
+          done
+          echo "已上传到 https://github.com/${GITHUB_REPOSITORY}/releases/tag/$TAG"

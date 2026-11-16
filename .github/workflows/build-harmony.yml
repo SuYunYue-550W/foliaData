@@ -1,0 +1,89 @@
+name: Build HarmonyOS HAP
+
+# HarmonyOS NEXT 不兼容 Android APK，必须用 DevEco Studio 的 hvigorw + HarmonyOS SDK
+# 才能打 HAP。本机没有 SDK，所以这里用带 SDK 的容器/自托管 runner 来构建和发布。
+#
+# 注意：HarmonyOS SDK 不是公开分发的，GitHub 官方 runner 上没有。两种用法：
+#  1. 自托管 runner（装好 DevEco 命令行工具 + SDK，标签 harmony-sdk）——推荐；
+#  2. 本地 DevEco 里 Build 出 HAP 后，用 workflow_dispatch 手动上传（见 upload-only job）。
+
+on:
+  push:
+    tags: ['v*']
+    paths:
+      - 'harmony/**'
+      - 'Folia-源码-完整版/src/**'
+      - '.github/workflows/build-harmony.yml'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '上传到哪个 Release tag'
+        required: true
+        type: string
+      hap_path:
+        description: '（仅 upload-only 模式）本地已构建 HAP 的路径'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  # 模式 A：有 HarmonyOS SDK 的自托管 runner 上完整构建
+  build-with-sdk:
+    if: github.event_name == 'push' || inputs.hap_path == ''
+    runs-on: [self-hosted, harmony-sdk]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Folia-源码-完整版/package-lock.json
+
+      - name: Sync web assets into rawfile
+        run: bash harmony/folia/scripts/sync-web-assets.sh
+
+      - name: Build HAP with hvigorw
+        working-directory: harmony/folia
+        env:
+          DEVECO_SDK_HOME: ${{ env.DEVECO_SDK_HOME }}
+        run: |
+          ./hvigorw assembleHap --mode module -p product=default --no-daemon
+          mkdir -p "$GITHUB_WORKSPACE/harmony-out"
+          find . -name '*.hap' -type f -exec cp {} "$GITHUB_WORKSPACE/harmony-out/" \;
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          tag="${{ inputs.tag }}"
+          if [ -z "$tag" ]; then tag="${GITHUB_REF_NAME}"; fi
+          echo "value=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Upload HAP to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.value }}
+        run: |
+          shopt -s nullglob
+          files=(harmony-out/*.hap)
+          [ ${#files[@]} -gt 0 ] || { echo "没有 HAP 产物" >&2; exit 1; }
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Folia $TAG" --generate-notes
+          for f in "${files[@]}"; do gh release upload "$TAG" "$f" --clobber; done
+
+  # 模式 B：本地 DevEco 已构建好 HAP，只做上传（任何 runner 都能跑）
+  upload-only:
+    if: github.event_name == 'workflow_dispatch' && inputs.hap_path != ''
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload provided HAP
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          HAP: ${{ inputs.hap_path }}
+        run: |
+          [ -f "$HAP" ] || { echo "HAP 不在仓库工作区里，请先把文件提交或用 Artifact 传入" >&2; exit 1; }
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Folia $TAG" --generate-notes
+          gh release upload "$TAG" "$HAP" --clobber

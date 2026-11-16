@@ -1,0 +1,16 @@
+{
+  "app": {
+    "products": [
+      {
+        "name": "default",
+        "signingConfigs": [],
+        "compatibleSdkVersion": "5.0.0(12)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": { "strictMode": { "caseSensitiveCheck": true } }
+      }
+    ]
+  },
+  "modules": [
+    { "name": "entry", "srcPath": "./entry", "targets": [{ "name": "default", "applyToProducts": ["default"] }] }
+  ]
+}
