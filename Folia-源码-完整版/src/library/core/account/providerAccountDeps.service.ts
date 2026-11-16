@@ -28,6 +28,7 @@ export const omniAccountAuthPort: LibraryAccountAuthPort = {
     cancelLogin: (providerId, key) => omni.cancelLogin(providerId, key),
     confirmsLoginInBrowser: providerId => omni.confirmsLoginInBrowser(providerId),
     opensLoginPageItself: (providerId, key) => omni.opensLoginPageItself(providerId, key),
+    beginsLoginOnChoose: providerId => omni.beginsLoginOnChoose(providerId),
     openLoginPage: (providerId, key) => omni.openLoginPage(providerId, key),
     getLoginTtlMs: providerId => omni.getLoginTtlMs(providerId),
     getLoginTexts: providerId => omni.getLoginTexts(providerId),

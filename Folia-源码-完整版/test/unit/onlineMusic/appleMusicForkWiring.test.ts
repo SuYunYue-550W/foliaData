@@ -32,6 +32,13 @@ describe('Apple Music fork wiring', () => {
         expect(listOnlineMusicProviders().some(item => item.id === 'appleMusic')).toBe(true);
     });
 
+    it('begins the sign-in as soon as the platform is chosen: the companion window is the sign-in surface', () => {
+        // 选中即开始，不停在「打开浏览器」那一步：那个按钮对 companion 登录既多余又误导。
+        expect(omni.beginsLoginOnChoose('appleMusic')).toBe(true);
+        // YTM 的浏览器登录不声明这一项，照旧两步走。
+        expect(omni.beginsLoginOnChoose('ytm')).toBe(false);
+    });
+
     it('routes Apple Music songs to the external player but leaves local songs alone', () => {
         expect(canPlaySongExternally(appleSong)).toBe(true);
         expect(canPlaySongExternally(localSong)).toBe(false);

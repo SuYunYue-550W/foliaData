@@ -397,6 +397,8 @@ export type LibraryAccountAuthPort = {
     cancelLogin(providerId: OnlineProviderId, key: string): Promise<void>;
     confirmsLoginInBrowser(providerId: OnlineProviderId): boolean;
     opensLoginPageItself(providerId: OnlineProviderId, key: string): boolean;
+    /** 选中即开始：开始的动作自己把登录界面带到眼前（Apple Music）；不声明的照旧两步走。 */
+    beginsLoginOnChoose(providerId: OnlineProviderId): boolean;
     openLoginPage(providerId: OnlineProviderId, key: string): Promise<void>;
     /** 声明了这一次登录的有效期才由前端计时；null 表示只认平台报的过期。 */
     getLoginTtlMs(providerId: OnlineProviderId): number | null;

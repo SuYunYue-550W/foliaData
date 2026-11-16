@@ -203,6 +203,7 @@ beforeEach(() => {
         cancelLogin: vi.fn(async (providerId: OnlineProviderId, key: string) => { ops.push(['cancel', providerId, key]); }),
         confirmsLoginInBrowser: vi.fn((providerId: OnlineProviderId) => providerId === 'webby'),
         opensLoginPageItself: vi.fn().mockReturnValue(false),
+        beginsLoginOnChoose: vi.fn().mockReturnValue(false),
         openLoginPage: vi.fn(async (providerId: OnlineProviderId, key: string) => { ops.push(['open-page', providerId, key]); }),
         getLoginTtlMs: vi.fn().mockReturnValue(null),
         getLoginTexts: vi.fn((providerId: OnlineProviderId) => (providerId === 'gamma' ? { title: 'gamma.title', note: 'gamma.note' } : null)),

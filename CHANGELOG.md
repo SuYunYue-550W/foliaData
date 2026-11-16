@@ -1,5 +1,20 @@
 # 更新日志 / CHANGELOG
 
+## v0.7.32 · 2026-11-16
+
+**Apple Music 双端登录与音质设置版。** 由本仓库源码重新编译 Windows EXE 与 Android APK，把 v0.7.31 只在桌面端可用的 Apple Music 扩展到 Android，修好登录入口要点两次的流程，并把音质偏好搬进设置弹窗。
+
+- **登录入口一键直达**：新增 provider 能力 `beginsLoginOnChoose`（类型 / omni / account 契约 / 三处 mock 同步），Apple Music 选中即启动 companion 登录窗口，不再停在「打开浏览器」那一步等第二次点击；YTM 等两步浏览器登录不受影响。开始失败不再被 `void` 吞掉，留下日志。
+- **Apple Music Android 原生宿主**：
+  - 页面运行时 `src/services/onlineMusic/appleMusic/pageScript.ts` 从桌面 companion 的 `companionRequests.cjs` + 5 个伴生模块忠实移植成单一自包含函数（约 700 行），桌面/安卓共用同一套页面逻辑；`toString()` 重建仍可独立运行有单测钉住。
+  - 新增 `appleMusic/android/appleMusicAndroidBridge.ts`：桌面同一套请求校验、not-ready/busy 25 秒重试、前台保持、登出/销毁接线；`appleMusicTransport.ts` 按桌面桥 / 安卓宿主双路由，Linux / 纯网页仍明确不可用。
+  - 原生侧新增 `FoliaAppleMusicPlugin.kt`（prepare/request/setForeground/logout/dispose）、`AppleMusicHostActivity.kt`（独立 task 的 WebView，四 Apple 域白名单，onPause 刻意不暂停 WebView 以保后台出声）、`AppleMusicHoldService.kt`（前台保持通知），MainActivity 注册插件、manifest 注册组件，Kotlin 编译与 manifest 合并均通过。
+  - Apple Music 相关 5 个测试文件共 25 用例通过（含页面运行时的行为与自包含约束、安卓桥的校验与降级）。
+- **音质偏好进设置弹窗并重新编排**：播放控制页新增独立「在线音质」组（过渡 → 在线音质 → 声音与设备 → 播放行为 → 空间音频/Hi-Res 能力 → 分析模型），按当前平台画档位下拉框，两个入口（账户页 / 设置页）共用 `AUDIO_QUALITY_CHOICES` 与 omni 落档；只有真正可选的平台才画下拉框，Apple Music 如实写明「由官方页面按订阅与设备给出」。
+- **安卓 YouTube Music 最高档**：安卓桥把 Premium 的 ultra（约 256 kbit/s）传给 `pickAudioFormat`，没有 ultra 格式时仍按 high 给。
+- **工程修复**：本机 TypeScript 6.0.2 在默认堆下会 OOM 并在临界时给出不稳定的诊断，统一以 `--max-old-space-size=8192` 跑 `tsc`；修掉 14 个先前被掩盖的测试文件类型错误（`byte` 隐式 any、`Array.from` 推断等），不改门禁规则。
+- **验证**：`tsc --noEmit` 0 错误；UI / 体积 / 版本 / 源码密钥 / 同步服务类型 / 契约清单全部通过；界面预览 PNG 真看 + `layoutCheck` 0 findings。
+
 ## v0.7.31 · 2026-11-15
 
 **Apple Music 与功能补齐版。** 由本仓库源码重新编译 Windows EXE 与 Android APK，新增 Apple Music 平台，并把此前「声明了但没实装 / 写好了没接线」的功能补上。

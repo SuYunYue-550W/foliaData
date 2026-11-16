@@ -206,12 +206,12 @@ const mockQueueAudio = async (page: import('@playwright/test').Page) => {
         const bytes = new Uint8Array(length);
         bytes.set(header);
         const blob = new Blob([bytes], { type: 'audio/wav' });
-        await Promise.all(Array.from({ length: 20 }, async (_, index) => {
+        await Promise.all(Array.from({ length: 20 }, async (_item: number, index: number) => {
             const song = { id: index + 1 };
             await saveAudioBlob(getSongResourceCacheKey('audio', song), blob);
             await saveToCache(getSongResourceCacheKey('lyric', song), { lines: [] });
         }));
-    }, { header: Array.from(wav.subarray(0, 44)), length: wav.length });
+    }, { header: Array.from<number>(wav.subarray(0, 44)), length: wav.length });
 };
 
 test('queue song selection closes the palette by default', async ({ page }) => {

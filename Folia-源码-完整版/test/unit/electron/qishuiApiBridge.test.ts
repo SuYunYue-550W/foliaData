@@ -11,8 +11,8 @@ const store = () => {
     return { get: (key: string) => values.get(key), set: (key: string, value: unknown) => values.set(key, value), delete: (key: string) => values.delete(key) };
 };
 const cipher = () => ({ isEncryptionAvailable: () => true, getSelectedStorageBackend: () => 'keychain',
-    encryptString: (text: string) => Buffer.from(Buffer.from(text).map(byte => byte ^ 0xa5)),
-    decryptString: (bytes: Buffer) => Buffer.from(bytes.map(byte => byte ^ 0xa5)).toString() });
+    encryptString: (text: string) => Buffer.from(Buffer.from(text).map((byte: number) => byte ^ 0xa5)),
+    decryptString: (bytes: Buffer) => Buffer.from(bytes.map((byte: number) => byte ^ 0xa5)).toString() });
 const account = { userId: 'opaque-account', user: { id: 'opaque-account', nickname: 'Listener' }, ticket: 'fixture-private-ticket',
     guardKey: 'fixture-key', guardCert: 'fixture-certificate', guardTsSign: 'fixture-signature', accessCode: 'fixture-access', expiresAt: Date.now() + 7200000 };
 

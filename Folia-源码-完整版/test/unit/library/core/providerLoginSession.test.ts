@@ -94,6 +94,7 @@ beforeEach(() => {
         cancelLogin: vi.fn().mockResolvedValue(undefined),
         confirmsLoginInBrowser: vi.fn().mockReturnValue(false),
         opensLoginPageItself: vi.fn().mockReturnValue(false),
+        beginsLoginOnChoose: vi.fn().mockReturnValue(false),
         openLoginPage: vi.fn().mockResolvedValue(undefined),
         getLoginTtlMs: vi.fn().mockReturnValue(QR_TTL_MS),
         getLoginTexts: vi.fn().mockReturnValue(null),

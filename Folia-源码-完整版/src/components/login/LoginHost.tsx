@@ -40,7 +40,14 @@ const LoginHost: React.FC<LoginHostProps> = ({ account }) => {
     const host = useMemo(() => createLoginHostState({
         rows: () => live.current.providers,
         login: () => live.current.account.getSnapshot().login,
-        startLogin: providerId => { void live.current.account.startLogin(providerId); },
+        startLogin: providerId => {
+            void live.current.account.startLogin(providerId).then(result => {
+                // 「点了没反应也没有日志」是个排查死角：开始没成至少留一行，说明为什么没成。
+                if (result.status === 'unavailable') {
+                    console.warn('[Login] The sign-in could not start', { providerId, reason: result.reason ?? null });
+                }
+            });
+        },
         closeLogin: () => { live.current.account.closeLogin(); },
         closeWindow: closeLoginWindow,
         playsDone: () => loginDonePlays(live.current.reducedMotion),

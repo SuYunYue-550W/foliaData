@@ -8,11 +8,14 @@ import { useAudioSettingsStore } from '../../../../stores/useAudioSettingsStore'
 import { useAnalysisModelStore } from '../../../../stores/useAnalysisModelStore';
 import { useAutomixSettingsStore } from '../../../../stores/useAutomixSettingsStore';
 import { useDesktopSettingsStore } from '../../../../stores/useDesktopSettingsStore';
+import { useOnlineProviderAccountStore } from '../../../../stores/useOnlineProviderAccountStore';
 import { isCapacitorAndroid } from '../../../../platform/runtime';
 import { getPlaybackCapabilities } from '../../../../platform/playbackCapabilities';
+import { omni } from '../../../../services/onlineMusic/omni';
+import { AUDIO_QUALITY_CHOICES } from '../../../audioQualityChoices';
 
 import { runsOnWindows } from '../../../../utils/platform';
-import { Button, Group, Reveal, Row, Segmented, Slider, Toggle, option, type SettingsGroupDef, type SettingsOptionDef } from '../kit';
+import { Button, Group, Reveal, Row, Segmented, Select, Slider, Toggle, option, type SettingsGroupDef, type SettingsOptionDef } from '../kit';
 import AudioOutputDeviceRow from './AudioOutputDeviceRow';
 import AndroidAutoLandscapeSetting from '../AndroidAutoLandscapeSetting';
 import SpatialAudioCapabilityRows from './SpatialAudioCapabilityRows';
@@ -25,6 +28,12 @@ import { TextField } from '@/components/ui';
 // analysis models the full transition engine needs.
 
 const TRANSITION: SettingsGroupDef = { id: 'transitionSettings', titleKey: 'options.transitionSettings' };
+/*
+ * 在线音质：全局一份偏好（useAudioSettingsStore.audioQuality），各平台按自己的 audioQualityLevels
+ * 就近兑现（omni.resolveAudioQuality）。以前它只藏在底部面板的账户页里，这里把它搬到设置里，
+ * 与「声音从哪出、多大声」分开成组 —— 想拉满音质的人和想调淡入淡出的人找的不是一个词。
+ */
+const QUALITY: SettingsGroupDef = { id: 'audioQualitySettings', titleKey: 'options.settingsHeadingAudioQuality' };
 const SOUND: SettingsGroupDef = { id: 'audioOutputSettings', titleKey: 'options.settingsHeadingSound' };
 const BEHAVIOR: SettingsGroupDef = { id: 'queueSettings', titleKey: 'options.settingsHeadingPlaybackBehavior' };
 /*
@@ -55,6 +64,9 @@ const O = {
     transition: option(TRANSITION, 'transitionEnable', 'options.transitionEnable'),
     crossfadeMax: option(TRANSITION, 'crossfadeMaxSeconds', 'options.crossfadeMaxSeconds'),
     crossfadeCurve: option(TRANSITION, 'crossfadeCurve', 'options.crossfadeCurve'),
+    onlineAudioQuality: option(QUALITY, 'onlineAudioQuality', 'options.onlineAudioQuality', {
+        noteKey: 'options.onlineAudioQualityDesc',
+    }),
     outputDevice: option(SOUND, 'audioOutputDevice', 'options.audioOutputDevice'),
     replayGain: option(SOUND, 'replayGainSettings', 'options.replayGainMode'),
     fade: option(SOUND, 'playbackFade', 'options.playbackFade'),
@@ -189,6 +201,8 @@ const PlaybackPage: React.FC = () => {
         autoSkipUnplayable: state.autoSkipUnplayable,
         backgroundSilentSkip: state.backgroundSilentSkip,
         mixWithOtherAudio: state.mixWithOtherAudio,
+        audioQuality: state.audioQuality,
+        setAudioQuality: state.setAudioQuality,
         setMediaCache: state.handleToggleMediaCache,
         setFade: state.handleTogglePlaybackFade,
         setTranscode: state.handleToggleTranscodeFallback,
@@ -197,6 +211,14 @@ const PlaybackPage: React.FC = () => {
         setBackgroundSilentSkip: state.handleToggleBackgroundSilentSkip,
         setMixWithOtherAudio: state.handleToggleMixWithOtherAudio,
     })));
+    // 当前在线平台：音质档位表与「存着的偏好在它那里算哪一档」都按它问（与账户页同一套语义）。
+    const activeProviderId = useOnlineProviderAccountStore(state => state.activeProviderId);
+    // omni 对没报档位的平台会回退到通用四档（那是取流协议的护栏，不是它真能挑）。
+    // 页面只给「自己报了档位」的平台画下拉框 —— 否则 Apple Music 这种由官方页面
+    // 出声的平台会出现一个改了也不生效的假选项。
+    const declaresQualityLevels = omni.offersAudioQualityChoice(activeProviderId);
+    const qualityLevels = omni.getAudioQualityLevels(activeProviderId);
+    const litQuality = omni.resolveAudioQuality(activeProviderId, audio.audioQuality);
     const preventSleep = useDesktopSettingsStore(state => state.preventDisplaySleepDuringPlayback);
     const setPreventSleep = useDesktopSettingsStore(state => state.handleTogglePreventDisplaySleepDuringPlayback);
 
@@ -242,6 +264,39 @@ const PlaybackPage: React.FC = () => {
                     </Row>
                 </Reveal>
             </Group>
+
+            <Group def={QUALITY}>
+                {declaresQualityLevels ? (
+                    <Row
+                        option={O.onlineAudioQuality}
+                        // atmos 档真的点亮时才提示：只说名字会让人以为这里解码 Dolby 对象流
+                        //（并不会）—— 平台已经把空间音轨渲染成普通音频文件了。
+                        hint={litQuality === 'atmos' ? t('account.qualityAtmosHint') : undefined}
+                    >
+                        <Select
+                            name={t('options.onlineAudioQuality')}
+                            value={litQuality}
+                            options={AUDIO_QUALITY_CHOICES
+                                .filter(choice => qualityLevels.includes(choice.value))
+                                .map(choice => ({ value: choice.value, label: t(choice.labelKey) }))}
+                            // 点亮的那一档就是存着的偏好在当前平台上落的位：选它不改变什么，
+                            // 也不许把别的平台存着的偏好拉低。
+                            onChange={(quality) => { if (quality !== litQuality) audio.setAudioQuality(quality); }}
+                        />
+                    </Row>
+                ) : (
+                    // 没有档位可挑的平台（如 Apple Music：音频由官方页面按订阅与设备给出，
+                    // 应用拿不到流，也就无从挑格式）：如实说明，不放假选项。
+                    <Row option={O.onlineAudioQuality} hint={t('options.onlineAudioQualityProviderOwned')} />
+                )}
+            </Group>
+
+            {/* Read-only "Spatial Audio & Hi-Res" capability group. No toggles: none of these are
+                capabilities the listener can switch on inside the app. It states plainly what plays
+                (platform-rendered Atmos tracks, Hi-Res with resampling) and what does not
+                (object-based Dolby decoding, bit-perfect output). It follows the quality group:
+                what can be picked is above, what cannot be picked is right below. */}
+            <SpatialAudioCapabilityRows />
 
             <Group def={SOUND}>
                 <AudioOutputDeviceRow option={O.outputDevice} onDeviceChange={onAudioOutputDeviceChange} />
@@ -304,12 +359,6 @@ const PlaybackPage: React.FC = () => {
                 {/* 组件内部自己判端：非安卓返回 null。 */}
                 <AndroidAutoLandscapeSetting def={O.autoLandscapeForVisualizer} />
             </Group>
-
-            {/* Read-only "Spatial Audio & Hi-Res" capability group. No toggles: none of these are
-                capabilities the listener can switch on inside the app. It states plainly what plays
-                (platform-rendered Atmos tracks, Hi-Res with resampling) and what does not
-                (object-based Dolby decoding, bit-perfect output). */}
-            <SpatialAudioCapabilityRows />
 
             {/* The whole group answers to ANALYSIS_MODELS_ENABLED, same as the rows inside it say:
                 while the models are not offered there is nothing here to draw or to offer. */}

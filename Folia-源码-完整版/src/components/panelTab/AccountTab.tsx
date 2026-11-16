@@ -9,6 +9,7 @@ import { omni } from '../../services/onlineMusic/omni';
 import { openLoginWindow } from '../login/loginWindowStore';
 import { PlatformMark } from '../login/PlatformMark';
 import { Select } from '../modal/settings/kit';
+import { AUDIO_QUALITY_CHOICES } from '../audioQualityChoices';
 import { useKitReducedMotion } from '../modal/settings/kit/motion';
 import { GroupLine } from './shell/GroupLine';
 import { PanelButton } from './shell/PanelButton';
@@ -31,20 +32,6 @@ interface AccountTabProps {
     onNavigateHome: () => void;
 }
 
-const AUDIO_QUALITY_OPTIONS: Array<{
-    value: AudioQualityPreference;
-    labelKey: string;
-}> = [
-    { value: 'standard', labelKey: 'account.qualityStandard' },
-    { value: 'high', labelKey: 'account.qualityExhigh' },
-    { value: 'ultra', labelKey: 'account.qualityUltra' },
-    { value: 'lossless', labelKey: 'account.qualityLossless' },
-    { value: 'hires', labelKey: 'account.qualityHires' },
-    // Only shown when the active provider lists `atmos` in its audioQualityLevels. It is a
-    // platform-rendered spatial track (an ordinary audio file), not an object-based Dolby stream.
-    { value: 'atmos', labelKey: 'account.qualityAtmos' },
-];
-
 const selectLogoutPending = (snapshot: LibraryAccountSnapshot) => snapshot.logout.status === 'pending';
 
 const AccountTab: React.FC<AccountTabProps> = ({
@@ -66,8 +53,11 @@ const AccountTab: React.FC<AccountTabProps> = ({
     const canLogout = !logoutPending && canLogoutProvider(activeSummary);
     // Only the levels the active provider tells apart are offered. The stored preference is one
     // value for every provider: where this one does not list it, the level it stands for here is lit.
+    // 与设置页同一条规矩：omni 的通用四档是取流协议护栏，不是平台真能挑的档位。
+    // 没自己报档位的平台（Apple Music 的音频在官方页面里出声）不画这个改了不生效的下拉框。
+    const declaresQualityLevels = omni.offersAudioQualityChoice(activeProviderId);
     const qualityLevels = omni.getAudioQualityLevels(activeProviderId);
-    const qualityOptions = AUDIO_QUALITY_OPTIONS.filter(option => qualityLevels.includes(option.value));
+    const qualityOptions = AUDIO_QUALITY_CHOICES.filter(option => qualityLevels.includes(option.value));
     const litQuality = omni.resolveAudioQuality(activeProviderId, audioQuality);
 
     const handleLogout = () => accountController.logout(activeProviderId);
@@ -124,6 +114,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
             <GroupLine />
 
             {/* Provider-independent audio quality preference; each online provider maps these semantic presets. */}
+            {declaresQualityLevels && (
             <PanelRow
                 label={t('account.audioQuality')}
                 // Only when the spatial tier is actually lit: the name alone would suggest this app
@@ -142,6 +133,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
                     onChange={(quality) => { if (quality !== litQuality) onAudioQualityChange(quality); }}
                 />
             </PanelRow>
+            )}
 
             {activeUser && (
                 <div className="flex px-1 py-2">

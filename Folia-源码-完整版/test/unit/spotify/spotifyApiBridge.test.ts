@@ -16,8 +16,8 @@ const createStore = () => {
     return { values, get: (key: string) => values.get(key), set: (key: string, value: unknown) => values.set(key, value), delete: (key: string) => values.delete(key) };
 };
 const cipher = () => ({ isEncryptionAvailable: () => true,
-    encryptString: (text: string) => Buffer.from(Buffer.from(text).map(byte => byte ^ 0xa5)),
-    decryptString: (data: Buffer) => Buffer.from(data.map(byte => byte ^ 0xa5)).toString() });
+    encryptString: (text: string) => Buffer.from(Buffer.from(text).map((byte: number) => byte ^ 0xa5)),
+    decryptString: (data: Buffer) => Buffer.from(data.map((byte: number) => byte ^ 0xa5)).toString() });
 const json = (body: unknown, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 const stored = (store: ReturnType<typeof createStore>) => {
     const sealed = store.values.get(SESSION_KEY);

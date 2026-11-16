@@ -507,11 +507,13 @@ export const createProviderAccountController = (deps: LibraryAccountControllerDe
             batch(() => { login = enterPasswordStage(login!, attempt, null, capabilities.passwordLoginServerUrl === true); });
             return { status: 'started', providerId, sessionId: attempt, step: 'password' };
         }
-        if (resolved.inBrowser) {
+        if (resolved.inBrowser && !askSafely(() => auth.beginsLoginOnChoose(providerId), false)) {
             // 在浏览器里确认的：等用的人按「打开浏览器」再开始。
             batch(() => { login = { ...resolved, stage: 'ready' }; });
             return { status: 'started', providerId, sessionId: attempt, step: 'ready' };
         }
+        // 开始的动作自己把登录界面带过来的（Apple Music 的 companion 窗口）：选中即开始，
+        // 不多停一步让用的人再点一次「打开浏览器」——那一步对它既多余又误导。
         beginSession(attempt, resolved, null);
         return { status: 'started', providerId, sessionId: attempt, step: 'started' };
     };

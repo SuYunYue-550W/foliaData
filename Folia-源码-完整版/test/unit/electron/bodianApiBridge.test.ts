@@ -13,8 +13,8 @@ const createStore = () => {
     return { get: (key: string) => values.get(key), set: (key: string, value: unknown) => values.set(key, value), delete: (key: string) => values.delete(key) };
 };
 const cipher = () => ({ isEncryptionAvailable: () => true,
-    encryptString: (text: string) => Buffer.from(Buffer.from(text).map(byte => byte ^ 0xa5)),
-    decryptString: (data: Buffer) => Buffer.from(data.map(byte => byte ^ 0xa5)).toString() });
+    encryptString: (text: string) => Buffer.from(Buffer.from(text).map((byte: number) => byte ^ 0xa5)),
+    decryptString: (data: Buffer) => Buffer.from(data.map((byte: number) => byte ^ 0xa5)).toString() });
 const account = { uid: '123', token: 'fixture-private', user: { id: '123', nickname: 'Fixture', avatarUrl: '' } };
 
 describe('Bodian desktop bridge', () => {

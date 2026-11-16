@@ -1,29 +1,24 @@
 # 模板文件，未启用。
-# 启用条件：构建 0.7.31-alpha.1 版本，创建 tag=cielo 的 Release，
+# 启用条件：构建 0.7.32-alpha.1 版本，创建 tag=cielo 的 Release，
 # 把本文件改名为 alpha.yml 并作为该 Release 的附件上传。
-version: 0.7.31-alpha.1
+version: 0.7.32-alpha.1
 files:
-  - url: Folia-Setup-0.7.31.exe
-    sha512: 8Wyq7AI7P/laxan+SQ1ph8cMSCpWncGiZrizbo9YqtPZXICdPNvGKUpGKEoWJ3d92cpf++GRjKQHpns8HL9Rzg==
-    size: 326345009
-path: Folia-Setup-0.7.31.exe
-sha512: 8Wyq7AI7P/laxan+SQ1ph8cMSCpWncGiZrizbo9YqtPZXICdPNvGKUpGKEoWJ3d92cpf++GRjKQHpns8HL9Rzg==
-releaseDate: '2026-11-15T17:28:45.255Z'
+  - url: Folia-Setup-0.7.32.exe
+    sha512: OUyakNaBs9Aqc5zLMSDs8CDIW24M43u05JWComoq6jzBFeFrqMK5/CNAWO4ofhwX1Ek/nHklOBcT6YAMc5LLNg==
+    size: 326354563
+path: Folia-Setup-0.7.32.exe
+sha512: OUyakNaBs9Aqc5zLMSDs8CDIW24M43u05JWComoq6jzBFeFrqMK5/CNAWO4ofhwX1Ek/nHklOBcT6YAMc5LLNg==
+releaseDate: '2026-11-16T04:12:06.630Z'
 releaseNotes: |
-  ## v0.7.31 · Apple Music 与功能补齐版
+  ## v0.7.32 · Apple Music 双端登录与音质设置版
   
-  本版由本仓库源码在本机真实编译，新增 Apple Music 平台与一批补齐功能；桌面与安卓的「检查更新」继续指向本仓库 Releases。
+  本版由本仓库源码在本机真实编译，Apple Music 扩展到 Android 双端可用，修好登录入口两步流程，并把音质偏好搬进设置弹窗；桌面与安卓的「检查更新」继续指向本仓库 Releases。
   
-  - **Apple Music**：从上游 v0.7.26~0.7.28 移植 provider、外部播放引擎与 Electron companion，
-    定点补齐 fork 契约（未整体替换类型文件，避免重演契约混血）；Windows WebView2 原生宿主
-    在本机编译成功并随安装包分发。音频受 DRM 保护，由 Apple 官方页面出声，需 Apple 订阅账号登录；
-    Android 与 Linux 端不提供该平台。
-  - **功能补齐**：Cappella AI 语义词着色（含对比度兜底）、混合来源队列另存为本地歌单、
-    歌词过滤规则错误提示、存储页「恢复默认目录」按钮。
-  - **清理**：三语各移除 506 行死文案（旧 7 页用户指南 + 19 个历史发行说明块）、
-    繁中转换表 1 条死规则、14 个空目录；纠正桌宠浮层漫游与安卓原生音效的过时注释
-    （这两项本就已实装，不是缺失功能）。
-  - 版本号 0.7.31，安卓 versionCode 7031100（高于上一版，覆盖安装不会判为降级）。
-  - 全套门禁通过：tsc 0 错误、全量单测、UI / 体积 / 版本 / 密钥 / 契约检查、vite build。
+  - **Apple Music 双端**：v0.7.31 的桌面 companion 之外，安卓新增原生 WebView 宿主（FoliaAppleMusicPlugin / AppleMusicHostActivity / AppleMusicHoldService），
+    页面逻辑从桌面 companion 忠实移植成单一自包含 TS 运行时，两个平台共用同一套档位与操作；登录入口选中即开，不再要点两次。
+  - **音质与设置**：播放控制页新增独立「在线音质」组，按当前平台档位画下拉框（与账户页共用档位表），Apple Music 这类外部播放平台如实说明无需假选项；
+    安卓 YouTube Music 的 Premium ultra（约 256 kbit/s）档打通。
+  - 版本号 0.7.32，安卓 versionCode 7031200（高于上一版，覆盖安装不会判为降级）。
+  - 全套门禁通过：tsc（8GB 堆）0 错误、全量单测、UI / 体积 / 版本 / 密钥 / 契约检查、界面预览与 layoutCheck。
   
   逐项记录见仓库 CHANGELOG.md 与 release-manifests/构建与发布.md。

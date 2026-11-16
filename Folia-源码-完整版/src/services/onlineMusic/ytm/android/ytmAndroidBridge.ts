@@ -216,7 +216,9 @@ const playerSession = lazySession(async () => {
 
 const audio = async (params: YtmParams) => {
     const id = videoId(params.id);
-    const level = params.quality === 'standard' ? 'standard' : 'high';
+    // 与桌面同款：'ultra' 只对有 Premium 的会话列出；没有 ultra 格式时 pickAudioFormat
+    // 自己按 high 给，这里不提前折半。
+    const level = params.quality === 'standard' || params.quality === 'ultra' ? params.quality : 'high';
     const [yt, poToken] = await Promise.all([playerSession(), mintYtmToken(id)]);
     let info: any;
     try {

@@ -2,8 +2,8 @@
 
 全屏沉浸式歌词播放器 **Folia** 的整合增强版。基于 Folia-major 0.7.25，叠加色散玻璃导航条与自研 **microRender** GPU 调度微内核，提供 Windows 与 Android 双端构建。
 
-> **当前版本：`v0.7.31`（Apple Music 与功能补齐版，2026-11-15）。**
-> 本版由**本仓库源码在本机真实编译**，新增 Apple Music 平台（含本机编译的 Windows WebView2 原生宿主），并补齐 Cappella 语义词着色、跨源歌单导出等功能；桌面与安卓的「检查更新」均指向本仓库 Releases。v0.7.28 的文件级上游同步因造成源码契约错配已撤销，本版 Apple Music 采用定点契约适配而非文件级覆盖，详见 `CHANGELOG.md`。
+> **当前版本：`v0.7.32`（Apple Music 双端登录与音质设置版，2026-11-16）。**
+> 本版由**本仓库源码在本机真实编译**，把 Apple Music 从桌面端扩展到 Android（原生 WebView 宿主），修好登录入口要点两次的问题，并把音质偏好搬进设置弹窗重新编排；桌面与安卓的「检查更新」均指向本仓库 Releases。v0.7.28 的文件级上游同步因造成源码契约错配已撤销，本版 Apple Music 采用定点契约适配而非文件级覆盖，详见 `CHANGELOG.md`。
 > v0.7.28 的上游同步清单见 [`上游同步说明-v0.7.28.md`](上游同步说明-v0.7.28.md)，版本记录见 [`CHANGELOG.md`](CHANGELOG.md)，出包与发布步骤见 [`release-manifests/构建与发布.md`](release-manifests/构建与发布.md)。
 
 > 本仓库由维护者独立整理上传。上传前已移除原发布渠道的更新地址、旧仓库来源指向与原项目社区群信息；**软件更新源现统一指向本仓库的 Releases**。
@@ -16,12 +16,12 @@
 | 项 | 内容 |
 |---|---|
 | 基础项目 | Folia（`folia-major`）v0.7.25 的 `folia-sonnet` fork；v0.7.30 起回到健康基线 |
-| 当前版本 | `0.7.31`（`package.json` 的 `version` / `displayVersion`；安卓 `versionCode` `7031100`） |
+| 当前版本 | `0.7.32`（`package.json` 的 `version` / `displayVersion`；安卓 `versionCode` `7031200`） |
 | 定位 | Lyrics Reimagine —— 桌面 + 移动端的在线音乐播放与全屏歌词可视化 |
 | 技术栈 | React 19 + TypeScript 6 + Vite 8；three / React Three Fiber / pixi.js / framer-motion / animejs；桌面 Electron 43，移动 Capacitor 8 |
 | 规模 | 28 个可视化模式 + 6 种背景模式；`src/` 下约 2790 个 TS/TSX 文件 |
 | 授权 | **AGPL-3.0**（见 `LICENSE`），`private: true` |
-| 在线音源 | 网易云、QQ 音乐、酷狗、汽水音乐、波点、飞牛音乐、Spotify、YouTube Music、**Apple Music（桌面端，需订阅账号）**、Navidrome、本地音乐库 |
+| 在线音源 | 网易云、QQ 音乐、酷狗、汽水音乐、波点、飞牛音乐、Spotify、YouTube Music、**Apple Music（桌面 + Android，需订阅账号）**、Navidrome、本地音乐库 |
 | 交付形态 | Windows 安装包（EXE）、Android 安装包（APK）、完整源码 |
 
 ---
@@ -132,7 +132,7 @@ npm run build:android:debug   # Android debug APK
 
 ---
 
-## 七、软件更新机制（现指向本仓库，v0.7.31 继续生效）
+## 七、软件更新机制（现指向本仓库，v0.7.32 继续生效）
 
 | 端 | 机制 | 地址 |
 |---|---|---|
@@ -144,9 +144,9 @@ npm run build:android:debug   # Android debug APK
 
 ```json
 {
-  "version": "0.7.31",
-  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.31/Folia-Android-0.7.31.apk",
-  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.31",
+  "version": "0.7.32",
+  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.32/Folia-Android-0.7.32.apk",
+  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.32",
   "notes": "更新说明",
   "published_at": "2026-11-15T05:50:37.167Z",
   "size": 124079060
@@ -160,7 +160,19 @@ npm run build:android:debug   # Android debug APK
 
 ## 八、交付物（Release 附件）
 
-### v0.7.31（当前版本 · Apple Music 与功能补齐版）
+### v0.7.32（当前版本 · Apple Music 双端登录与音质设置版）
+
+| 文件 | 体积 | 说明 |
+|---|---:|---|
+| `Folia-Setup-0.7.32.exe` | 见 Release 附件 | 本仓库源码编译的 Windows NSIS 安装包，内含 Apple Music WebView2 原生宿主，未做代码签名 |
+| `Folia-Android-0.7.32.apk` | 见 Release 附件 | 本仓库源码编译的 Android release 包，`Folia Whale Pet` 证书签名，`versionCode` 7031200，含 Apple Music 原生 WebView 宿主 |
+| `latest.yml` | — | 桌面端更新清单（含 SHA-512） |
+| `update.json` | — | 安卓端更新清单 |
+
+两个包均内含本仓库的更新地址；自研的色散玻璃导航条与 microRender 微内核都在包内。
+**Apple Music 在桌面与 Android 均可用**：音频由 Apple 官方页面出声，需要订阅账号；Linux / 纯网页不提供。网页侧最高 AAC，不支持 Lossless / Hi-Res / 对象式 Dolby，请用官方客户端。
+
+### v0.7.31（历史版本 · Apple Music 与功能补齐版）
 
 | 文件 | 体积 | 说明 |
 |---|---:|---|
@@ -168,9 +180,6 @@ npm run build:android:debug   # Android debug APK
 | `Folia-Android-0.7.31.apk` | 见 Release 附件 | 本仓库源码编译的 Android release 包，`Folia Whale Pet` 证书签名，`versionCode` 7031100 |
 | `latest.yml` | — | 桌面端更新清单（含 SHA-512） |
 | `update.json` | — | 安卓端更新清单 |
-
-两个包均内含本仓库的更新地址；自研的色散玻璃导航条与 microRender 微内核都在包内。
-**Apple Music 只在桌面端可用**：音频由 Apple 官方页面出声，需要订阅账号登录，Android / Linux 不提供该平台。
 
 ### v0.7.30（历史版本 · 稳定修复版）
 

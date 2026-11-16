@@ -182,6 +182,20 @@
             </intent-filter>
         </service>
 
+        <!--
+            Apple Music 宿主的「前台保持」服务：宿主里的音频由 WebView 播放（Apple 的
+            DRM 只肯在页面里出声），应用退后台后只靠 startForeground 保住进程优先级，
+            音频才不被系统回收 —— 动机与上面的 FoliaPlaybackService 同源，但它只为
+            Apple Music 宿主存在，不挂 MediaSession、不接控制按钮，通知只有一行。
+            foregroundServiceType="mediaPlayback" 沿用 FoliaPlaybackService 的写法
+            （Android 14+ 强制）；权限（FOREGROUND_SERVICE / FOREGROUND_SERVICE_MEDIA_PLAYBACK）
+            已在上面声明过，不重复。
+        -->
+        <service
+            android:name=".AppleMusicHoldService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
         <!-- 鲸鱼桌宠系统级悬浮窗：挂在别的应用之上的独立前台服务。
              foregroundServiceType="dataSync" 需要下面配套的 FOREGROUND_SERVICE_DATA_SYNC 普通权限。 -->
         <service
@@ -242,6 +256,27 @@
             android:exported="false"
             android:excludeFromRecents="true"
             android:label="登录 YouTube Music"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/AppTheme.NoActionBar" />
+
+        <!--
+            Apple Music 宿主：一座独立 Activity 里的全屏 WebView，装着 music.apple.com
+            的登录与 DRM 播放（对齐桌面版的独立 companion 进程，见 AppleMusicHostActivity）。
+
+            为什么独立 task（taskAffinity + singleTask）：hideWindow 只把这一个 task
+            退到后台、不打扰主界面所在的 task；showWindow 再把原实例带回来
+            （singleTask 落回原 Activity，登录与播放状态原样在）。
+            为什么不能 noHistory、也不 excludeFromRecents：这个页面就是「登录态与播放态」
+            本身，被系统随手回收等于登录、播放全部丢掉（与 LockScreenMusicActivity
+            那边的坑同源）；留在最近任务里反而是用户唯一能主动回到它的路。
+        -->
+        <activity
+            android:name=".AppleMusicHostActivity"
+            android:exported="false"
+            android:taskAffinity="top.izuna.foliamajor.apple"
+            android:launchMode="singleTask"
+            android:label="Apple Music"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/AppTheme.NoActionBar" />

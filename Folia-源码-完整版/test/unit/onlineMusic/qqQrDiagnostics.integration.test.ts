@@ -64,6 +64,7 @@ const createSession = async () => {
         cancelLogin: (_providerId, key) => qqAuth.cancelLogin!(key),
         confirmsLoginInBrowser: () => false,
         opensLoginPageItself: () => false,
+        beginsLoginOnChoose: () => false,
         openLoginPage: async () => { },
         getLoginTtlMs: () => null,
         getLoginTexts: () => null,

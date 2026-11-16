@@ -134,6 +134,15 @@ export const playbackMethods = {
         return audioQualityLevelsOf(providerId);
     },
 
+    // Whether this provider really has a quality choice the app can make. Providers that do not
+    // list levels still take one of the four generic levels in `getAudioSource`, so they do offer
+    // a pick list; an external-playback provider does not: its audio comes out of the official
+    // page and the app never sees a format to choose.
+    offersAudioQualityChoice(providerId: OmniProviderId): boolean {
+        const provider = getOnlineMusicProvider(providerId);
+        return Boolean(provider && provider.capabilities.externalPlayback !== true);
+    },
+
     // The level `preference` means to a provider: the one the quality option lights, and the one
     // `getAudioSource` asks the provider for.
     resolveAudioQuality(providerId: OmniProviderId, preference: AudioQualityPreference): AudioQualityPreference {

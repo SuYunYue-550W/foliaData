@@ -12,7 +12,7 @@ const AUTH_MEMBERS: Record<string, string[]> = {
     // 由 provider 自己开门（opensLoginPageItself），companion 缺席时 describeLoginFailure
     // 报「本地服务暂时不可用」而不是网络错误。
     appleMusic: [
-        'cancelLogin', 'checkLogin', 'describeLoginFailure', 'getLoginStatus', 'getLoginTexts', 'logout',
+        'beginsLoginOnChoose', 'cancelLogin', 'checkLogin', 'describeLoginFailure', 'getLoginStatus', 'getLoginTexts', 'logout',
         'openLoginPage', 'opensLoginPageItself', 'showsKeptAccountAtStart', 'signInRanOut', 'startLogin',
     ],
     netease: [

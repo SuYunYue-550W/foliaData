@@ -189,6 +189,12 @@ export const providerMethods = {
         return requireOnlineMusicProvider(providerId).auth?.opensLoginPageItself?.(key) === true;
     },
 
+    // 选中这一家就开始登录：开始的动作本身把登录界面带过来（Apple Music 的 companion 窗口），
+    // 不停在「打开浏览器」那一步等人再点一次。
+    beginsLoginOnChoose(providerId: OmniProviderId): boolean {
+        return requireOnlineMusicProvider(providerId).auth?.beginsLoginOnChoose?.() === true;
+    },
+
     async openLoginPage(providerId: OmniProviderId, key: string): Promise<void> {
         const auth = requireOnlineMusicProvider(providerId).auth;
         if (!auth?.openLoginPage) return unsupported(providerId, 'qr-login-page');

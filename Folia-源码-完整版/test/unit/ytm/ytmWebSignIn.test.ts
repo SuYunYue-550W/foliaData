@@ -36,8 +36,8 @@ const createStore = () => {
     return { values, get: (key: string) => values.get(key), set: (key: string, value: unknown) => values.set(key, value), delete: (key: string) => values.delete(key) };
 };
 const cipher = () => ({ isEncryptionAvailable: () => true,
-    encryptString: (text: string) => Buffer.from(Buffer.from(text).map(byte => byte ^ 0xa5)),
-    decryptString: (data: Buffer) => Buffer.from(data.map(byte => byte ^ 0xa5)).toString() });
+    encryptString: (text: string) => Buffer.from(Buffer.from(text).map((byte: number) => byte ^ 0xa5)),
+    decryptString: (data: Buffer) => Buffer.from(data.map((byte: number) => byte ^ 0xa5)).toString() });
 const unseal = (store: ReturnType<typeof createStore>) => JSON.parse(cipher().decryptString(Buffer.from(String(store.get(WEB_SESSION_KEY)), 'base64')));
 // Lets everything that waits on nothing but other promises run.
 const settled = () => new Promise(resolve => { setImmediate(resolve); });

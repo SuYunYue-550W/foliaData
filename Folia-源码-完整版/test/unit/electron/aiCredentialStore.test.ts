@@ -41,9 +41,9 @@ function createSafeStorage({ available = true, backend = 'gnome_libsecret' } = {
         isEncryptionAvailable: vi.fn(() => available),
         getSelectedStorageBackend: vi.fn(() => backend),
         encryptString: vi.fn((plaintext: string): Buffer =>
-            Buffer.from(Buffer.from(plaintext, 'utf8').map((byte) => byte ^ 0xa5))),
+            Buffer.from(Buffer.from(plaintext, 'utf8').map((byte: number) => byte ^ 0xa5))),
         decryptString: vi.fn((ciphertext: Buffer) =>
-            Buffer.from(Buffer.from(ciphertext).map((byte) => byte ^ 0xa5)).toString('utf8')),
+            Buffer.from(Buffer.from(ciphertext).map((byte: number) => byte ^ 0xa5)).toString('utf8')),
     };
 }
 

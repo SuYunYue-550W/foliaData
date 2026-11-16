@@ -391,6 +391,9 @@ export function createAppleMusicProvider(getAvailability: () => ProviderAvailabi
                 return activeLogin;
             },
             opensLoginPageItself: () => true,
+            // companion 的窗口就是登录面：选中这一家就开始，把窗口带过来，
+            // 不停在「打开浏览器」那一步（那个按钮的文案对它还是误导）。
+            beginsLoginOnChoose: () => true,
             async openLoginPage(key) {
                 await scheduleWindowAction(async () => {
                     if (activeLogin === key) await showLogin();

@@ -734,6 +734,10 @@ export interface OnlineAuthProvider {
     // 这一次登录的页面是不是 provider 在开始登录时自己打开的、之后也不能再打开一次（YouTube Music
     // 的浏览器登录：那个窗口关掉就是登录结束）。是的话 UI 不在开始时打开它，也不留“重新打开”的按钮。
     opensLoginPageItself?(key: string): boolean;
+    // 选中这一家就开始登录：登录的「开始」动作本身会把登录界面带到眼前（Apple Music 的 companion
+    // 窗口就是登录面），不必停在「打开浏览器」那一步等用的人再点一次。「开始才开系统浏览器」的那类
+    // 流程不受影响——它们不声明这一项，照旧两步走。
+    beginsLoginOnChoose?(): boolean;
     checkLogin?(key: string): Promise<LoginState>;
     // 只释放这一把 key 的会话，实现必须是幂等的：调用方在关窗时 fire-and-forget，
     // 未知或已过期的 key 也算成功。没有会话概念的 provider 不必实现。
