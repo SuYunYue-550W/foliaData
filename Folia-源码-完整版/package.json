@@ -82,10 +82,14 @@
     "productName": "Folia",
     "beforePack": "build/beforePack.cjs",
     "afterPack": "build/afterPack.cjs",
-    "electronLanguages": [],
+    "electronLanguages": [
+      "en-US",
+      "zh-CN",
+      "id"
+    ],
     "generateUpdatesFilesForAllChannels": true,
     "directories": {
-      "output": "release-v0732-bootfix"
+      "output": "release"
     },
     "publish": [
       {
