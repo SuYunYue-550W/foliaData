@@ -30,7 +30,8 @@ struct Index {
         .databaseAccess(true)
         .fileAccess(false)
         .mixedMode(MixedMode.All)                     // 在线音源与封面的 http 回退
-        .mediaPlaybackRequiresUserGesture(false)      // 恢复播放时不需要再次手势
+        // mediaPlaybackRequiresUserGesture 在 API 26 的 WebAttribute 上已移除；
+        // 是否允许自动播放交给 ArkWeb 默认策略与前端的用户手势恢复逻辑。
         .onControllerAttached(() => {
           // registerJavaScriptProxy 必须在页面脚本运行前完成。桥脚本本身由构建脚本
           // 作为 index.html 的第一个 <script> 注入，它只负责把调用转发到这里注入的方法。

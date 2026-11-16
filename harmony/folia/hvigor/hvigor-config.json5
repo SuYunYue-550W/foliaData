@@ -1,16 +1,13 @@
 {
-  // Hvigor 构建配置（Stage 模型 / API 12+ 工程的标准文件）。
-  // ⚠️ 版本号需与本机 DevEco Studio 版本匹配：用 DevEco 新建任意 Empty Ability 工程，
-  //    复制其生成的 hvigor/hvigor-config.json5 覆盖本文件即可；版本不符时 Sync 会报错。
-  //    这里给出 NEXT / API 12 模板的常见固定版本作为起点。
-  "modelVersion": "5.0.0",
-  "hvigorVersion": "4.0.2",
-  "dependencies": {
-    "@ohos/hvigor-ohos-plugin": "5.0.5"
-  },
+  // Hvigor 构建配置（Stage 模型）。
+  // Command Line Tools 26.0.1 起采用 all-in-one 安装模式：hvigor 插件已内置，
+  // dependencies 必须留空对象 —— 若写入 @ohos/hvigor-ohos-plugin 等，hvigor 会试图
+  // 从 npm 拉这个私有包而失败（它只在华为 ohpm 仓库，npm 镜像上没有）。
+  // 见 hvigor 错误码 00308003 的说明。
+  "modelVersion": "6.0.0",
+  "dependencies": {},
   "execution": {
-    // 构建内存，较复杂的工程可调大
-    "maxHeapSize": "4096m"
+    "daemon": false
   },
   "logging": {
     "level": "info"

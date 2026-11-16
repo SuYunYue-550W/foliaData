@@ -1,9 +1,15 @@
 # Folia 鸿蒙（HarmonyOS NEXT）移植工程
 
-> ⚠️ **状态：源码骨架，未在本机编译验证。** 本机没有 DevEco Studio / HarmonyOS SDK，
-> 且 HarmonyOS NEXT 不兼容 Android APK（现成的 `Folia-Android-0.7.32.apk` 只能在
-> HarmonyOS 4 及以下安装）。本工程提供可导入 DevEco 的完整结构、Capacitor 兼容桥与
-> 构建发布配置，**首次编译与真机验证必须在有 SDK 的环境完成**。
+> ✅ **状态：已用真实 HarmonyOS SDK 编译成功（2026-11-17）。** 用华为官方 Command Line
+> Tools 26.0.1（内嵌 SDK，无需 DevEco Studio IDE）在本机实测 `hvigorw assembleHap` 全绿，
+> 产出合法 HAP（`entry-default-unsigned.hap`，约 74MB，2065 个条目，含 `module.json`
+> 与打进 rawfile 的前端产物，ZIP 校验通过）。
+>
+> ⚠️ 产物是**未签名** HAP：真机安装需要华为开发者证书（`.p12`/`.cer`/`.p7b`）签名，
+> 这必须从华为开发者账号申请，仓库不含任何签名材料。
+>
+> HarmonyOS NEXT 不兼容 Android APK，现成的 `Folia-Android-0.7.33.apk` 只能在
+> HarmonyOS 4 及以下安装。
 
 ## 一、设计思路：前端零改动
 
@@ -51,9 +57,31 @@ React 前端 (dist)  ── registerPlugin() ──▶  capacitor-harmony-bridge
 
 **结论：当前壳能保证界面正常显示、基本导航、Toast/退出/后台；在线音乐、原生播放与平台登录需要后续逐项移植。**
 
-## 四、构建步骤（需 DevEco Studio）
+## 四、构建步骤
 
-1. 安装 DevEco Studio（5.0+）与 HarmonyOS SDK 5.0.0(12)。
+### 4.1 命令行构建（本机实测通过，无需 DevEco Studio）
+
+1. 从华为开发者下载中心获取 **Command Line Tools**（`command-line-tools-for-hmos`，
+   Windows 包约 3.1GB，**已内嵌 HarmonyOS SDK**，需登录华为账号），解压到空间充足的盘
+   （例 `D:\folia-harmony-sdk\command-line-tools`）。
+   - 版本无关配置：Command Line Tools 26.0.1 起是 all-in-one 模式，`hvigor/hvigor-config.json5`
+     的 `dependencies` 必须是 `{}`，`modelVersion: "6.0.0"`；写 `@ohos/hvigor-ohos-plugin`
+     会让 hvigor 去 npm 拉私有包而失败（错误码 00308003）。
+   - `build-profile.json5` 需 `arkTSVersion: "1.1"`，且不能有 `signingConfigs`（用 `signingConfig`）。
+2. **工程路径必须纯 ASCII**（hvigor 错误码 00306003）——本仓库在中文路径下，需先复制到
+   `D:\folia-harmony-build` 之类路径（脚本 `scripts/build-ascii.ps1` 做这件事）。
+3. 同步前端资源：`bash harmony/folia/scripts/sync-web-assets.sh`（会重新 vite build 并注入桥）。
+4. 编译：设置 `NODE_HOME`（node 目录）、`DEVECO_SDK_HOME=<tools>/sdk`、
+   `JAVA_HOME=<tools>/tool/jre`（SDK 自带 JRE 21），在 ASCII 工程目录执行
+   `hvigorw assembleHap --mode module -p product=default --no-daemon`。
+   - 本机还需在构建子进程内移除 WorkBuddy 沙箱的 `NODE_OPTIONS` 删除 shim 注入
+     （否则 ohpm 清理临时文件时 `genie-trash` 超时），见 `scripts/build-with-cli.sh`。
+5. 产物：`entry/build/default/outputs/default/entry-default-unsigned.hap`（未签名）。
+6. 签名：在 DevEco 里配置证书自动签名，或用华为开发者证书手动签名后才能装真机。
+
+### 4.2 DevEco Studio 图形界面（备选）
+
+1. 安装 DevEco Studio（5.0+）与 HarmonyOS SDK。
 2. 在本机跑 `bash harmony/folia/scripts/sync-web-assets.sh`：构建 `dist` 并拷进 `rawfile/dist`，
    同时把桥脚本作为 `index.html` 的第一个 `<script>` 注入。
 3. 用 DevEco 打开 `harmony/folia`，执行 `File > Sync and Refresh Project`。

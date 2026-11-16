@@ -37,3 +37,8 @@ Thumbs.db
 __pycache__/
 dev-dist/
 preview/
+# ── HarmonyOS 构建中间产物 ──
+**/dist_harmony_backup_*/
+harmony/folia/.hvigor/
+harmony/folia/build-hap.log
+harmony/folia/entry/build/

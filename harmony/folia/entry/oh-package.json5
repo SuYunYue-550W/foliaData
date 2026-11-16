@@ -1,5 +1,6 @@
 {
   "name": "entry",
   "version": "0.7.33",
+  "modelVersion": "6.0.0",
   "dependencies": {}
 }
