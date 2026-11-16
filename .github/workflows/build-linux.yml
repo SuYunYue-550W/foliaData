@@ -1,8 +1,8 @@
 name: Build Linux packages
 
 # Linux 包必须在真正的 Linux runner 上构建：MNN 运行时是从 pin 住的 commit 用 CMake+gcc
-# 编出来的，build/buildMnnRuntime.mjs 明确拒绝在别的平台交叉编译。Windows 本机打包
-# 只能出 EXE，所以这里交给 GitHub 的 ubuntu runner。
+# 编出来的，build/buildMnnRuntime.mjs 明确拒绝在别的平台交叉编译（要求 arch === process.arch）。
+# 因此 x64 用 ubuntu-24.04、arm64 用 GitHub 免费的 ubuntu-24.04-arm，各自本机编译，不能交叉。
 
 on:
   push:
@@ -20,7 +20,7 @@ on:
         default: 'tar.gz,deb,rpm,AppImage'
         type: string
       arch:
-        description: '构建哪种架构'
+        description: '构建哪种架构（push 标签时忽略，始终 both）'
         required: false
         default: 'both'
         type: choice
@@ -33,15 +33,11 @@ permissions:
 # group 会互相取消。重复触发由 GitHub 自己排队即可。
 
 jobs:
-  build:
-    # MNN 运行时必须在目标架构本机构建（buildMnnRuntime.mjs 要求 arch === process.arch），
-    # 所以 arm64 用 GitHub 免费提供的 ubuntu-24.04-arm runner，不能交叉编译。
-    strategy:
-      fail-fast: false
-      # workflow_dispatch 可用 arch 输入只跑一种：both / x64 / arm64。
-      # push 标签时 inputs.arch 为空，默认 both 全跑。
-      matrix: ${{ (inputs.arch == 'x64' && fromJSON('[{"arch":"x64","runner":"ubuntu-24.04"}]')) || (inputs.arch == 'arm64' && fromJSON('[{"arch":"arm64","runner":"ubuntu-24.04-arm"}]')) || fromJSON('[{"arch":"x64","runner":"ubuntu-24.04"},{"arch":"arm64","runner":"ubuntu-24.04-arm"}]') }}
-    runs-on: ${{ matrix.runner }}
+  # push 标签 → inputs.arch 为空 → 表达式 `inputs.arch == ''` 为真 → 两个架构都跑。
+  # workflow_dispatch → 按选择只跑对应架构。
+  build-x64:
+    if: ${{ github.event_name == 'push' || inputs.arch == 'both' || inputs.arch == 'x64' || inputs.arch == '' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
       - name: Checkout
@@ -56,10 +52,10 @@ jobs:
           cache: npm
           cache-dependency-path: Folia-源码-完整版/package-lock.json
 
-      - name: Build Linux packages
+      - name: Build Linux packages (x64)
         env:
           TARGETS: ${{ inputs.targets || 'tar.gz,deb,rpm,AppImage' }}
-          ARCH: ${{ matrix.arch }}
+          ARCH: x64
           SKIP_DEPS: '0'
         run: bash scripts/build-linux.sh
 
@@ -69,11 +65,9 @@ jobs:
         run: |
           version="$(node -p "require('./Folia-源码-完整版/package.json').version")"
           tag="${{ inputs.tag }}"
-          if [ -z "$tag" ]; then
-            tag="v$version"
-          fi
+          if [ -z "$tag" ]; then tag="v$version"; fi
           echo "value=$tag" >> "$GITHUB_OUTPUT"
-          echo "[Linux Build] Release tag: $tag"
+          echo "[Linux x64] Release tag: $tag"
 
       - name: Upload to Release
         env:
@@ -83,15 +77,60 @@ jobs:
         run: |
           shopt -s nullglob
           files=(release-linux-*/*.tar.gz release-linux-*/*.deb release-linux-*/*.rpm release-linux-*/*.AppImage)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "没有找到安装包" >&2
-            exit 1
-          fi
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --title "Folia $TAG" --generate-notes
-          fi
+          if [ ${#files[@]} -eq 0 ]; then echo "没有找到 x64 安装包" >&2; exit 1; fi
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Folia $TAG" --generate-notes
           for file in "${files[@]}"; do
             echo "上传 $file ($(stat -c%s "$file") B)"
             gh release upload "$TAG" "$file" --clobber
           done
-          echo "已上传到 https://github.com/${GITHUB_REPOSITORY}/releases/tag/$TAG"
+          echo "x64 已上传到 https://github.com/${GITHUB_REPOSITORY}/releases/tag/$TAG"
+
+  build-arm64:
+    if: ${{ github.event_name == 'push' || inputs.arch == 'both' || inputs.arch == 'arm64' || inputs.arch == '' }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Folia-源码-完整版/package-lock.json
+
+      - name: Build Linux packages (arm64)
+        env:
+          TARGETS: ${{ inputs.targets || 'tar.gz,deb,rpm,AppImage' }}
+          ARCH: arm64
+          SKIP_DEPS: '0'
+        run: bash scripts/build-linux.sh
+
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        run: |
+          version="$(node -p "require('./Folia-源码-完整版/package.json').version")"
+          tag="${{ inputs.tag }}"
+          if [ -z "$tag" ]; then tag="v$version"; fi
+          echo "value=$tag" >> "$GITHUB_OUTPUT"
+          echo "[Linux arm64] Release tag: $tag"
+
+      - name: Upload to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.value }}
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(release-linux-*/*.tar.gz release-linux-*/*.deb release-linux-*/*.rpm release-linux-*/*.AppImage)
+          if [ ${#files[@]} -eq 0 ]; then echo "没有找到 arm64 安装包" >&2; exit 1; fi
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Folia $TAG" --generate-notes
+          for file in "${files[@]}"; do
+            echo "上传 $file ($(stat -c%s "$file") B)"
+            gh release upload "$TAG" "$file" --clobber
+          done
+          echo "arm64 已上传到 https://github.com/${GITHUB_REPOSITORY}/releases/tag/$TAG"
