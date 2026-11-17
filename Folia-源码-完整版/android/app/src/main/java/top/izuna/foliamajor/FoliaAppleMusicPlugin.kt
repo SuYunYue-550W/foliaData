@@ -342,9 +342,14 @@ class FoliaAppleMusicPlugin : Plugin() {
         // 宿主自己一个 task（清单里 taskAffinity + singleTask）：NEW_TASK 让它落进
         // 自己的 affinity，不带就默认并进主界面那个 task，hide 就退不了「自己」。
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // 静默准备：这一座不该抢前台。查登录态（provider 的 getLoginStatus）在启动时
+        // 就会走到 prepare，Apple 站点未登录时又自动重定向到 idmsa 登录页 ——
+        // 不静默的话，每次启动都先蹦一个登录网页出来。showWindow 会再把它带到前台。
+        AppleMusicHostActivity.startHidden = true
         try {
             context.startActivity(intent)
         } catch (error: Exception) {
+            AppleMusicHostActivity.startHidden = false
             Log.w(TAG, "starting the apple music host failed", error)
         }
     }
@@ -355,6 +360,8 @@ class FoliaAppleMusicPlugin : Plugin() {
         intent.putExtra(AppleMusicHostActivity.EXTRA_TITLE, DEFAULT_TITLE)
         intent.putExtra(AppleMusicHostActivity.EXTRA_HIDE_LABEL, DEFAULT_HIDE_LABEL)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+        // 用户主动点了「登录」：这一座要真显示在前台，别再被静默准备那套逻辑藏起来。
+        AppleMusicHostActivity.startHidden = false
         try {
             context.startActivity(intent)
         } catch (error: Exception) {

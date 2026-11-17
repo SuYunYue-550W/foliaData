@@ -92,6 +92,20 @@ class AppleMusicHostActivity : AppCompatActivity() {
         @Volatile
         internal var blankListener: Runnable? = null
 
+        /**
+         * 这一座宿主是「静默准备」起来的后台窗口 —— 准备阶段不许抢前台。
+         *
+         * 起因：renderer 在查登录态（provider 的 getLoginStatus）时也会调 prepare，
+         * 而查登录态是**启动时自动发生**的，不需要用户点任何东西。prepare 原来会直接
+         * 起一个全屏 WebView Activity，Apple 站点未登录时又自动重定向到 idmsa 登录页，
+         * 于是每次启动都先蹦出来一个登录网页。
+         *
+         * 现在：prepare 起的窗口自己退到后台（用户主动点「登录」时 showWindow 再用
+         * REORDER_TO_FRONT 把它带回来），启动阶段就只剩一个看不见的准备窗口。
+         */
+        @Volatile
+        internal var startHidden = false
+
         /** 页面算完的结果往哪儿交（插件在 load() 里装上，dispose/主屏销毁时卸掉）。 */
         @Volatile
         internal var resultSink: AppleMusicResultSink? = null
@@ -212,6 +226,23 @@ class AppleMusicHostActivity : AppCompatActivity() {
     // 这里宁可让 WebView 全速跑，靠前台保持服务（AppleMusicHoldService）托住进程。
     override fun onPause() {
         super.onPause()
+    }
+
+    /**
+     * 静默准备模式：这一座是「准备」起来的，不该抢前台。
+     *
+     * onResume 是 Activity 真正可见的那一刻 —— 在这里退到后台，用户就看不到它，
+     * 而 WebView 仍在后台把页面加载好（Apple 未登录时会重定向到 idmsa 登录页，
+     * 那个页面在后台备着，等用户真的点「登录」再被带到前台）。
+     *
+     * 退到后台用的是 moveTaskToBack（与 hideWindow 同款）：只把这一个 task 挪走，
+     * 不动主界面，页面继续活着。
+     */
+    override fun onResume() {
+        super.onResume()
+        if (!startHidden) return
+        startHidden = false
+        moveTaskToBack(true)
     }
 
     /**
