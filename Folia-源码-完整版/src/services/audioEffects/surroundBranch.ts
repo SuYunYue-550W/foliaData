@@ -2,6 +2,7 @@ import { rampParam } from './effectParams';
 import { createReleaseTimer } from './effectBranchRelease';
 import type { AudioConsoleSurround } from '../../utils/audioConsole';
 import { SURROUND_PARAMS } from './immersiveParams';
+import { spatialObjectPlacement } from './spatialObjectMath';
 
 // src/services/audioEffects/surroundBranch.ts
 // HRTF 虚拟环绕：把「贴在耳朵上」的立体声变成「在脑袋前面」的一对音箱。
@@ -19,6 +20,10 @@ import { SURROUND_PARAMS } from './immersiveParams';
 //
 // 摆位：两个虚拟扬声器在听者前方 ±(30° · width)，距离 1 米。width 拉大，张角跟着变大。
 // 另外叠四路早期反射（一面近墙 + 地面），成分来自单声道求和 —— 它们负责「房间有多大」。
+//
+// 另有一路「空间对象」：把单声道成分送进第三个 HRTF panner，摆在略偏一侧的前方，
+// 让声场有一个可感知的焦点（人声/主旋律）而不是完全对称的两块。它不是对象式音频解码，
+// 更不是杜比全景声 —— 只是既有 HRTF 虚拟环绕的一个增强层，参数仍由同一组 width 驱动。
 
 /** 虚拟扬声器的基础方位角：width = 1 时 ±30°，标准立体声摆位。 */
 const BASE_ANGLE_DEG = SURROUND_PARAMS.baseAngleDeg;
@@ -52,6 +57,9 @@ type SurroundGraph = {
     rightIn: GainNode;
     leftPanner: PannerNode;
     rightPanner: PannerNode;
+    /** 空间对象：单声道成分送进第三个 HRTF panner，给声场一个前置焦点。 */
+    objectIn: GainNode;
+    objectPanner: PannerNode;
     /** 早期反射：单声道求和 → 四条延时线。 */
     monoSum: GainNode;
     reflections: Array<{ delay: DelayNode; pan: StereoPannerNode; gain: GainNode }>;
@@ -80,6 +88,8 @@ const createSurroundGraph = (context: AudioContext): SurroundGraph => {
 
     const leftPanner = createPanner();
     const rightPanner = createPanner();
+    const objectIn = context.createGain();
+    const objectPanner = createPanner();
 
     splitter.connect(leftIn, 0);
     splitter.connect(rightIn, 1);
@@ -87,11 +97,16 @@ const createSurroundGraph = (context: AudioContext): SurroundGraph => {
     rightIn.connect(rightPanner);
     leftPanner.connect(out);
     rightPanner.connect(out);
+    objectIn.connect(objectPanner);
+    objectPanner.connect(out);
 
     const monoSum = context.createGain();
     monoSum.gain.value = 0.5;
     splitter.connect(monoSum, 0);
     splitter.connect(monoSum, 1);
+    // 对象层取自同一份单声道成分；增益固定得低，只在声场中央添一层焦点。
+    monoSum.connect(objectIn);
+    objectIn.gain.value = 0.35;
 
     const reflections = EARLY_REFLECTIONS.map(spec => {
         const delay = context.createDelay(0.1);
@@ -107,7 +122,7 @@ const createSurroundGraph = (context: AudioContext): SurroundGraph => {
         return { delay, pan, gain };
     });
 
-    return { splitter, leftIn, rightIn, leftPanner, rightPanner, monoSum, reflections, out };
+    return { splitter, leftIn, rightIn, leftPanner, rightPanner, objectIn, objectPanner, monoSum, reflections, out };
 };
 
 /**
@@ -140,7 +155,9 @@ export const createSurroundBranch = (
                 });
                 return;
             }
-            if (value instanceof AudioNode) value.disconnect();
+            // 用鸭子类型判断而不是 instanceof AudioNode：node 环境的单测没有全局 AudioNode，
+            // 而这里本来就只关心「能不能断开」。
+            if (value && typeof (value as AudioNode).disconnect === 'function') (value as AudioNode).disconnect();
         });
         output?.disconnect();
         graph = null;
@@ -171,6 +188,16 @@ export const createSurroundBranch = (
                 rampParam(context, graph!.leftPanner.positionZ, z, 0.08);
                 rampParam(context, graph!.rightPanner.positionX, x, 0.08);
                 rampParam(context, graph!.rightPanner.positionZ, z, 0.08);
+
+                // 空间对象：位置由纯函数算，方位是张角的一半 —— width 越大，焦点越靠边。
+                // 坐标计算见 spatialObjectMath.ts（有独立单测钉住数值与非法输入）。
+                const object = spatialObjectPlacement({
+                    azimuthDeg: (BASE_ANGLE_DEG * width) / 2,
+                    distance: SPEAKER_DISTANCE,
+                });
+                rampParam(context, graph!.objectPanner.positionX, object.x, 0.08);
+                rampParam(context, graph!.objectPanner.positionY, object.y, 0.08);
+                rampParam(context, graph!.objectPanner.positionZ, object.z, 0.08);
 
                 const room = Math.min(1, Math.max(0, settings.roomAmount));
                 EARLY_REFLECTIONS.forEach((spec, index) => {
