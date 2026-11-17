@@ -7,6 +7,7 @@ import {
     pickAudioFormat, songFromListItem, songFromQueueItem,
 } from './ytmAndroidCatalog';
 import { createYtmSandbox } from './ytmAndroidSandbox';
+import { androidLibraryHandlers } from './ytmAndroidLibrary';
 import { mintYtmToken } from './ytmAndroidToken';
 import { clearNativeSession, restoreNativeSession, saveNativeSession } from './ytmAndroidSessionStore';
 import { setYtmNativeAgent, ytmNativeFetch } from './ytmNativeFetch';
@@ -29,7 +30,7 @@ import { accountFromYtmWebList } from './ytmAndroidAccount';
 class YtmAndroidError extends Error {
     constructor(public readonly code: ProviderErrorCode, message: string, public readonly reason?: string) { super(message); }
 }
-const fail = (code: ProviderErrorCode, message: string, reason?: string): never => { throw new YtmAndroidError(code, message, reason); };
+export const fail = (code: ProviderErrorCode, message: string, reason?: string): never => { throw new YtmAndroidError(code, message, reason); };
 
 const MOBILE_BROWSE_URL = 'https://music.youtube.com/youtubei/v1/browse?prettyPrint=false';
 const WATCH_URL = 'https://music.youtube.com/youtubei/v1/next?prettyPrint=false';
@@ -43,12 +44,12 @@ const AUDIO_DIR = 'ytm-audio';
 // 缓存目录里最多留几首；多出来的按时间先后删掉。
 const KEPT_AUDIO_FILES = 6;
 
-const boundedText = (value: unknown, max: number): string | null => (
+export const boundedText = (value: unknown, max: number): string | null => (
     typeof value === 'string' && value.length > 0 && value.length <= max ? value : null
 );
-const entityId = (value: unknown): string | null => (typeof value === 'string' && /^[\w-]{2,128}$/.test(value) ? value : null);
-const videoId = (value: unknown): string => (typeof value === 'string' && VIDEO_ID.test(value) ? value : fail('invalid-response', 'Invalid track id'));
-const pageToken = (value: unknown): string | undefined => {
+export const entityId = (value: unknown): string | null => (typeof value === 'string' && /^[\w-]{2,128}$/.test(value) ? value : null);
+export const videoId = (value: unknown): string => (typeof value === 'string' && VIDEO_ID.test(value) ? value : fail('invalid-response', 'Invalid track id'));
+export const pageToken = (value: unknown): string | undefined => {
     if (value === undefined) return undefined;
     return boundedText(value, 8192) ?? fail('invalid-response', 'Invalid page token');
 };
@@ -110,7 +111,7 @@ let library: Promise<Library> | null = null;
 const sandbox = createYtmSandbox();
 
 // youtubei.js 只在第一次用到 YouTube Music 时加载（几百 KB）。播放器的解密脚本在沙盒 iframe 里跑。
-const loadLibrary = (): Promise<Library> => {
+export const loadLibrary = (): Promise<Library> => {
     if (!library) {
         const loading = import('youtubei.js').then(loaded => {
             loaded.Platform.shim.eval = (data: { output: string }) => sandbox.evaluate(`(() => { ${data.output}\n })()`) as any;
@@ -148,7 +149,7 @@ const lazySession = (create: () => Promise<Session>, stamp: () => string) => {
 
 // 登录后的会话：带着 cookie 建，请求经它走原生 HTTP（ytmNativeFetch.ts 里账户头只许给 YouTube 的主机），
 // UA 用登录时那个。
-const signedSession = lazySession(async () => {
+export const signedSession = lazySession(async () => {
     if (!hasSession()) fail('auth-required', 'Sign in to YouTube Music first');
     const { Innertube } = await loadLibrary();
     return Innertube.create({
@@ -157,7 +158,7 @@ const signedSession = lazySession(async () => {
     });
 }, () => `${languageOf()}|${generation}`);
 
-const postJson = async (url: string, body: unknown): Promise<any> => {
+export const postJson = async (url: string, body: unknown): Promise<any> => {
     const response = await ytmNativeFetch(url, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
@@ -178,7 +179,7 @@ const songInLanguage = async (params: YtmParams, hl: string): Promise<YtmWireSon
     return songOfWatchPage(Parser.parseResponse(data), id, YTNodes);
 };
 
-const playlistPageOf = (page: any, further: boolean, YTNodes: Library['YTNodes']) => {
+export const playlistPageOf = (page: any, further: boolean, YTNodes: Library['YTNodes']) => {
     const shelf = further ? undefined : page.contents_memo?.getType(YTNodes.MusicPlaylistShelf)?.[0];
     const rows = [...(further
         ? page.on_response_received_actions?.find((action: any) => action?.type === 'AppendContinuationItemsAction')?.contents ?? []
@@ -415,6 +416,7 @@ const gated = (handler: Handler): Handler => async params => {
 };
 
 const handlers: Partial<Record<YtmOperation, Handler>> = {
+    ...androidLibraryHandlers,
     // 不受会话限制的三个之外，每个都要已登录（在 requestYtmOnAndroid 里过门）。
     login_status: async () => {
         if (!hasSession()) await seekStoredSession();

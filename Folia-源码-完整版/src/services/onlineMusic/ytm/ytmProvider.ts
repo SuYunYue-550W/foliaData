@@ -67,8 +67,10 @@ export const ytmProvider: OnlineMusicProvider = {
     // account beyond that — the library, the explore tab, mutations of it — has no port there yet.
     capabilities: isCapacitorAndroid() ? {
         search: true, playback: true, lyrics: true, wordByWordLyrics: false, auth: true,
-        userLibrary: false, playlists: true, albums: true, artists: true, userAlbums: false,
-        recommendations: false, explore: false, mutations: false, playlistTrackMutations: false, likes: false,
+        // 账号资料库的三项已在 WebView 侧移植（ytmAndroidLibrary.ts：user_playlists /
+        // user_albums / playlist；recommendations 还依赖已有的 mix）。
+        userLibrary: true, playlists: true, albums: true, artists: true, userAlbums: true,
+        recommendations: true, explore: false, mutations: false, playlistTrackMutations: false, likes: false,
         playlistSubscription: false,
     } : {
         search: true, playback: true, lyrics: true, wordByWordLyrics: false, auth: true,

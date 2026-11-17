@@ -100,12 +100,20 @@ describe('the YouTube Music gate on Android', () => {
     });
 
     it('keeps the not-yet-port operations honest: authentication first, then unsupported', async () => {
-        for (const operation of ['playlist', 'user_playlists', 'user_albums', 'explore', 'playlist_edit', 'list_save', 'list_saved', 'song_like'] as YtmOperation[]) {
+        const all = ['playlist', 'user_playlists', 'user_albums', 'explore', 'playlist_edit', 'list_save', 'list_saved', 'song_like'] as YtmOperation[];
+        // 三个资料库读操作已移植；它们仍然要先过登录门。
+        for (const operation of all) {
             expect(await requestYtmOnAndroid(operation, { id: 'x' })).toMatchObject({ ok: false, error: { code: 'auth-required' } });
         }
         await signedIn();
-        for (const operation of ['playlist', 'user_playlists', 'user_albums', 'explore', 'playlist_edit', 'list_save', 'list_saved', 'song_like'] as YtmOperation[]) {
+        // 剩下的 5 个仍明确 unsupported；已移植的 3 个不再报 unsupported（它们走自己的实现）。
+        const stillMissing = ['explore', 'playlist_edit', 'list_save', 'list_saved', 'song_like'] as YtmOperation[];
+        for (const operation of stillMissing) {
             expect(await requestYtmOnAndroid(operation, { id: 'x' })).toMatchObject({ ok: false, error: { code: 'unsupported' } });
+        }
+        for (const operation of ['playlist', 'user_playlists', 'user_albums'] as YtmOperation[]) {
+            const result = await requestYtmOnAndroid(operation, { id: 'x' });
+            expect(result.ok ? result : result.error.code).not.toBe('unsupported');
         }
     });
 
