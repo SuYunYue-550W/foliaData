@@ -16,6 +16,11 @@ import {
     normalizeDispersionParams,
     type DispersionParams,
 } from './dispersionModel';
+// 运行时真正挂载的是这个 hook（AppShell / FloatingPlayerControls），
+// 而 liquidGlass.css 之前只被未挂载的 LiquidGlass.tsx 引入 —— 结果 CSS 根本没进
+// 构建产物：内高光、青绿内描边、光晕与降级磨砂全都没生效，只剩 hook 注入的
+// inline backdrop-filter。在这里引入，样式才会随 bootstrap 一起打包。
+import './liquidGlass.css';
 
 /** 探测 backdrop-filter: url(#svg) 是否可用；firefox / 旧 safari 由纯函数再判一次。 */
 const detectSvgBackdropSupport = (): boolean => {
