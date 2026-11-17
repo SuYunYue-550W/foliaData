@@ -42,3 +42,9 @@ preview/
 harmony/folia/.hvigor/
 harmony/folia/build-hap.log
 harmony/folia/entry/build/
+
+# 本地构建产物（体积大，不进 git；Release 附件单独上传）
+Folia-源码-完整版/build-exe/
+Folia-源码-完整版/release/win-unpacked*/
+Folia-源码-完整版/packaging/windows/wallpaper-helper/target/
+harmony/folia/build-backups/

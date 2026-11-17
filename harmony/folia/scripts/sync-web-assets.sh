@@ -26,10 +26,14 @@ info "构建前端（FOLIA_BUILD_TARGET=capacitor，与 Android 同款产物）"
 (cd "$SRC" && FOLIA_BUILD_TARGET=capacitor npm run build)
 
 info "清空旧 rawfile/dist（移走而非 rm，规避沙箱批量删除钩子）"
+# ⚠️ 备份必须放到 rawfile **外面**：放在 ${DST}_backup_* 会被打包脚本当成资源
+# 一起塞进 HAP（曾让包从 86MB 涨到 170MB，里面多了一整份旧前端）。
+BACKUP_ROOT="${REPO}/harmony/folia/build-backups"
+mkdir -p "$BACKUP_ROOT"
 if [ -d "$DST" ]; then
-    BACKUP="${DST}_backup_$(date +%s)"
+    BACKUP="${BACKUP_ROOT}/dist_backup_$(date +%s)"
     mv "$DST" "$BACKUP" || fail "无法移走旧 rawfile/dist：$DST"
-    info "旧目录已移到 $BACKUP（构建成功后可手动删除）"
+    info "旧目录已移到 $BACKUP（rawfile 之外，不会被打包）"
 fi
 mkdir -p "$DST"
 
