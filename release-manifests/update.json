@@ -1,15 +1,15 @@
 {
-  "version": "0.7.33",
-  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.33/Folia-Android-0.7.33.apk",
-  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.33",
-  "notes": "## v0.7.33 · 启动卡住修复与新平台构建版\n\n本版由本仓库源码在本机真实编译，修复 Windows 启动卡在 Folia logo 加载页的问题，并为 Linux 增加 ARM64 构建、补齐 HarmonyOS 壳工程；桌面与安卓的「检查更新」继续指向本仓库 Releases。\n\n- **Windows 启动卡住修复**：`index.tsx` 顶层副作用（microRender / 调试 / 限帧等）任一同步抛错会中断 bootstrap 的加载，导致 React 永不挂载、首屏遮罩永久停留。现改为顶部用 queueMicrotask 排队 bootstrap（同步抛错也挡不住微任务），`index.html` 另加纯内联 12 秒看门狗强制摘遮罩并打诊断标记，两道护栏互不依赖。\n- **Linux 双架构**：`.github/workflows/build-linux.yml` 改为 x64（ubuntu-24.04）与 ARM64（ubuntu-24.04-arm）双 job，MNN 运行时各架构本机编译；v0.7.32 已实测两种架构共 8 个包全部上传 Release、下载 HTTP 200。\n- **HarmonyOS 壳工程补齐**：新增 hvigor 配置、模块级构建配置、混淆规则与包装器，修正 ArkTS 严格模式写法与桥契约；仍需 DevEco SDK 才能编译 HAP。\n- 版本号 0.7.33，安卓 versionCode 7031300（高于上一版，覆盖安装不会判为降级）。\n- 验证：tsc（8GB 堆）0 错误、vite build 通过、启动护栏与桥契约单测全绿。\n\n逐项记录见仓库 CHANGELOG.md 与 release-manifests/构建与发布.md。",
-  "published_at": "2026-11-16T15:11:25.772Z",
-  "size": 124018885,
+  "version": "0.7.34",
+  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.34/Folia-Android-0.7.34.apk",
+  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.34",
+  "notes": "## v0.7.34 · 安卓启动不再跳登录页、桌面模组修复与鸿蒙原生能力\n\n本版由本仓库源码在本机真实编译：修掉两个影响日常使用的真 bug，补齐鸿蒙端原生能力，并让液态玻璃与空间音频真正生效。\n\n- **安卓启动不再跳 Apple Music 登录页**：应用启动时会问各平台「谁登录了」，Apple Music 那边要问它的 companion 宿主，于是原生把一座全屏 WebView 顶到前台，Apple 站点未登录又自动重定向到登录页 —— 每次启动都先蹦出那个页面。现在宿主准备阶段自行退到后台（onResume 时 moveTaskToBack），用户真的点「登录」时才被带到前台。\n- **桌面端随包模组恢复加载**：「听歌档案 / 黑胶唱片 / 跳一跳」三个模组在 Windows 上全部起不来，日志是 `Failed to fetch dynamically imported module: file:///C:/mods/builtin/...`。原因是模组地址写成了根相对路径，而桌面页是 file:// 协议，浏览器把它解析到盘符根。改为跟随 vite 的 base（桌面是相对路径），构建产物确认含 `.folia-chromatic-glass`。\n- **YouTube Music 安卓端补上账号资料库**：Android 侧原本只有搜索与播放，账号的歌单、专辑、推荐都关着。现在 WebView 侧补上对应读取能力并打开对应开关；探索页与写操作（红心、订阅、歌单编辑）仍未移植，界面上不会出现半吊子入口。\n- **液态玻璃样式真正进入产物**：色散玻璃的样式表此前只被一个未使用的示例组件引用，运行时挂载的 hook 不引它 —— 内高光、青绿描边、降级磨砂全都没生效，只有 hook 注入的一行 backdrop-filter。现在样式随包走。\n- **空间音频加了一层对象感**：在既有的 HRTF 虚拟环绕上新增一路空间对象（第三个 HRTF panner，取单声道成分，方位由现有张角滑杆驱动），让声场有可感知的前置焦点。这是虚拟环绕的增强，**不是杜比全景声**，能力声明里 dolbyObjectDecoding 仍为不可用。\n- **HarmonyOS NEXT**：原生播放（AVPlayer）、通知栏与锁屏控制（AVSession）、跨域请求转发（原生 HTTP，绕过 CORS）、Apple Music 登录（通用 ArkWeb 宿主）、壁纸配置的持久化。已用开发者证书出签名包。\n\n- 版本号 0.7.34，安卓 versionCode 7030400（高于上一版，覆盖安装不会判为降级）。\n- 验证：1116 个测试文件 / 13393 个用例全过；check:ui / check:size / check:versions / check:harmony / 密钥检查全绿；tsc 0 错误。",
+  "published_at": "2026-11-17T18:22:39.993Z",
+  "size": 124023164,
   "assets": [
     {
-      "name": "Folia-Android-0.7.33.apk",
-      "browser_download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.33/Folia-Android-0.7.33.apk",
-      "size": 124018885
+      "name": "Folia-Android-0.7.34.apk",
+      "browser_download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.34/Folia-Android-0.7.34.apk",
+      "size": 124023164
     }
   ]
 }
