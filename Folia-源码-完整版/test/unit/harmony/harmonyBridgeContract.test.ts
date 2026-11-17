@@ -279,6 +279,60 @@ describe('HarmonyOS 原生 HTTP 转发（FoliaNative.httpRequest）', () => {
     });
 });
 
+describe('HarmonyOS 壁纸 / 桌面歌词（FoliaWallpaper）', () => {
+    const wallpaper = (): string => read('entry/src/main/ets/bridge/FoliaWallpaperHandlers.ets');
+
+    it('注册了前端契约里的全部 22 个方法', () => {
+        const src = wallpaper();
+        [
+            'publish', 'setAppearance', 'publishCappellaImages', 'clearImage', 'pickFont',
+            'getFont', 'setFont', 'setFollowFont', 'setFloatingPreview', 'getBackground',
+            'resetFloatingLyrics', 'clear', 'heartbeat', 'isActive', 'openPicker',
+            'hasOverlayPermission', 'openOverlaySettings', 'pickVideo', 'getVideo',
+            'clearVideo', 'getLockScreenStatus', 'openRomPermission', 'getOverlayEventLog',
+        ].forEach((m) => expect(src, `缺 FoliaWallpaper.${m}`).toContain(`'FoliaWallpaper.${m}'`));
+    });
+
+    it('配置类方法用 preferences 持久化（桌面端与鸿蒙侧语义一致）', () => {
+        const src = wallpaper();
+        expect(src).toContain("import { preferences } from '@kit.ArkData'");
+        expect(src).toContain('preferences.getPreferences(this.context');
+        ['setAppearance', 'setFont', 'setFollowFont', 'setFloatingPreview'].forEach((m) =>
+            expect(src, `${m} 没有落盘`).toContain(`'FoliaWallpaper.${m}'`));
+    });
+
+    it('系统级悬浮窗渲染如实标为 unsupported（鸿蒙没有这个 API）', () => {
+        // HarmonyOS NEXT 的 SDK 里没有 createFloatingWindow / getFloatingWindowList，
+        // SYSTEM_ALERT_WINDOW 那套是 Android 专属 —— 做不到的事不假装。
+        const src = wallpaper();
+        expect(src).toContain("handlers.set('FoliaWallpaper.publish', unsupported);");
+        expect(src).toContain('This capability is not available on HarmonyOS');
+    });
+
+    it('系统选择器与系统设置页也如实标为 unsupported', () => {
+        const src = wallpaper();
+        ['pickFont', 'pickVideo', 'openPicker', 'openOverlaySettings', 'openRomPermission']
+            .forEach((m) => expect(src, `${m} 应为 unsupported`)
+                .toContain(`handlers.set('FoliaWallpaper.${m}', unsupported);`));
+    });
+
+    it('状态类如实反映「鸿蒙没有系统悬浮窗」', () => {
+        const src = wallpaper();
+        expect(src).toContain('result.active = false;');
+        expect(src).toContain('result.granted = false;');
+        expect(src).toContain('result.events = [];');
+    });
+
+    it('前端每个调用点都有兜底，原生如实返回即可正确降级', () => {
+        // 前端用 hasOverlayPermission / isActive 决定壁纸入口是否可用，
+        // 所以原生如实回 false 时前端会收起入口，而不是点进去才发现不行。
+        const src = readSrc('src/platform/foliaWallpaper.ts');
+        expect(src).toContain('hasWallpaperOverlayPermission');
+        expect(src).toContain('isLyricsWallpaperActive');
+        expect(src).toContain('} catch {');
+    });
+});
+
 describe('HarmonyOS 工程标准文件齐全（DevEco Sync 前置条件）', () => {
     it('具备工程级与模块级构建配置', () => {
         ['hvigor/hvigor-config.json5', 'build-profile.json5', 'entry/build-profile.json5',

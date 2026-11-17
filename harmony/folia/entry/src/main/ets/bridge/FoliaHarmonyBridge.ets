@@ -26,6 +26,7 @@ import { FoliaEventBus } from './FoliaEventBus';
 import { FoliaNativePlayerHandlers } from './FoliaNativePlayerHandlers';
 import { FoliaPlaybackHandlers } from './FoliaPlaybackHandlers';
 import { FoliaHttpHandlers } from './FoliaHttpHandlers';
+import { FoliaWallpaperHandlers } from './FoliaWallpaperHandlers';
 
 interface BridgeRequest {
   callbackId: string;
@@ -249,6 +250,10 @@ export class FoliaHarmonyBridge {
     // 在线音乐的各平台接口都走它（前端 nativeHttpFetch 会自动启用）。
     const httpHandlers: FoliaHttpHandlers = new FoliaHttpHandlers();
     httpHandlers.register(this.handlers);
+    // 壁纸/桌面歌词：配置与状态真做，系统级悬浮窗明确 unsupported
+    // （HarmonyOS NEXT 没有应用级系统悬浮窗 API）。
+    const wallpaperHandlers: FoliaWallpaperHandlers = new FoliaWallpaperHandlers(this.context);
+    wallpaperHandlers.register(this.handlers);
 
     // ── 明确不支持的：给出结构化错误，让前端的 catch 按能力不可用降级 ──
     const unsupported = async () => {
