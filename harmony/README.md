@@ -2,11 +2,12 @@
 
 > ✅ **状态：已用真实 HarmonyOS SDK 编译成功（2026-11-17）。** 用华为官方 Command Line
 > Tools 26.0.1（内嵌 SDK，无需 DevEco Studio IDE）在本机实测 `hvigorw assembleHap` 全绿，
-> 产出合法 HAP（`entry-default-unsigned.hap`，约 74MB，2065 个条目，含 `module.json`
+> 产出合法 HAP（`entry-default-unsigned.hap`，约 86MB，2065 个条目，含 `module.json`
 > 与打进 rawfile 的前端产物，ZIP 校验通过）。
 >
 > ⚠️ 产物是**未签名** HAP：真机安装需要华为开发者证书（`.p12`/`.cer`/`.p7b`）签名，
 > 这必须从华为开发者账号申请，仓库不含任何签名材料。
+> **完整操作步骤（含自动签名 / 手动路线、UDID 获取、证书配置、真机验证清单）见 [`证书与真机调试指南.md`](证书与真机调试指南.md)。**
 >
 > HarmonyOS NEXT 不兼容 Android APK，现成的 `Folia-Android-0.7.33.apk` 只能在
 > HarmonyOS 4 及以下安装。
