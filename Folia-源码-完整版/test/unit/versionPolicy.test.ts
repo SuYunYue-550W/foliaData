@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url';
 import {
     checkVersionPolicy,
     isPinnedSpec,
+    matchesReleaseCodeScheme,
     parseVersion,
+    releaseCodeOf,
     versionCodeOf,
     versionNumberIssues,
 } from '../../ci/checkVersionPolicy.ts';
@@ -38,6 +40,25 @@ describe('版本号约束', () => {
         expect(versionNumberIssues('0.7.22')).toEqual([]);
         expect(versionNumberIssues('0.7.100')).toHaveLength(1);
         expect(versionNumberIssues('0.7.22.100')).toHaveLength(1);
+    });
+});
+
+describe('正式版的安卓 versionCode 编码约定', () => {
+    it('按 703 + patch + 00 推导', () => {
+        expect(releaseCodeOf({ major: 0, minor: 7, patch: 31, build: 0 })).toBe(7031100);
+        expect(releaseCodeOf({ major: 0, minor: 7, patch: 32, build: 0 })).toBe(7031200);
+        expect(releaseCodeOf({ major: 0, minor: 7, patch: 34, build: 0 })).toBe(7031400);
+    });
+
+    it('patch 递增时码必然递增（覆盖安装不会被判为降级）', () => {
+        const codes = [31, 32, 33, 34].map(patch => releaseCodeOf({ major: 0, minor: 7, patch, build: 0 }));
+        for (let i = 1; i < codes.length; i += 1) expect(codes[i]).toBeGreaterThan(codes[i - 1]);
+    });
+
+    it('不合约定的码会被认出来 —— 7030400 比上一版 7031200 还小，装机会报 -25', () => {
+        const parsed = { major: 0, minor: 7, patch: 34, build: 0 };
+        expect(matchesReleaseCodeScheme(7030400, parsed)).toBe(false);
+        expect(matchesReleaseCodeScheme(7031400, parsed)).toBe(true);
     });
 });
 

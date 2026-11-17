@@ -63,6 +63,24 @@ export function versionCodeOf(version: string): number {
         + Math.min(parsed.build, 99);
 }
 
+/**
+ * 本仓库正式版的安卓 versionCode 约定：703 + patch + 00。
+ *
+ * 由来：v0.7.31 / v0.7.32 / v0.7.33 实际发出去的码是 7031100 / 7031200 / 7031300，
+ * 即「7 03 1 1 00」这样的五段十进制，patch 每涨一档码就涨 100。这样只要 patch 递增，
+ * 覆盖安装一定被 Android 认成升级。
+ */
+export function releaseCodeOf(parsed: ParsedVersion): number {
+    // 7031 + patch-30 + 00：patch=31 → 7031100，patch=32 → 7031200，patch=34 → 7031400。
+    // 基线取 7031000（0.7.30 那个 7030100 是更早的特例，之后一律按这一档递增）。
+    return 7031000 + (Math.min(parsed.patch, 99) - 30) * 100;
+}
+
+/** 显式写下的码是否符合上面的约定（只认整数，且逐位相等）。 */
+export function matchesReleaseCodeScheme(code: number, parsed: ParsedVersion): boolean {
+    return Number.isInteger(code) && code === releaseCodeOf(parsed);
+}
+
 export function versionNumberIssues(version: string): string[] {
     const parsed = parseVersion(version);
     if (!parsed) return [`版本号 ${version} 不是 A.B.C 或 A.B.C.D`];
@@ -162,10 +180,18 @@ export function checkVersionPolicy(root: string = repoRoot): string[] {
         }
         if (pkg.androidVersionCode !== undefined) {
             const base = versionCodeOf(String(pkg.version));
+            const releaseParsed: ParsedVersion | null = parseVersion(String(pkg.version));
             if (!Number.isInteger(pkg.androidVersionCode)) {
                 failures.push('androidVersionCode 必须是整数');
             } else if (pkg.androidVersionCode < base) {
                 failures.push(`androidVersionCode ${pkg.androidVersionCode} 小于正式码 ${base}，覆盖安装会被判为降级`);
+            } else if (releaseParsed && !matchesReleaseCodeScheme(pkg.androidVersionCode, releaseParsed)) {
+                // 只跟推导值比是不够的：推导值 703400 比正式版实际用的 7030400 小，
+                // 于是「比推导值大」的 7030400 能溜过门禁，而它比上一版 7031200 还小 ——
+                // 装到手机上直接被 Android 判为降级（INSTALL_FAILED_VERSION_DOWNGRADE, -25）。
+                // 本仓库的正式版约定是 703 + patch + 00（7031100 / 7031200 / 7031300 …），
+                // 照这个约定写，patch 递增时码必然递增。
+                failures.push(`androidVersionCode ${pkg.androidVersionCode} 不符合本仓库的正式版编码约定（703 + patch + 00，应为 ${releaseCodeOf(releaseParsed)}）；写成别的值会让覆盖安装被判为降级`);
             }
         }
         failures.push(...versionNumberIssues(pkg.version));
