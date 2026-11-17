@@ -27,6 +27,7 @@ import { FoliaNativePlayerHandlers } from './FoliaNativePlayerHandlers';
 import { FoliaPlaybackHandlers } from './FoliaPlaybackHandlers';
 import { FoliaHttpHandlers } from './FoliaHttpHandlers';
 import { FoliaWallpaperHandlers } from './FoliaWallpaperHandlers';
+import { FoliaAppleMusicHandlers } from './FoliaAppleMusicHandlers';
 
 interface BridgeRequest {
   callbackId: string;
@@ -105,12 +106,19 @@ export class FoliaHarmonyBridge {
   private handlers: Map<string, Handler> = new Map();
   private bus: FoliaEventBus;
   private awake: boolean = false;
+  /** Apple Music 的宿主（Index.ets 把它挂成第二个 Web 组件）。 */
+  private appleMusic: FoliaAppleMusicHandlers | undefined = undefined;
 
   constructor(controller: webview.WebviewController, context: common.UIAbilityContext) {
     this.controller = controller;
     this.context = context;
     this.bus = new FoliaEventBus(controller);
     this.registerHandlers();
+  }
+
+  /** Apple Music 宿主（给 Index.ets 挂 Web 组件用）。 */
+  get appleMusicHost(): FoliaAppleMusicHandlers | undefined {
+    return this.appleMusic;
   }
 
   /** 由 ArkWeb 组件 onControllerAttached 之后调用，把 JS 可调用的方法注入进去。 */
@@ -254,6 +262,10 @@ export class FoliaHarmonyBridge {
     // （HarmonyOS NEXT 没有应用级系统悬浮窗 API）。
     const wallpaperHandlers: FoliaWallpaperHandlers = new FoliaWallpaperHandlers(this.context);
     wallpaperHandlers.register(this.handlers);
+    // Apple Music 的宿主（ArkWeb 里的 music.apple.com）：页面运行时整个注入进去，
+    // 协议与安卓一致。Index.ets 负责把宿主那个 Web 组件挂上来。
+    this.appleMusic = new FoliaAppleMusicHandlers(this.context);
+    this.appleMusic.register(this.handlers);
 
     // ── 明确不支持的：给出结构化错误，让前端的 catch 按能力不可用降级 ──
     const unsupported = async () => {

@@ -1,6 +1,6 @@
 import { OnlineProviderError } from '../../../types/onlineMusic';
 import type { ProviderAvailability, ProviderErrorCode } from '../../../types/onlineMusic';
-import { isCapacitorAndroid } from '../../../platform/runtime';
+import { isCapacitorAndroid, isCapacitorHarmony } from '../../../platform/runtime';
 
 // The provider's sole renderer-side boundary to the isolated desktop companion.
 // The queue is Folia's: no next/previous of the companion's own.
@@ -22,6 +22,8 @@ export const getAppleMusicTransportAvailability = (): ProviderAvailability => {
         return { configured: false, reason: 'runtime-unavailable' };
     }
     if (isCapacitorAndroid()) return { configured: true };
+    // 鸿蒙侧有同一套 ArkWeb 宿主（harmony/appleMusicHarmonyBridge.ts），协议与安卓一致。
+    if (isCapacitorHarmony()) return { configured: true };
     return { configured: false, reason: 'runtime-unavailable' };
 };
 
@@ -39,13 +41,16 @@ const errorCode = (error: string): ProviderErrorCode => {
 export async function requestAppleMusic<T>(operation: AppleMusicOperation, params: AppleMusicParams = {}): Promise<T> {
     // 桌面走 Electron 的 IPC；安卓走原生宿主桥；两头共用同一套操作与返回形状。
     const desktopRequest = typeof window !== 'undefined' ? window.electron?.appleMusicRequest : undefined;
-    if (!desktopRequest && !isCapacitorAndroid()) {
+    if (!desktopRequest && !isCapacitorAndroid() && !isCapacitorHarmony()) {
         throw new OnlineProviderError('unavailable', 'Apple Music companion is unavailable', 'appleMusic');
     }
     let result: AppleMusicBridgeResult;
     try {
         if (desktopRequest) {
             result = await desktopRequest(operation, params);
+        } else if (isCapacitorHarmony()) {
+            const { requestAppleMusicOnHarmony } = await import('./harmony/appleMusicHarmonyBridge');
+            result = await requestAppleMusicOnHarmony(operation, params);
         } else {
             const { requestAppleMusicOnAndroid } = await import('./android/appleMusicAndroidBridge');
             result = await requestAppleMusicOnAndroid(operation, params);

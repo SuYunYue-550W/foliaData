@@ -333,6 +333,63 @@ describe('HarmonyOS 壁纸 / 桌面歌词（FoliaWallpaper）', () => {
     });
 });
 
+describe('HarmonyOS Apple Music 宿主（ArkWeb）', () => {
+    it('前端有鸿蒙版的桥，导出名与安卓版对称', () => {
+        const src = readSrc('src/services/onlineMusic/appleMusic/harmony/appleMusicHarmonyBridge.ts');
+        expect(src).toContain('export const requestAppleMusicOnHarmony');
+        expect(src).toContain('export const hasAppleMusicHarmonyHost');
+        expect(src).toContain('export const disposeAppleMusicHarmonyHost');
+        expect(src).toContain("registerPlugin<FoliaAppleMusicNative>('FoliaAppleMusic')");
+    });
+
+    it('前端桥复用同一套页面运行时（pageScript.ts）', () => {
+        const src = readSrc('src/services/onlineMusic/appleMusic/harmony/appleMusicHarmonyBridge.ts');
+        expect(src).toContain("from '../pageScript'");
+        expect(src).toContain('appleMusicPageHandleRequest.toString()');
+    });
+
+    it('运行时能认出鸿蒙平台', () => {
+        const src = readSrc('src/platform/runtime.ts');
+        expect(src).toContain('export const isCapacitorHarmony');
+        expect(src).toContain("Capacitor.getPlatform() === 'harmony'");
+    });
+
+    it('transport 按平台分派到鸿蒙桥', () => {
+        const src = readSrc('src/services/onlineMusic/appleMusic/appleMusicTransport.ts');
+        expect(src).toContain('isCapacitorHarmony');
+        expect(src).toContain("await import('./harmony/appleMusicHarmonyBridge')");
+        expect(src).toContain('requestAppleMusicOnHarmony(operation, params)');
+    });
+
+    it('原生侧有通用 ArkWeb 宿主与 Apple Music 的实现', () => {
+        const host = read('entry/src/main/ets/bridge/FoliaWebHost.ets');
+        expect(host).toContain('export class FoliaWebHost');
+        expect(host).toContain('window.__foliaHandle');
+        expect(host).toContain('foliaHostResult');
+        expect(host).toContain('webview.WebCookieManager.getCookie(url)');
+
+        const handlers = read('entry/src/main/ets/bridge/FoliaAppleMusicHandlers.ets');
+        ['FoliaAppleMusic.prepare', 'FoliaAppleMusic.request', 'FoliaAppleMusic.setForeground',
+         'FoliaAppleMusic.logout', 'FoliaAppleMusic.dispose'].forEach((key) =>
+            expect(handlers, `缺 ${key}`).toContain(`'${key}'`));
+        expect(handlers).toContain('https://music.apple.com/');
+    });
+
+    it('页面里只许去那几个 Apple 域', () => {
+        const handlers = read('entry/src/main/ets/bridge/FoliaAppleMusicHandlers.ets');
+        expect(handlers).toContain("'music.apple.com'");
+        expect(handlers).toContain("'idmsa.apple.com'");
+        expect(handlers).toContain('isAllowedUrl');
+    });
+
+    it('宿主 Web 默认不渲染，只在用户要登录时显示', () => {
+        const index = read('entry/src/main/ets/pages/Index.ets');
+        expect(index).toContain('@State private hostVisible: boolean = false;');
+        expect(index).toContain('if (this.hostVisible) {');
+        expect(index).toContain('setShowHandler');
+    });
+});
+
 describe('HarmonyOS 工程标准文件齐全（DevEco Sync 前置条件）', () => {
     it('具备工程级与模块级构建配置', () => {
         ['hvigor/hvigor-config.json5', 'build-profile.json5', 'entry/build-profile.json5',

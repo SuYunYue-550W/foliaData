@@ -45,6 +45,8 @@ React 前端 (dist)  ── registerPlugin() ──▶  capacitor-harmony-bridge
 | `entry/src/main/ets/bridge/FoliaBridgeOptions.ets` | 桥入参取值辅助（ArkTS 严格模式下的动态 JSON 读取） |
 | `entry/src/main/ets/bridge/FoliaHttpHandlers.ets` | 原生 HTTP 转发（`FoliaNative.httpRequest`）+ ArkWeb cookie 罐读写 |
 | `entry/src/main/ets/bridge/FoliaWallpaperHandlers.ets` | 壁纸/桌面歌词：配置与状态持久化 + 能力边界如实标注 |
+| `entry/src/main/ets/bridge/FoliaWebHost.ets` | 通用 ArkWeb 宿主：平台登录页的承载与双向通信（页面 → 原生 → 页面） |
+| `entry/src/main/ets/bridge/FoliaAppleMusicHandlers.ets` | Apple Music 宿主：注入页面运行时、转发 operation、登出清 cookie |
 | `entry/src/main/ets/entryability/EntryAbility.ets` | 应用入口，全屏窗口 |
 | `entry/src/main/resources/rawfile/capacitor-harmony-bridge.js` | Capacitor 自定义平台桥（注入到 HTML） |
 | `scripts/sync-web-assets.sh` | 构建前端 → 拷进 rawfile → 在 index.html 注入桥脚本 |
@@ -63,6 +65,7 @@ React 前端 (dist)  ── registerPlugin() ──▶  capacitor-harmony-bridge
 |---|---|---|
 | ✅ 已实现 | `FoliaNative.showToast / exitApp / setScreenAwake` | HarmonyOS 标准 API 可直接覆盖 |
 | ✅ 已实现（原生播放） | `FoliaNativePlayer.prepare / play / pause / stop / seek / setVolume / setSpeed / setRepeatMode / getSnapshot / release` | 基于 `media.AVPlayer`，带 `foliaNativePlayer` 事件（ready/playing/paused/ended/position/seeked/buffering/error/idle） |
+| ✅ 已实现（Apple Music 登录） | `FoliaAppleMusic.prepare / request / setForeground / logout / dispose` | 同一页面里第二个 Web 组件承载 `music.apple.com`，页面运行时（`pageScript.ts`，与桌面逐行对齐）整个注入进去，协议与安卓完全一致。宿主默认不渲染，只有用户真的去登录时才显示；登录凭据在 ArkWeb 的 cookie 罐里 |
 | ✅ 已实现（原生 HTTP） | `FoliaNative.httpRequest`、`cookiesSet`、`cookiesRemove` | WebView 里的页面有来源（`https://localhost`），跨域请求照样被同源策略拦；原生这一条是鸿蒙上绕过 CORS 的唯一通路。**前端无需改动**：`nativeHttpFetch.ts` 的判定「不是 native 平台 **且** 不是 android」在鸿蒙上成立，且 `isPluginAvailable('FoliaNative')` 查的是本桥上报的 pluginHeaders |
 | ✅ 已实现（媒体会话） | `FoliaPlayback.update / setState / stop / getPlaybackSnapshot / setQueueMirror / setQueueMirrorIndex / consumeLikeOverrides` | 基于 `avSession`：通知栏与锁屏可控制播放，元数据与播放状态同步；`foliaPlaybackCommand` 事件把通知栏/耳机按键转给前端 |
 | ⚠️ 部分实现 | `FoliaWallpaper.setAppearance / getBackground / setFont / setFollowFont / getFont / setFloatingPreview / getVideo / clearImage / clearVideo / clear / heartbeat / resetFloatingLyrics / publishCappellaImages / isActive / hasOverlayPermission / getLockScreenStatus / getOverlayEventLog` | 配置与状态类**真做**（preferences 持久化，与桌面端语义一致）；但**真正的桌面悬浮窗渲染在鸿蒙上做不到**——Android 靠 `SYSTEM_ALERT_WINDOW` 在别的应用之上画窗口，HarmonyOS NEXT 的 SDK 里**没有 `createFloatingWindow` / `getFloatingWindowList`**（只有 `TYPE_FLOAT` 枚举与 `createSubWindow` 应用内子窗口），该权限也只给系统应用。所以 `publish` 与各系统选择器（`pickFont`/`pickVideo`/`openPicker`/`openOverlaySettings`/`openRomPermission`）明确回 unsupported，前端据此收起入口（前端每个调用点都有 try/catch 兜底） |

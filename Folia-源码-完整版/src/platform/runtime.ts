@@ -16,6 +16,19 @@ export const isCapacitorAndroid = (): boolean => (
 );
 
 /**
+ * 跑在鸿蒙 App 壳里（HarmonyOS NEXT 的 ArkWeb 壳，平台名 'harmony'）。
+ *
+ * 与安卓那一侧一样：不看桥有没有初始化完，只看平台名 —— 「此刻是不是原生」
+ * 当成「这个功能在不在」会在启动头几秒答错，而答错的那一侧往往是破坏性的
+ * （见下面 isAndroidAppShell 的注释）。
+ */
+export const isCapacitorHarmony = (): boolean => (
+  typeof window !== 'undefined'
+  && Capacitor.isNativePlatform()
+  && Capacitor.getPlatform() === 'harmony'
+);
+
+/**
  * 是不是跑在安卓 App 壳里 —— **不依赖 Capacitor 的桥有没有初始化完**。
  *
  * `Capacitor.isNativePlatform()` 读的是原生注入的 `window.CapacitorPlatform`，
