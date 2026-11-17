@@ -20,8 +20,17 @@ interface BuiltinModSource {
     folia: string | null;
 }
 
-/** Where the bundling put them (public/mods/builtin). */
-const BUILTIN_BASE = '/mods/builtin';
+/**
+ * Where the bundling put them (public/mods/builtin).
+ *
+ * 必须跟 vite 的 base 走，不能写死 '/mods/builtin'：
+ * 桌面与 Capacitor 构建的 base 是 './'，纯 Web 才是 '/'（见 vite.config.ts）。
+ * 写死根相对路径的话，桌面端 file:// 页面会把 '/mods/…' 解析成盘符根
+ * （file:///C:/mods/…），三个随包模组全都加载失败 —— "听歌档案启动出错了" 的根因。
+ * 用 BASE_URL 拼出来的是 './mods/…'，在 file:// 与 https://localhost 下都能
+ * 正确落到 dist/mods/builtin/。
+ */
+const BUILTIN_BASE = `${import.meta.env.BASE_URL}mods/builtin`.replace(/\/+/g, '/');
 
 const BUILTIN_SOURCES: readonly BuiltinModSource[] = [
     {
