@@ -48,3 +48,6 @@ Folia-源码-完整版/build-exe/
 Folia-源码-完整版/release/win-unpacked*/
 Folia-源码-完整版/packaging/windows/wallpaper-helper/target/
 harmony/folia/build-backups/
+
+# 华为开发者证书与私钥（绝对不能进公开仓库）
+harmony/certs/

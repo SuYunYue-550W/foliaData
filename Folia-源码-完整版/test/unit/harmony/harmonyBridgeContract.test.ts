@@ -413,9 +413,11 @@ describe('HarmonyOS 工程标准文件齐全（DevEco Sync 前置条件）', () 
         expect(cfg).toContain('modelVersion');
     });
 
-    it('build-profile 用新版字段（arkTSVersion，不含 signingConfigs）', () => {
+    it('build-profile 用新版字段（签名走独立工具，不在配置里放材料）', () => {
         const cfg = read('build-profile.json5');
         expect(cfg).toContain('"arkTSVersion": "1.1"');
+        // hvigor 的 signingConfigs 要求密码是 DevEco 加密形式 + material 目录，
+        // 命令行手工配置走不通；本工程用 hap-sign-tool.jar 对 unsigned HAP 独立签名。
         expect(cfg).not.toContain('signingConfigs');
     });
 });
