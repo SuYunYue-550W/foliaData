@@ -1,11 +1,15 @@
 name: Build HarmonyOS HAP
 
-# HarmonyOS NEXT 不兼容 Android APK，必须用 DevEco Studio 的 hvigorw + HarmonyOS SDK
-# 才能打 HAP。本机没有 SDK，所以这里用带 SDK 的容器/自托管 runner 来构建和发布。
+# HarmonyOS NEXT 不兼容 Android APK，必须用 hvigorw + HarmonyOS SDK 才能打 HAP。
+# HarmonyOS SDK 不公开分发，GitHub 官方 runner 上没有，所以走带 SDK 的自托管 runner。
 #
-# 注意：HarmonyOS SDK 不是公开分发的，GitHub 官方 runner 上没有。两种用法：
-#  1. 自托管 runner（装好 DevEco 命令行工具 + SDK，标签 harmony-sdk）——推荐；
-#  2. 本地 DevEco 里 Build 出 HAP 后，用 workflow_dispatch 手动上传（见 upload-only job）。
+# 路线（2026-11-17 在本地实测验证过，见 release-manifests/构建与发布.md 第 9 节）：
+#   自托管 runner 预装华为官方 Command Line Tools（内嵌 SDK）→ 设 DEVECO_SDK_HOME →
+#   把工程复制到纯 ASCII 路径（hvigor 拒绝中文路径）→ 用 CLI 自带的 hvigorw 构建 → 上传 HAP。
+#
+# 两种用法：
+#   1. 自托管 runner（标签 harmony-sdk，runner 机器上已装 Command Line Tools）——推荐；
+#   2. 本地已构建好 HAP 时，用 workflow_dispatch 的 hap_path 走 upload-only 直接上传。
 
 on:
   push:
@@ -28,31 +32,70 @@ on:
 permissions:
   contents: write
 
+env:
+  # Command Line Tools 在自托管 runner 上的解压目录。
+  # runner 机器上解压到该路径即可（解压后的目录名是 command-line-tools）。
+  CLI_ROOT: /opt/harmony-cli/command-line-tools
+  # 构建用的纯 ASCII 工程目录：hvigor 拒绝含中文/非 ASCII 字符的工程路径。
+  BUILD_DIR: /opt/harmony-build
+
 jobs:
-  # 模式 A：有 HarmonyOS SDK 的自托管 runner 上完整构建
+  # 模式 A：在带 Command Line Tools 的自托管 runner 上完整构建
   build-with-sdk:
     if: github.event_name == 'push' || inputs.hap_path == ''
     runs-on: [self-hosted, harmony-sdk]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: Folia-源码-完整版/package-lock.json
+
+      - name: Check Command Line Tools
+        run: |
+          set -euo pipefail
+          if [ ! -x "$CLI_ROOT/hvigor/bin/hvigorw" ]; then
+            echo "::error::未找到 $CLI_ROOT/hvigor/bin/hvigorw —— 自托管 runner 需要预装华为 Command Line Tools"
+            exit 1
+          fi
+          "$CLI_ROOT/hvigor/bin/hvigorw" --version
+
+      # 工程必须复制到纯 ASCII 路径；同时排除 rawfile/dist（前端产物由 sync 步骤重新生成）。
+      - name: Copy project to ASCII path
+        run: |
+          set -euo pipefail
+          mkdir -p "$BUILD_DIR"
+          cp -R harmony/folia/. "$BUILD_DIR/"
+          rm -rf "$BUILD_DIR/entry/src/main/resources/rawfile/dist"
+          rm -rf "$BUILD_DIR/.hvigor" "$BUILD_DIR/entry/build" "$BUILD_DIR/build"
 
       - name: Sync web assets into rawfile
-        run: bash harmony/folia/scripts/sync-web-assets.sh
-
-      - name: Build HAP with hvigorw
         working-directory: harmony/folia
-        # DEVECO_SDK_HOME 由自托管 runner 的环境直接提供，不要在这里显式赋值：
-        # 顶层未定义同名 env 时，${{ env.DEVECO_SDK_HOME }} 会求值为空，反而清掉 runner 的配置。
+        run: bash scripts/sync-web-assets.sh
+
+      - name: Copy synced assets into build dir
         run: |
-          ./hvigorw assembleHap --mode module -p product=default --no-daemon
+          set -euo pipefail
+          mkdir -p "$BUILD_DIR/entry/src/main/resources/rawfile"
+          cp -R harmony/folia/entry/src/main/resources/rawfile/dist "$BUILD_DIR/entry/src/main/resources/rawfile/dist"
+          cp harmony/folia/entry/src/main/resources/rawfile/capacitor-harmony-bridge.js \
+             "$BUILD_DIR/entry/src/main/resources/rawfile/capacitor-harmony-bridge.js"
+
+      - name: Build HAP with Command Line Tools hvigorw
+        working-directory: /opt/harmony-build
+        env:
+          NODE_HOME: ${{ env.NODE_HOME }}
+          DEVECO_SDK_HOME: /opt/harmony-cli/command-line-tools/sdk
+          JAVA_HOME: /opt/harmony-cli/command-line-tools/tool/jre
+        run: |
+          set -euo pipefail
+          export PATH="$JAVA_HOME/bin:$PATH"
+          "$CLI_ROOT/hvigor/bin/hvigorw" assembleHap --mode module -p product=default --no-daemon
           mkdir -p "$GITHUB_WORKSPACE/harmony-out"
           find . -name '*.hap' -type f -exec cp {} "$GITHUB_WORKSPACE/harmony-out/" \;
+          ls -la "$GITHUB_WORKSPACE/harmony-out/"
 
       - name: Resolve tag
         id: tag
@@ -72,18 +115,30 @@ jobs:
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Folia $TAG" --generate-notes
           for f in "${files[@]}"; do gh release upload "$TAG" "$f" --clobber; done
 
-  # 模式 B：本地 DevEco 已构建好 HAP，只做上传（任何 runner 都能跑）
+  # 模式 B：本地已构建好 HAP，只做上传（任何 runner 都能跑）
   upload-only:
     if: github.event_name == 'workflow_dispatch' && inputs.hap_path != ''
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - name: Upload provided HAP
+      - name: Download local HAP
+        id: fetch
+        uses: actions/download-artifact@v4
+        with:
+          path: harmony-out
+          pattern: none
+        continue-on-error: true
+
+      - name: Upload HAP to Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.tag }}
-          HAP: ${{ inputs.hap_path }}
+          HAP_PATH: ${{ inputs.hap_path }}
         run: |
-          [ -f "$HAP" ] || { echo "HAP 不在仓库工作区里，请先把文件提交或用 Artifact 传入" >&2; exit 1; }
+          shopt -s nullglob
+          if [ -f "$HAP_PATH" ]; then
+            cp "$HAP_PATH" harmony-out/
+          fi
+          files=(harmony-out/*.hap)
+          [ ${#files[@]} -gt 0 ] || { echo "没有 HAP 产物（检查 inputs.hap_path）" >&2; exit 1; }
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Folia $TAG" --generate-notes
-          gh release upload "$TAG" "$HAP" --clobber
+          for f in "${files[@]}"; do gh release upload "$TAG" "$f" --clobber; done

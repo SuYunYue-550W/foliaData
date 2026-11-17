@@ -3,7 +3,7 @@
 全屏沉浸式歌词播放器 **Folia** 的整合增强版。基于 Folia-major 0.7.25，叠加色散玻璃导航条与自研 **microRender** GPU 调度微内核，提供 Windows 与 Android 双端构建。
 
 > **当前版本：`v0.7.33`（启动卡住修复与新平台构建版，2026-11-16）。**
-> 本版由**本仓库源码在本机真实编译**，修复 Windows 打开后停在 Folia logo 加载页、永不进入主界面的问题；Linux 构建扩展到 ARM64，HarmonyOS 壳工程补齐到可在 DevEco 中构建的结构。桌面与安卓的「检查更新」均指向本仓库 Releases。v0.7.32 的 Apple Music 双端登录与音质设置改动全部保留，详见 `CHANGELOG.md`。
+> 本版由**本仓库源码在本机真实编译**，修复 Windows 打开后停在 Folia logo 加载页、永不进入主界面的问题；Linux 构建扩展到 ARM64；HarmonyOS 壳工程用华为官方 Command Line Tools 真实编译出 HAP。桌面与安卓的「检查更新」均指向本仓库 Releases。v0.7.32 的 Apple Music 双端登录与音质设置改动全部保留，详见 `CHANGELOG.md`。
 > v0.7.28 的上游同步清单见 [`上游同步说明-v0.7.28.md`](上游同步说明-v0.7.28.md)，版本记录见 [`CHANGELOG.md`](CHANGELOG.md)，出包与发布步骤见 [`release-manifests/构建与发布.md`](release-manifests/构建与发布.md)。
 
 > 本仓库由维护者独立整理上传。上传前已移除原发布渠道的更新地址、旧仓库来源指向与原项目社区群信息；**软件更新源现统一指向本仓库的 Releases**。
@@ -135,7 +135,7 @@ npm run build:android:debug   # Android debug APK
 | 平台 | 入口 | 说明 |
 |---|---|---|
 | Linux（tar.gz / deb / rpm / AppImage） | `bash scripts/build-linux.sh` | **必须在 Linux 本机跑**（MNN 运行时拒绝交叉编译）；或 push `v*` 标签触发 `.github/workflows/build-linux.yml`，由 GitHub runner 构建并自动上传 Release。**v0.7.32 x64 四种包已在云端构建并上传 Release，下载实测 HTTP 200**；workflow 现支持 x64 + arm64 双架构（`workflow_dispatch` 可单选 `arch`），MNN 各架构本机编译 |
-| HarmonyOS NEXT | 见 [`harmony/README.md`](harmony/README.md) | ArkWeb 壳工程 + Capacitor 自定义平台桥（前端零改动）；需 DevEco Studio + SDK 编译 HAP，`.github/workflows/build-harmony.yml` 配好自托管 runner 自动发布。**当前为未编译验证的源码骨架**，详见该文档的诚实能力清单 |
+| HarmonyOS NEXT | 见 [`harmony/README.md`](harmony/README.md) | ArkWeb 壳工程 + Capacitor 自定义平台桥（前端零改动）；**已用华为官方 Command Line Tools 26.0.1 实测编译出 HAP**（未签名，约 74MB，随 v0.7.33 Release 发布），`.github/workflows/build-harmony.yml` 支持自托管 runner 自动构建发布。**安装真机需自行签名**，详见该文档的能力清单与构建步骤 |
 
 ---
 
@@ -178,7 +178,7 @@ npm run build:android:debug   # Android debug APK
 
 **本版修复 Windows 启动卡在 Folia logo 加载页**：`index.tsx` 顶层副作用（microRender / 调试 / 限帧等）任一同步抛错曾中断 bootstrap 加载，使 React 永不挂载、遮罩无法移除。现用两道独立护栏——`index.html` 内联 12 秒看门狗强制摘遮罩 + 诊断标记，`index.tsx` 顶部 `queueMicrotask` 排队 bootstrap；见 `test/unit/startup/splashBootGuard.test.ts`。
 
-同时：Linux 构建 workflow 支持 x64 + ARM64 双架构（MNN 各架构本机编译，v0.7.32 已实测 8 个包全绿）；HarmonyOS 壳工程补齐标准构建文件并修正 ArkTS 严格模式写法（仍需 DevEco SDK 才能出 HAP）。两个包内含本仓库更新地址，自研色散玻璃导航条与 microRender 微内核都在包内。**Apple Music 在桌面与 Android 均可用**（需订阅账号；网页侧最高 AAC，不支持 Lossless/Hi-Res/对象式 Dolby；Linux / 纯网页不提供）。
+同时：Linux 构建 workflow 支持 x64 + ARM64 双架构（MNN 各架构本机编译，v0.7.32 已实测 8 个包全绿）；HarmonyOS 壳工程已用真实 SDK 编译出 HAP（ArkTS 严格模式问题已修，未签名包随本版 Release 发布）。两个包内含本仓库更新地址，自研色散玻璃导航条与 microRender 微内核都在包内。**Apple Music 在桌面与 Android 均可用**（需订阅账号；网页侧最高 AAC，不支持 Lossless/Hi-Res/对象式 Dolby；Linux / 纯网页不提供）。
 
 ### v0.7.32（历史版本 · Apple Music 双端登录与音质设置版）
 
