@@ -235,6 +235,50 @@ describe('HarmonyOS 桥方法表与前端契约同源', () => {
     });
 });
 
+describe('HarmonyOS 原生 HTTP 转发（FoliaNative.httpRequest）', () => {
+    it('用 NetworkKit 的 http.createHttp 实现', () => {
+        const http = read('entry/src/main/ets/bridge/FoliaHttpHandlers.ets');
+        expect(http).toContain("import { http } from '@kit.NetworkKit'");
+        expect(http).toContain('http.createHttp()');
+        expect(http).toContain('request.request(url, options)');
+    });
+
+    it('注册了 httpRequest / cookiesSet / cookiesRemove', () => {
+        const http = read('entry/src/main/ets/bridge/FoliaHttpHandlers.ets');
+        ['FoliaNative.httpRequest', 'FoliaNative.cookiesSet', 'FoliaNative.cookiesRemove']
+            .forEach((key) => expect(http, `缺 ${key}`).toContain(`'${key}'`));
+    });
+
+    it('响应体按契约给 base64（前端自己解）', () => {
+        const http = read('entry/src/main/ets/bridge/FoliaHttpHandlers.ets');
+        expect(http).toContain("import { buffer } from '@kit.ArkTS'");
+        expect(http).toContain(".toString('base64')");
+        expect(http).toContain('bodyBase64');
+    });
+
+    it('响应头按前端接受的数组形状给出', () => {
+        const http = read('entry/src/main/ets/bridge/FoliaHttpHandlers.ets');
+        expect(http).toContain('class HeaderEntry');
+        expect(http).toContain('headers: HeaderEntry[] = []');
+    });
+
+    it('cookie 走 ArkWeb 的 cookie 罐（静态方法调用）', () => {
+        const http = read('entry/src/main/ets/bridge/FoliaHttpHandlers.ets');
+        expect(http).toContain("import { webview } from '@kit.ArkWeb'");
+        expect(http).toContain('webview.WebCookieManager.setCookie(url, cookie)');
+        expect(http).toContain('Max-Age=0');
+    });
+
+    it('前端无需改动即可启用：nativeHttpFetch 的判定与 isPluginAvailable 都成立', () => {
+        // src/services/nativeHttpFetch.ts 的平台判定是「不是 native 平台 **且** 平台不是 android」
+        // 才判不可用；鸿蒙的 isNativePlatform() 为 true，且 isPluginAvailable('FoliaNative')
+        // 查的是本桥上报的 pluginHeaders —— 所以实现了 httpRequest 就自动生效。
+        const fetchSrc = readSrc('src/services/nativeHttpFetch.ts');
+        expect(fetchSrc).toContain("isNativePlatform?.() !== true && capacitor.getPlatform?.() !== 'android'");
+        expect(fetchSrc).toContain("isPluginAvailable('FoliaNative')");
+    });
+});
+
 describe('HarmonyOS 工程标准文件齐全（DevEco Sync 前置条件）', () => {
     it('具备工程级与模块级构建配置', () => {
         ['hvigor/hvigor-config.json5', 'build-profile.json5', 'entry/build-profile.json5',

@@ -43,6 +43,7 @@ React 前端 (dist)  ── registerPlugin() ──▶  capacitor-harmony-bridge
 | `entry/src/main/ets/bridge/FoliaNativePlayerHandlers.ets` | `FoliaNativePlayer.*` 方法实现 + `foliaNativePlayer` 事件 |
 | `entry/src/main/ets/bridge/FoliaPlaybackHandlers.ets` | `FoliaPlayback.*`：AVSession 媒体会话（通知栏/锁屏）+ 播放状态镜像 |
 | `entry/src/main/ets/bridge/FoliaBridgeOptions.ets` | 桥入参取值辅助（ArkTS 严格模式下的动态 JSON 读取） |
+| `entry/src/main/ets/bridge/FoliaHttpHandlers.ets` | 原生 HTTP 转发（`FoliaNative.httpRequest`）+ ArkWeb cookie 罐读写 |
 | `entry/src/main/ets/entryability/EntryAbility.ets` | 应用入口，全屏窗口 |
 | `entry/src/main/resources/rawfile/capacitor-harmony-bridge.js` | Capacitor 自定义平台桥（注入到 HTML） |
 | `scripts/sync-web-assets.sh` | 构建前端 → 拷进 rawfile → 在 index.html 注入桥脚本 |
@@ -61,6 +62,7 @@ React 前端 (dist)  ── registerPlugin() ──▶  capacitor-harmony-bridge
 |---|---|---|
 | ✅ 已实现 | `FoliaNative.showToast / exitApp / setScreenAwake` | HarmonyOS 标准 API 可直接覆盖 |
 | ✅ 已实现（原生播放） | `FoliaNativePlayer.prepare / play / pause / stop / seek / setVolume / setSpeed / setRepeatMode / getSnapshot / release` | 基于 `media.AVPlayer`，带 `foliaNativePlayer` 事件（ready/playing/paused/ended/position/seeked/buffering/error/idle） |
+| ✅ 已实现（原生 HTTP） | `FoliaNative.httpRequest`、`cookiesSet`、`cookiesRemove` | WebView 里的页面有来源（`https://localhost`），跨域请求照样被同源策略拦；原生这一条是鸿蒙上绕过 CORS 的唯一通路。**前端无需改动**：`nativeHttpFetch.ts` 的判定「不是 native 平台 **且** 不是 android」在鸿蒙上成立，且 `isPluginAvailable('FoliaNative')` 查的是本桥上报的 pluginHeaders |
 | ✅ 已实现（媒体会话） | `FoliaPlayback.update / setState / stop / getPlaybackSnapshot / setQueueMirror / setQueueMirrorIndex / consumeLikeOverrides` | 基于 `avSession`：通知栏与锁屏可控制播放，元数据与播放状态同步；`foliaPlaybackCommand` 事件把通知栏/耳机按键转给前端 |
 | ⛔ unsupported | `FoliaNative.moveToBackground`（鸿蒙无 `moveTaskToBack`）、`installUpdate`、`showOverlayNotice`、`pickVideoLayerFile`；`FoliaNativePlayer.setEqualizer / getEqualizerState / setSpectrumEnabled / getSpectrum`（鸿蒙 AVPlayer 无 FFT 与等效 EQ 链）；`FoliaAppleMusic.*`、`FoliaYtm.signIn`、`FoliaSpotify.signIn`、`FoliaQishui.signIn` | Android 权限/Activity、Electron companion 专属，或 SDK 无对应 API；前端会收到结构化 `unsupported` 错误并按「能力不可用」降级，**不会拿到假数据** |
 | ⚠️ 降级回退 Web | `FoliaPlayback.playFromQueue`（回 `ok:false`）、`FoliaPlayback.requestSkip`（回 `skipped:false`） | Android 侧原生有「平台网关」按需解析歌曲地址，鸿蒙侧没有这套地址解析。按前端契约回 false，调用方会回退 Web 全流程 —— 功能不坏，切歌走 Web 路径 |
