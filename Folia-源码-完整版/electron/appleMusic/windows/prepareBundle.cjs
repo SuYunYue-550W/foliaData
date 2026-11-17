@@ -17,8 +17,23 @@ const WINDOWS_COMPANION_FILES = [
 // The project targets x64 only (PlatformTarget x64); other architectures would ship a host that cannot load its loader.
 function prepareWindowsCompanion({ arch, projectRoot, run = execFileSync }) {
     if (arch !== 'x64') throw new Error(`Unsupported Apple Music companion architecture: ${arch}`);
+    const output = path.join(projectRoot, 'build/apple-music-native/windows');
+    // The host's source has not changed since it was built, but rebuilding it needs the
+    // .NET desktop SDK (Microsoft.NET.Sdk.WindowsDesktop). Not every machine that packages
+    // Folia has it, so a complete set of files from an earlier build is reused as is.
+    const alreadyBuilt = WINDOWS_COMPANION_FILES.every((file) => {
+        try {
+            return require('node:fs').statSync(path.join(output, file)).size > 0;
+        } catch {
+            return false;
+        }
+    });
+    if (alreadyBuilt) {
+        console.log('[apple-music] reusing the Windows companion already built in build/apple-music-native/windows');
+        return output;
+    }
     run('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(projectRoot, 'electron/appleMusic/windows/buildCompanion.ps1')], { stdio: 'inherit' });
-    return path.join(projectRoot, 'build/apple-music-native/windows');
+    return output;
 }
 
 // Fail packaging when any of the host's files did not reach resources/apple-music/windows.

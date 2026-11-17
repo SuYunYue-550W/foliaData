@@ -51,3 +51,6 @@ harmony/folia/build-backups/
 
 # 华为开发者证书与私钥（绝对不能进公开仓库）
 harmony/certs/
+
+# Rust 编译出的壁纸辅助程序（中间产物，不进仓库）
+Folia-源码-完整版/build/folia-wallpaper-helper.exe
