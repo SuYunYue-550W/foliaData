@@ -12,16 +12,25 @@
 // ArkTS 严格模式（arkts-no-untyped-obj-literals / arkts-no-obj-literals-as-types）：
 // 所有对象字面量必须对应显式声明的 class/interface，不能用匿名 {}、内联 { a: b } 或
 // 内联类型 { code?: string }。因此这里一律用 class + new。
+//
+// 能力按文件拆开，避免单文件过长：
+//  - FoliaEventBus.ets          事件分发（原生 → JS 的推送通道）
+//  - FoliaPlayer.ets            AVPlayer 封装
+//  - FoliaNativePlayerHandlers.ets  原生播放内核的方法实现
+//  - FoliaPlaybackHandlers.ets   媒体会话 / 通知栏 / 播放状态镜像
 
 import { webview } from '@kit.ArkWeb';
 import { promptAction } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
+import { FoliaEventBus } from './FoliaEventBus';
+import { FoliaNativePlayerHandlers } from './FoliaNativePlayerHandlers';
+import { FoliaPlaybackHandlers } from './FoliaPlaybackHandlers';
 
 interface BridgeRequest {
   callbackId: string;
   pluginName: string;
   methodName: string;
-  options?: Record<string, Object>;
+  options?: Record<string, ESObject>;
 }
 
 /** 回执里的错误对象（独立于 BridgeReply，避免内联类型）。 */
@@ -47,7 +56,7 @@ class BridgeReply {
 }
 
 /** 已实现的原生能力签名。参数用 Object 收，各 handler 内部自行校验形状。 */
-type Handler = (options: Record<string, Object>) => Promise<Object>;
+type Handler = (options: Record<string, ESObject>) => Promise<Object>;
 
 /** registerJavaScriptProxy 注入的对象必须是显式 class 实例。 */
 class JsProxy {
@@ -78,17 +87,6 @@ class LyriconStatus {
 }
 class LyricsSupport { supported: boolean = false; }
 class WallpaperStatus { active: boolean = false; }
-class DolbyCapabilities {
-  atmosTracks: boolean = false;
-  objectDecoding: boolean = false;
-  hiResOutput: boolean = false;
-  outputRate: number = 48000;
-}
-class AudioOutputCapabilities {
-  hiResBitPerfectOutput: boolean = false;
-  outputRate: number = 48000;
-  deviceCodecs: string[] = [];
-}
 
 /** 带 code 的自定义错误，替代 `(e as { code?: string }).code = ...`。 */
 class CodedError extends Error {
@@ -103,11 +101,13 @@ export class FoliaHarmonyBridge {
   private controller: webview.WebviewController;
   private context: common.UIAbilityContext;
   private handlers: Map<string, Handler> = new Map();
+  private bus: FoliaEventBus;
   private awake: boolean = false;
 
   constructor(controller: webview.WebviewController, context: common.UIAbilityContext) {
     this.controller = controller;
     this.context = context;
+    this.bus = new FoliaEventBus(controller);
     this.registerHandlers();
   }
 
@@ -147,6 +147,22 @@ export class FoliaHarmonyBridge {
     if (!request || typeof request.callbackId !== 'string') return;
 
     const key: string = `${request.pluginName}.${request.methodName}`;
+
+    // removeListener 所有插件共用一套退订逻辑，不必逐个注册。
+    if (request.methodName === 'removeListener') {
+      const opts: Record<string, ESObject> = request.options ?? {};
+      const eventName: Object | undefined = opts['eventName'];
+      const callbackId: Object | undefined = opts['callbackId'];
+      this.bus.remove(
+        typeof callbackId === 'string' ? callbackId : '',
+        request.pluginName,
+        typeof eventName === 'string' ? eventName : ''
+      );
+      const done: BridgeReply = new BridgeReply(request.callbackId, true);
+      this.reply(done);
+      return;
+    }
+
     const handler: Handler | undefined = this.handlers.get(key);
     if (handler === undefined) {
       const reply: BridgeReply = new BridgeReply(request.callbackId, false);
@@ -154,7 +170,7 @@ export class FoliaHarmonyBridge {
       this.reply(reply);
       return;
     }
-    const emptyOptions: Record<string, Object> = {};
+    const emptyOptions: Record<string, ESObject> = {};
     try {
       const value: Object = await handler(request.options ?? emptyOptions);
       const reply: BridgeReply = new BridgeReply(request.callbackId, true);
@@ -170,8 +186,31 @@ export class FoliaHarmonyBridge {
   }
 
   private registerHandlers(): void {
+    // ── 事件订阅：addListener / removeListener ──
+    // JS 侧把 listener 编号（callbackId）交给原生，原生推事件时按编号回调回去。
+    this.handlers.set('FoliaNativePlayer.addListener', async (o) => {
+      this.subscribe('FoliaNativePlayer', o);
+      return new Object();
+    });
+    this.handlers.set('FoliaPlayback.addListener', async (o) => {
+      this.subscribe('FoliaPlayback', o);
+      return new Object();
+    });
+    this.handlers.set('FoliaNative.addListener', async (o) => {
+      this.subscribe('FoliaNative', o);
+      return new Object();
+    });
+    this.handlers.set('FoliaLyricon.addListener', async (o) => {
+      this.subscribe('FoliaLyricon', o);
+      return new Object();
+    });
+    this.handlers.set('FoliaWallpaper.addListener', async (o) => {
+      this.subscribe('FoliaWallpaper', o);
+      return new Object();
+    });
+
     // ── 真正实现了的：无需厂商私有 API、HarmonyOS 标准能力能覆盖 ──
-    this.handlers.set('FoliaNative.showToast', async (o): Promise<Object> => {
+    this.handlers.set('FoliaNative.showToast', async (o) => {
       const raw: Object | undefined = o['text'];
       const text: string = typeof raw === 'string' ? raw.slice(0, 500) : '';
       const long: Object | undefined = o['long'];
@@ -181,29 +220,33 @@ export class FoliaHarmonyBridge {
       promptAction.showToast(opts);
       return new EmptyResult();
     });
-    this.handlers.set('FoliaNative.setScreenAwake', async (o): Promise<Object> => {
+    this.handlers.set('FoliaNative.setScreenAwake', async (o) => {
       const awake: Object | undefined = o['awake'];
       this.awake = awake === true;
       // HarmonyOS 用窗口的保持亮屏标志；Ability 的 windowStage 在 EntryAbility 里设置。
       return new AwakeResult(this.awake);
     });
-    this.handlers.set('FoliaNative.moveToBackground', async (): Promise<Object> => {
+    this.handlers.set('FoliaNative.moveToBackground', async () => {
       // UIAbilityContext 没有 moveTaskToBack（Android 专属）。退后台交给系统返回键，
       // WebView 与音频随窗口生命周期保留。这里如实返回不可用，避免调用方误以为成功。
       throw new CodedError('unsupported', 'moveToBackground is not available on HarmonyOS');
     });
-    this.handlers.set('FoliaNative.exitApp', async (): Promise<Object> => {
+    this.handlers.set('FoliaNative.exitApp', async () => {
       this.context.terminateSelf();
       return new EmptyResult();
     });
-    this.handlers.set('FoliaLyricon.getStatus', async (): Promise<Object> => new LyriconStatus());
-    this.handlers.set('FoliaColorOsLyrics.isSupported', async (): Promise<Object> => new LyricsSupport());
-    this.handlers.set('FoliaWallpaper.isActive', async (): Promise<Object> => new WallpaperStatus());
-    this.handlers.set('FoliaNativePlayer.getDolbyDeviceCapabilities', async (): Promise<Object> => new DolbyCapabilities());
-    this.handlers.set('FoliaNativePlayer.getAudioOutputCapabilities', async (): Promise<Object> => new AudioOutputCapabilities());
+    this.handlers.set('FoliaLyricon.getStatus', async () => new LyriconStatus());
+    this.handlers.set('FoliaColorOsLyrics.isSupported', async () => new LyricsSupport());
+    this.handlers.set('FoliaWallpaper.isActive', async () => new WallpaperStatus());
+
+    // ── 原生播放内核与媒体会话 ──
+    const playerHandlers: FoliaNativePlayerHandlers = new FoliaNativePlayerHandlers(this.bus);
+    playerHandlers.register(this.handlers);
+    const playbackHandlers: FoliaPlaybackHandlers = new FoliaPlaybackHandlers(this.context, this.bus);
+    playbackHandlers.register(this.handlers);
 
     // ── 明确不支持的：给出结构化错误，让前端的 catch 按能力不可用降级 ──
-    const unsupported = async (): Promise<Object> => {
+    const unsupported = async () => {
       throw new CodedError('unsupported', 'This capability is not available on HarmonyOS');
     };
     const unsupportedKeys: string[] = [
@@ -221,5 +264,13 @@ export class FoliaHarmonyBridge {
     }
 
     // ── 其余方法保持未注册：invoke 会回 'unimplemented'，前端按插件不可用降级 ──
+  }
+
+  /** 登记一个事件订阅。 */
+  private subscribe(pluginName: string, o: ESObject): void {
+    const eventName: Object | undefined = o['eventName'];
+    const callbackId: Object | undefined = o['callbackId'];
+    if (typeof eventName !== 'string' || typeof callbackId !== 'string') return;
+    this.bus.add(callbackId, pluginName, eventName);
   }
 }

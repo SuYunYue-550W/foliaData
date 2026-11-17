@@ -38,10 +38,18 @@ React 前端 (dist)  ── registerPlugin() ──▶  capacitor-harmony-bridge
 | `build-profile.json5` | HarmonyOS SDK 5.0.0(12)，手机/平板 |
 | `entry/src/main/ets/pages/Index.ets` | ArkWeb 容器，加载 `rawfile/dist/index.html` |
 | `entry/src/main/ets/bridge/FoliaHarmonyBridge.ets` | 插件桥：已实现 / unsupported / unimplemented 三级 |
+| `entry/src/main/ets/bridge/FoliaEventBus.ets` | 事件通道：原生 → JS 的单向推送（callbackId 分发） |
+| `entry/src/main/ets/bridge/FoliaPlayer.ets` | 原生播放内核：`media.AVPlayer` 封装（准备/播放/暂停/定位/音量/倍速/循环） |
+| `entry/src/main/ets/bridge/FoliaNativePlayerHandlers.ets` | `FoliaNativePlayer.*` 方法实现 + `foliaNativePlayer` 事件 |
+| `entry/src/main/ets/bridge/FoliaPlaybackHandlers.ets` | `FoliaPlayback.*`：AVSession 媒体会话（通知栏/锁屏）+ 播放状态镜像 |
+| `entry/src/main/ets/bridge/FoliaBridgeOptions.ets` | 桥入参取值辅助（ArkTS 严格模式下的动态 JSON 读取） |
 | `entry/src/main/ets/entryability/EntryAbility.ets` | 应用入口，全屏窗口 |
 | `entry/src/main/resources/rawfile/capacitor-harmony-bridge.js` | Capacitor 自定义平台桥（注入到 HTML） |
 | `scripts/sync-web-assets.sh` | 构建前端 → 拷进 rawfile → 在 index.html 注入桥脚本 |
-| `hvigor/hvigor-config.json5` | Hvigor 版本与 `@ohos/hvigor-ohos-plugin` 依赖（API 12+ 必需，版本需按本机 DevEco 校准） |
+| `scripts/build-with-cli.sh` | 用 Command Line Tools 的 hvigorw 命令行编译 |
+| `scripts/build-ascii.ps1` | 把工程同步到纯 ASCII 路径后编译（hvigor 拒绝中文路径） |
+| `scripts/align-sdk-version.py` | 从 SDK 里读真实 hvigor 版本并对齐工程配置 |
+| `hvigor/hvigor-config.json5` | Hvigor 配置（**all-in-one 模式：`dependencies` 必须为空对象**） |
 | `entry/build-profile.json5` | 模块级构建配置 + Release 混淆规则引用 |
 | `entry/obfuscation-rules.txt` | 保留桥方法名不被混淆（JS 侧按字符串调用） |
 | `hvigorw` / `hvigorw.bat` | 包装器转发占位，首次 Sync 后由 DevEco 替换为真实实现 |
@@ -51,11 +59,16 @@ React 前端 (dist)  ── registerPlugin() ──▶  capacitor-harmony-bridge
 
 | 分级 | 方法 | 说明 |
 |---|---|---|
-| ✅ 已实现 | `FoliaNative.showToast / moveToBackground / exitApp / setScreenAwake`；两类音频能力探针 | HarmonyOS 标准 API 可直接覆盖 |
-| ⛔ unsupported | `FoliaNative.installUpdate`、`showOverlayNotice`、`pickVideoLayerFile`；`FoliaAppleMusic.*`、`FoliaYtm.signIn`、`FoliaSpotify.signIn`、`FoliaQishui.signIn` | Android 权限/Activity 或 Electron companion 专属，鸿蒙无对应物；前端会收到结构化 `unsupported` 错误并按「能力不可用」降级 |
-| ⏳ unimplemented | 其余约 70 个方法（播放服务、YTM 会话落盘、壁纸、歌词条等） | 桥会回 `unimplemented`；调用方已有的 catch 会让界面保持可用，但对应功能不生效 |
+| ✅ 已实现 | `FoliaNative.showToast / exitApp / setScreenAwake` | HarmonyOS 标准 API 可直接覆盖 |
+| ✅ 已实现（原生播放） | `FoliaNativePlayer.prepare / play / pause / stop / seek / setVolume / setSpeed / setRepeatMode / getSnapshot / release` | 基于 `media.AVPlayer`，带 `foliaNativePlayer` 事件（ready/playing/paused/ended/position/seeked/buffering/error/idle） |
+| ✅ 已实现（媒体会话） | `FoliaPlayback.update / setState / stop / getPlaybackSnapshot / setQueueMirror / setQueueMirrorIndex / consumeLikeOverrides` | 基于 `avSession`：通知栏与锁屏可控制播放，元数据与播放状态同步；`foliaPlaybackCommand` 事件把通知栏/耳机按键转给前端 |
+| ⛔ unsupported | `FoliaNative.moveToBackground`（鸿蒙无 `moveTaskToBack`）、`installUpdate`、`showOverlayNotice`、`pickVideoLayerFile`；`FoliaNativePlayer.setEqualizer / getEqualizerState / setSpectrumEnabled / getSpectrum`（鸿蒙 AVPlayer 无 FFT 与等效 EQ 链）；`FoliaAppleMusic.*`、`FoliaYtm.signIn`、`FoliaSpotify.signIn`、`FoliaQishui.signIn` | Android 权限/Activity、Electron companion 专属，或 SDK 无对应 API；前端会收到结构化 `unsupported` 错误并按「能力不可用」降级，**不会拿到假数据** |
+| ⚠️ 降级回退 Web | `FoliaPlayback.playFromQueue`（回 `ok:false`）、`FoliaPlayback.requestSkip`（回 `skipped:false`） | Android 侧原生有「平台网关」按需解析歌曲地址，鸿蒙侧没有这套地址解析。按前端契约回 false，调用方会回退 Web 全流程 —— 功能不坏，切歌走 Web 路径 |
+| ⏳ unimplemented | 其余约 70 个方法（壁纸悬浮窗、歌词条、在线音乐登录与 HTTP 代理等） | 桥会回 `unimplemented`；调用方已有的 catch 会让界面保持可用，但对应功能不生效 |
 
-**结论：当前壳能保证界面正常显示、基本导航、Toast/退出/后台；在线音乐、原生播放与平台登录需要后续逐项移植。**
+**结论：壳能保证界面正常显示、基本导航、Toast/退出；原生播放与通知栏/锁屏控制已可用；在线音乐的平台登录与壁纸悬浮窗需要后续逐项移植。**
+
+> 桥的方法表不是手写的：`Folia-源码-完整版/dev/tools/extract-harmony-plugin-methods.mjs` 直接从前端各插件的 TS 接口提取，方法名与前端契约同源；`npm run check:harmony` 会在桥表漂移时失败（已接进 `ci:local`）。
 
 ## 四、构建步骤
 
