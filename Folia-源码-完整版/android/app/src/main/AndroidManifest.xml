@@ -211,6 +211,16 @@
             </intent-filter>
         </receiver>
 
+        <!-- 覆盖安装 / 卸载时主动停掉自己的前台服务：MIUI 的安装器会先卸载旧版本，
+             旧进程还占着文件时那一步会失败（Failed to uninstall old application files -2），
+             装不上。系统发这两个广播时旧进程还能收到，正好在这里收尾。 -->
+        <receiver android:name=".FoliaReplaceReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.PACKAGE_FULLY_REMOVED" />
+            </intent-filter>
+        </receiver>
+
         <!-- 让 MediaSession 的控制按钮（通知栏、锁屏、蓝牙耳机）能把应用唤到前台 -->
         <receiver android:name="androidx.media.session.MediaButtonReceiver" android:exported="true">
             <intent-filter>
