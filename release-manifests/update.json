@@ -1,15 +1,15 @@
 {
-  "version": "0.7.34",
-  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.34/Folia-Android-0.7.34.apk",
-  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.34",
-  "notes": "## v0.7.34 · 安卓启动不再跳登录页、桌面模组修复与鸿蒙原生能力\n\n本版由本仓库源码在本机真实编译：修掉两个影响日常使用的真 bug，补齐鸿蒙端原生能力，并让液态玻璃与空间音频真正生效。\n\n- **安卓启动不再跳 Apple Music 登录页**：应用启动时会问各平台「谁登录了」，Apple Music 那边要问它的 companion 宿主，于是原生把一座全屏 WebView 顶到前台，Apple 站点未登录又自动重定向到登录页 —— 每次启动都先蹦出那个页面。现在宿主准备阶段自行退到后台（onResume 时 moveTaskToBack），用户真的点「登录」时才被带到前台。\n- **桌面端随包模组恢复加载**：「听歌档案 / 黑胶唱片 / 跳一跳」三个模组在 Windows 上全部起不来，日志是 `Failed to fetch dynamically imported module: file:///C:/mods/builtin/...`。原因是模组地址写成了根相对路径，而桌面页是 file:// 协议，浏览器把它解析到盘符根。改为跟随 vite 的 base（桌面是相对路径），构建产物确认含 `.folia-chromatic-glass`。\n- **YouTube Music 安卓端补上账号资料库**：Android 侧原本只有搜索与播放，账号的歌单、专辑、推荐都关着。现在 WebView 侧补上对应读取能力并打开对应开关；探索页与写操作（红心、订阅、歌单编辑）仍未移植，界面上不会出现半吊子入口。\n- **液态玻璃样式真正进入产物**：色散玻璃的样式表此前只被一个未使用的示例组件引用，运行时挂载的 hook 不引它 —— 内高光、青绿描边、降级磨砂全都没生效，只有 hook 注入的一行 backdrop-filter。现在样式随包走。\n- **空间音频加了一层对象感**：在既有的 HRTF 虚拟环绕上新增一路空间对象（第三个 HRTF panner，取单声道成分，方位由现有张角滑杆驱动），让声场有可感知的前置焦点。这是虚拟环绕的增强，**不是杜比全景声**，能力声明里 dolbyObjectDecoding 仍为不可用。\n- **HarmonyOS NEXT**：原生播放（AVPlayer）、通知栏与锁屏控制（AVSession）、跨域请求转发（原生 HTTP，绕过 CORS）、Apple Music 登录（通用 ArkWeb 宿主）、壁纸配置的持久化。已用开发者证书出签名包。\n\n- 版本号 0.7.34，安卓 versionCode 7030400（高于上一版，覆盖安装不会判为降级）。\n- 验证：1116 个测试文件 / 13393 个用例全过；check:ui / check:size / check:versions / check:harmony / 密钥检查全绿；tsc 0 错误。",
-  "published_at": "2026-11-17T18:22:39.993Z",
-  "size": 124023912,
+  "version": "0.7.35",
+  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.35/Folia-Android-0.7.35.apk",
+  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.35",
+  "notes": "## v0.7.35 · 修复手机端「听歌档案启动出错」和上游部分同步\n\n这版修的是手机上一个真实的启动失败：固定在安卓上弹「模组「听歌档案」启动时出错了」。\n\n- **手机端内置模组无法启动**：Capacitor 打包后入口 JS 在 `/assets/` 下，而随包模组的地址写成了相对路径 `./mods/builtin/...`。动态 import 的相对路径是相对 **JS 模块**解析的，于是变成 `https://localhost/assets/mods/builtin/...`，文件实际却在 `https://localhost/mods/builtin/...` —— 三个随包模组（听歌档案 / 黑胶唱片 / 跳一跳）在手机上全都加载失败。桌面端 file:// 必须用相对路径（写死 `/mods/...` 会被解析到盘符根），所以两端不能共用一种写法：现在由构建标记区分，Capacitor 用绝对路径、桌面维持相对路径。已在打出的 APK 内验证路径正确。\n- **模组错误提示带上真实原因**：启动失败的提示后面会附上手抛出的原文（`哪里: 错误`，截断 160 字）。手机 WebView 没有开发者工具，之前用户只看到「启动出错了」，既没法自行判断也没法反馈有效信息。\n- **上游 v0.7.29 部分同步**：同步了两个经单测验证的独立修复——本地歌曲首曲的莫奈背景（`blob:`/`data:` 不再错加 crossOrigin）、YouTube Music 便携版浏览器登录（Windows 上读注册表找默认浏览器）。其余上游功能因本仓库基于 folia-sonnet、与上游主线架构分叉，逐批尝试后均回退，详见仓库内 `上游同步说明-v0.7.29.md`。\n- **顺带修掉一个竞态**：全量单测发现 Jam 联播传输在 `await` 之后仍向已关闭的 channel 发送，现补上二次检查。\n\n- 版本号 0.7.35，安卓 versionCode 7031500（高于 0.7.34 的 7031400）。\n- 验证：tsc 0 错误；13413 个单测通过；ui / size / versions / harmony / 密钥检查全绿。",
+  "published_at": "2026-11-18T18:12:00.000Z",
+  "size": 124027684,
   "assets": [
     {
-      "name": "Folia-Android-0.7.34.apk",
-      "browser_download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.34/Folia-Android-0.7.34.apk",
-      "size": 124023912
+      "name": "Folia-Android-0.7.35.apk",
+      "browser_download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.35/Folia-Android-0.7.35.apk",
+      "size": 124027684
     }
   ]
 }
