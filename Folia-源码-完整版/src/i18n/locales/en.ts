@@ -1824,7 +1824,7 @@ export default {
     "ytmSignInCancel": "Cancel",
     "ytmSignInDone": "Done",
     "loginNoteYtmBrowserMac": "A separate browser window opens. Sign in to Google there, and quit that browser (⌘Q) once YouTube Music shows your account.",
-    "loginNoBrowserYtm": "Signing in to YouTube Music needs Chrome (Beta, Dev or Canary also work), Edge, Chromium, Brave or Helium installed.",
+    "loginNoBrowserYtm": "Signing in to YouTube Music needs Chrome (Beta, Dev or Canary also work), Edge, Chromium, Brave or Helium installed. On Windows, a portable Chrome, Edge or Brave set as the default browser also works (chrome.exe, msedge.exe or brave.exe itself, not a launcher).",
     "loginCodeWaiting": "Waiting for confirmation in your browser",
     "loginTitleSpotify": "Sign in to Spotify",
     "loginNoteSpotify": "Choose Agree on the Spotify page that opens in your browser",
