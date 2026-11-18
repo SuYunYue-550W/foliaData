@@ -342,6 +342,9 @@ export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig
       })])
     ],
     define: {
+      // Capacitor 的包里入口 JS 在 /assets/ 下，随包模组的相对地址会被解析到
+      // /assets/mods/... （文件实际在 /mods/...）。让 builtinMods 据此改用绝对路径。
+      '__CAPACITOR_BUILD__': JSON.stringify(isCapacitorBuild),
       '__COMMIT_HASH__': JSON.stringify(commitHash + commitSuffix),
       '__GIT_BRANCH__': JSON.stringify(gitBranch),
       '__BUILD_REPO__': JSON.stringify(buildRepo),

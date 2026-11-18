@@ -202,7 +202,9 @@ describe('the notice a failing mod raises', () => {
 
         // Being slow did not use up the notice of a failure.
         fail('fault-slow', 'client activate', 'start');
-        expect(toast()!.text).toBe(i18n.t('mods.faultNotice.start', { name: 'fault-slow' }));
+        // 启动失败会带上抛出的原文：手机 WebView 没有开发者工具，只有这行字能定位。
+        expect(toast()!.text).toContain(i18n.t('mods.faultNotice.start', { name: 'fault-slow' }));
+        expect(toast()!.text).toContain('client activate');
         expect(toast()!.type).toBe('error');
         expire();
 

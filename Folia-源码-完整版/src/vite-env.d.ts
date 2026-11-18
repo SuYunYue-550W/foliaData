@@ -3,6 +3,8 @@
 import type { ModClearCacheResult, ModExportProgress, ModFfmpegStatus, ModLogEntry, ModMainCallStats, ModRpcMessage, ModRuntimeInfo, ModRuntimeSnapshot, ModSecretChange, ModStorageUsageResult } from './mods/types';
 
 declare global {
+  // Capacitor 构建：入口 JS 在 /assets/ 下，随包模组须用 /mods/... 绝对路径（见 builtinMods.ts）。
+  const __CAPACITOR_BUILD__: boolean;
   // 当前文件：Folia 构建常量、Vite 环境变量与宿主桥接类型声明。
   interface ImportMetaEnv {
     readonly VITE_FOLIA_API_BASE?: string;

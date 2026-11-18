@@ -216,6 +216,9 @@ export class RelayJamTransport {
             ts: Date.now(),
         };
         const payload = await sealRelayFrame(this.roomCode, full);
+        // sealRelayFrame 是异步的：等它的时候 stop() 可能已经把 channel 关掉。
+        // 开头那次检查挡不住这个竞态，await 之后必须再看一次。
+        if (!this.channel || this.stopped) return;
         this.channel.publish(this.channelName, payload);
     }
 

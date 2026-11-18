@@ -23,14 +23,22 @@ interface BuiltinModSource {
 /**
  * Where the bundling put them (public/mods/builtin).
  *
- * 必须跟 vite 的 base 走，不能写死 '/mods/builtin'：
- * 桌面与 Capacitor 构建的 base 是 './'，纯 Web 才是 '/'（见 vite.config.ts）。
- * 写死根相对路径的话，桌面端 file:// 页面会把 '/mods/…' 解析成盘符根
- * （file:///C:/mods/…），三个随包模组全都加载失败 —— "听歌档案启动出错了" 的根因。
- * 用 BASE_URL 拼出来的是 './mods/…'，在 file:// 与 https://localhost 下都能
- * 正确落到 dist/mods/builtin/。
+ * 桌面与 Capacitor **不能共用一种写法**：
+ *
+ * - 桌面（file://）：必须用相对路径 './mods/…'。写死 '/mods/…' 会被解析到盘符根
+ *   （file:///C:/mods/…），三个随包模组全都加载失败。
+ * - Capacitor（https://localhost/）：必须用绝对路径 '/mods/…'。打包后入口 JS 在
+ *   /assets/main-xxx.js，动态 import 的相对路径是**相对 JS 模块**解析的：'./mods/…'
+ *   会变成 https://localhost/assets/mods/…，而文件实际在 https://localhost/mods/…，
+ *   于是模组启动失败，手机上弹「模组「听歌档案」启动时出错了」。
+ *
+ * 由 vite.config.ts 注入的 __CAPACITOR_BUILD__ 区分这两种构建。
  */
-const BUILTIN_BASE = `${import.meta.env.BASE_URL}mods/builtin`.replace(/\/+/g, '/');
+const BUILTIN_BASE = (
+    typeof __CAPACITOR_BUILD__ !== 'undefined' && __CAPACITOR_BUILD__
+        ? '/mods/builtin'
+        : `${import.meta.env.BASE_URL}mods/builtin`
+).replace(/\/+/g, '/');
 
 const BUILTIN_SOURCES: readonly BuiltinModSource[] = [
     {

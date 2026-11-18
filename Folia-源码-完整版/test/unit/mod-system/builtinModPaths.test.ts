@@ -16,10 +16,18 @@ import { resolve } from 'node:path';
 const source = (rel: string): string => readFileSync(resolve(__dirname, '../../../', rel), 'utf8');
 
 describe('随包模组的静态地址', () => {
-    it('跟 vite 的 base 走，不写死根相对路径', () => {
+    it('桌面用相对 base，Capacitor 用绝对路径', () => {
         const src = source('src/mods/builtin/builtinMods.ts');
         expect(src).toContain('import.meta.env.BASE_URL');
-        expect(src).not.toMatch(/const BUILTIN_BASE\s*=\s*['"`]\/mods\/builtin/);
+        // Capacitor 的入口 JS 在 /assets/ 下，相对路径会错到 /assets/mods/...；
+        // 必须用 /mods/... 绝对路径，否则手机上弹「听歌档案启动出错了」。
+        expect(src).toContain("'/mods/builtin'");
+        expect(src).toContain('__CAPACITOR_BUILD__');
+    });
+
+    it('vite 注入 Capacitor 构建标记', () => {
+        const cfg = source('vite.config.ts');
+        expect(cfg).toContain("'__CAPACITOR_BUILD__': JSON.stringify(isCapacitorBuild)");
     });
 
     it('preview 与 clientUrl 用的是同一个 base', () => {

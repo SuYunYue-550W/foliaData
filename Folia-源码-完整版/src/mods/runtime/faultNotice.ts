@@ -6,7 +6,7 @@ import { setStatusMessage, useStatusMessageStore } from '@/stores/useStatusMessa
 import { modSettingsRowId, useModsStore } from '../useModsStore';
 import { FOLIUM_START_LIMIT_MS, foliumModName } from './clientLoader';
 import { FOLIUM_ENTRY_NOTICE_WORDS } from '../folium/kinds';
-import { setFoliumFaultNoticeMuted, setFoliumFaultNotifier, type FoliumNoticeKind } from './status';
+import { getFoliumIssues, setFoliumFaultNoticeMuted, setFoliumFaultNotifier, type FoliumNoticeKind } from './status';
 
 // src/mods/runtime/faultNotice.ts
 // The notice a failing mod raises (status.ts decides when: once per mod per
@@ -66,20 +66,35 @@ const openModRow = async (modId: string) => {
     openSettings('options', settingsAnchorSubview('modList'), null, 'modList', modSettingsRowId(modId));
 };
 
+/** 启动失败的原文原因，跟在提示后面。手机上没有开发者工具，用户和我们都只能靠这行字定位。 */
+const startFailureDetail = (modId: string): string => {
+    const issues = getFoliumIssues(modId);
+    if (issues.length === 0) return '';
+    // 最近的一条最可能是这次启动的失败；where 说明是哪一步，message 是抛出来的原文。
+    const latest = issues.reduce((a, b) => (b.lastAt >= a.lastAt ? b : a));
+    const text = `${latest.where}: ${latest.message}`.replace(/\s+/g, ' ').trim();
+    // toast 只容得下一行多；长的截掉，完整原文仍在模组详情页里。
+    return text.length > 160 ? `${text.slice(0, 157)}...` : text;
+};
+
 const show = ({ modId, piece, shows }: PendingNotice) => {
     const at = Date.now();
     const answer = () => {
         if (shown?.message === message) shown.answered = true;
         setStatusMessage(null);
     };
+    const sentence = i18n.t(`mods.faultNotice.${piece ? PIECE_KEYS[piece] : 'other'}`, {
+        name: foliumModName(modId),
+        // Only the slow-start sentence names the limit.
+        seconds: FOLIUM_START_LIMIT_MS / 1000,
+    });
+    // 启动失败时把抛出来的原文带上：手机 WebView 没有开发者工具，
+    // 否则用户只看到「启动出错了」，我们也不知道是哪一步失败。
+    const detail = piece === 'start' ? startFailureDetail(modId) : '';
     const message: StatusMessage = {
         // A mod that is slow to start has not failed: its notice has the toast's plain look.
         type: piece === 'slow-start' ? 'info' : 'error',
-        text: i18n.t(`mods.faultNotice.${piece ? PIECE_KEYS[piece] : 'other'}`, {
-            name: foliumModName(modId),
-            // Only the slow-start sentence names the limit.
-            seconds: FOLIUM_START_LIMIT_MS / 1000,
-        }),
+        text: detail ? `${sentence} ${detail}` : sentence,
         durationMs: NOTICE_DURATION_MS,
         nonce: at,
         actionLabel: i18n.t('mods.faultNoticeOpen'),
