@@ -12,6 +12,8 @@ import {
     isBilibiliLiveSong, normalizeBilibiliLive, normalizeBilibiliSong,
 } from './bilibiliNormalize';
 import { getBilibiliModule } from './bilibiliModules';
+import { isCapacitorAndroid } from '../../../platform/runtime';
+import { proxyNativeRemoteAudioUrl } from '../../nativeRemoteAudio';
 
 // src/services/onlineMusic/bilibili/bilibiliProvider.ts
 //
@@ -165,10 +167,17 @@ export const bilibiliProvider: any = {
                 videoUrl = video?.baseUrl ? String(video.baseUrl) : null;
             }
             // Electron 里把流地址登记到主进程策略：它会给这个域名的请求注入 Referer/CORS。
-            // 浏览器/Android 里没有这个桥，Web 侧浏览器自己带 Referer，Android 走原生代理。
+            // Web 侧浏览器自己带 Referer，不需要额外处理。
             if (typeof window !== 'undefined' && typeof (window as any).electron?.bilibiliRegisterMedia === 'function') {
                 void (window as any).electron.bilibiliRegisterMedia(url);
                 if (videoUrl) void (window as any).electron.bilibiliRegisterMedia(videoUrl);
+            }
+            // Android WebView 不能给 <video>/<audio> 自定义 Referer：走原生回环代理，
+            // OkHttp 带 Referer 拉流，再把 127.0.0.1 的地址交给 WebView（支持 Range）。
+            if (isCapacitorAndroid()) {
+                const headers = { Referer: 'https://www.bilibili.com/', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' };
+                url = await proxyNativeRemoteAudioUrl(url, { headers, allowAnyHost: true });
+                if (videoUrl) videoUrl = await proxyNativeRemoteAudioUrl(videoUrl, { headers, allowAnyHost: true });
             }
             return {
                 url,

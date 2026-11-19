@@ -53,3 +53,19 @@ describe('B站视频归一化', () => {
         expect(cleanBiliTitle('A <em class="keyword">B</em> &amp; C')).toBe('A B & C');
     });
 });
+
+// Android 的护栏：WebView 不能给 <video>/<audio> 自定义 Referer，必须走原生回环代理。
+// 这个测试钉住源码形状，防止哪天有人把代理去掉导致手机端流全部 403。
+describe('B站视频在 Android 上的 Referer 处理', () => {
+    it('provider 把视频与音频地址都过原生回环代理', () => {
+        const { readFileSync } = require('node:fs');
+        const { resolve } = require('node:path');
+        const src = readFileSync(resolve(__dirname, '../../../src/services/onlineMusic/bilibili/bilibiliProvider.ts'), 'utf8');
+        expect(src).toContain('isCapacitorAndroid()');
+        expect(src).toContain('proxyNativeRemoteAudioUrl');
+        // 两条流都要过代理：只代理音频的话画面仍是 403。
+        expect(src).toContain("videoUrl = await proxyNativeRemoteAudioUrl(videoUrl");
+        expect(src).toContain('allowAnyHost: true');
+        expect(src).toContain("Referer: 'https://www.bilibili.com/'");
+    });
+});

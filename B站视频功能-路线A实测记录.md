@@ -84,8 +84,12 @@ B站 Web 端取流要求 `Referer` 在 `bilibili.com` 域下且 `User-Agent` 非
 - `onHeadersReceived` 补 `Access-Control-Allow-Origin`（DASH 的 fetch 需要）。
 - `onBeforeRedirect` 把重定向后的新地址一并登记，否则 302 之后 Referer 就丢了。
 
-Android 侧：WebView 不能自定义 Referer，需要在原生层拉流再喂回环地址
-（参照 `android/.../VideoLayerFile.kt` + `LocalAudioServer` 的做法）。**这部分本轮未做。**
+Android 侧：WebView 不能自定义 Referer，靠**已有的原生回环代理**解决——
+`LocalAudioServer` 的 `/remote-audio/` 路由用 OkHttp 带自定义 headers 拉流，再以 `127.0.0.1`
+的地址喂给 WebView（支持 Range）。前端只需调 `proxyNativeRemoteAudioUrl(url, { headers, allowAnyHost: true })`，
+**不需要改任何 Kotlin 代码**。视频和音频两条流都要过代理，只代理音频的话画面仍是 403。
+
+`BilibiliVideoSurface` 在 Android 上的 iframe 回退也可用（项目无 CSP 限制、WebView 已开 mixed content）。
 
 ## 五、代码落点
 
@@ -107,7 +111,6 @@ Android 侧：WebView 不能自定义 Referer，需要在原生层拉流再喂�
 
 ## 六、还没做的部分
 
-- **Android 端视频播放**：WebView 无法自定义 Referer，需要原生拉流 + 回环，或换 ExoPlayer。
 - **七模块界面**的完整形态（当前是独立浮层面板，还没接进播放页的 tab）。
 - **搜索结果**点开后自动带画面（当前只有模块面板里点会带画面）。
 - **直播流**在手机上的表现（live 的 FLV 流 HTML5 播不了，要转 HLS/fMP4）。

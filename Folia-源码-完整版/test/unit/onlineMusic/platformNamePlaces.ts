@@ -32,7 +32,7 @@ export const PLATFORM_NAME_PLACES: Record<string, PlatformNamePlace> = {
     // B站：视频音轨的平台，名字出现在画面层、播放接线、状态与主进程桥上。
     'src/components/UnifiedPanel.tsx': { n: { bilibili: 12 }, kind: 'list', why: 'the tab that opens the module panel lives in the playing page tab row' },
     'src/components/visualizer/VisualizerBackdrop.tsx': { n: { bilibili: 4 }, kind: 'file', why: 'the picture surface of a B站 video is mounted here; the rules of the platform live in src/services/onlineMusic/bilibili/' },
-    'src/services/onlinePlayback.ts': { n: { bilibili: 5 }, kind: 'file', why: 'starts the picture surface when the provider hands out a video URL; the check is the provider id of that platform' },
+    'src/services/onlinePlayback.ts': { n: { bilibili: 9 }, kind: 'file', why: 'starts the picture surface when the provider hands out a video URL; the check is the provider id of that platform' },
     'src/stores/useBilibiliVideoStore.ts': { n: { bilibili: 11 }, kind: 'file', why: 'the state of the picture surface, named after the platform it shows' },
     // B站：扫码状态机照 QQ 那套描述；注册点在平台清单里（list）。
     'src/services/onlineMusic/bilibili/bilibiliProvider.ts': { n: { qq: 1 }, kind: 'doc' },

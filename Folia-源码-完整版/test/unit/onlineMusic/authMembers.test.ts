@@ -8,6 +8,11 @@ import { getOnlineMusicProvider, listOnlineMusicProviders } from '@/services/onl
 // A member added or removed on purpose changes its row here.
 
 const AUTH_MEMBERS: Record<string, string[]> = {
+    // B站：二维码是网页地址（UI 据此生成图片），扫码状态机与 QQ 那一套相同。
+    bilibili: [
+        'cancelLogin', 'checkLogin', 'createQr', 'getLoginMethods', 'getLoginStatus', 'getLoginTexts',
+        'getLoginTtlMs', 'logout', 'showsKeptAccountAtStart', 'startLogin',
+    ],
     // [apple-music] 登录发生在 companion 自己的 WebView 窗口里：没有二维码、没有独立浏览器页，
     // 由 provider 自己开门（opensLoginPageItself），companion 缺席时 describeLoginFailure
     // 报「本地服务暂时不可用」而不是网络错误。

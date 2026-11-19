@@ -46,6 +46,8 @@ describe('what each platform declares for the sign-in window', () => {
             feiniu: { letter: '飞', color: '#0ea5e9' },
             // Apple Music 由原生 companion 宿主代为登录：红底白字的官方辨识色。
             appleMusic: { letter: 'A', color: '#fa243c' },
+            // B站：扫码登录，官方粉做辨识色。
+            bilibili: { letter: 'B', color: '#fb7299' },
         });
     });
 
@@ -66,6 +68,7 @@ describe('what each platform declares for the sign-in window', () => {
             qishui: { title: 'home.loginTitleQishui', note: 'home.loginNoteQishui' },
             feiniu: { title: 'home.loginTitleFeiniu', note: 'home.loginNoteFeiniu' },
             appleMusic: { title: 'home.loginTitleAppleMusic', note: 'home.loginNoteAppleMusic' },
+            bilibili: { title: 'home.loginTitleBilibili', note: 'home.loginNoteBilibili' },
         });
     });
 
