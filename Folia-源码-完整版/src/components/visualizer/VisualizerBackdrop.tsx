@@ -4,6 +4,8 @@ import type { AudioBands, Theme } from '../../types';
 import type { VisualizerRegistryEntry, VisualizerSharedProps } from './definition';
 import VisualizerBackgroundRenderer from './backgrounds/VisualizerBackgroundRenderer';
 import VideoLayer from './videoLayer/VideoLayer';
+import BilibiliVideoSurface from '../bilibili/BilibiliVideoSurface';
+import { selectBilibiliVideoActive, useBilibiliVideoStore } from '../../stores/useBilibiliVideoStore';
 import VisualizerBackgroundTransition from './styleTransition/VisualizerBackgroundTransition';
 import type { LayerTransition } from './styleTransition/layerTransition';
 import { getSizedCoverUrl } from '../../utils/coverUrl';
@@ -65,6 +67,7 @@ export const VisualizerBackdropLayers: React.FC<VisualizerBackdropLayersProps> =
     transition = null,
     waits = false,
 }) => {
+    const biliVideoActive = useBilibiliVideoStore(selectBilibiliVideoActive);
     const staticMode = sharedProps?.staticMode ?? false;
     const paused = sharedProps?.paused ?? false;
 
@@ -92,7 +95,8 @@ export const VisualizerBackdropLayers: React.FC<VisualizerBackdropLayersProps> =
 
             {/* The built-in video layer follows the same rule as stage layers and stays out of the OBS
                 sources, which cannot open the main window's local file handle. */}
-            {!sharedProps?.isPreviewMode && !staticMode && isMainAppSurface && <VideoLayer paused={paused} />}
+            {biliVideoActive && <BilibiliVideoSurface paused={paused} />}
+            {!biliVideoActive && !sharedProps?.isPreviewMode && !staticMode && isMainAppSurface && <VideoLayer paused={paused} />}
         </>
     );
 };

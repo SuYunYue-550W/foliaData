@@ -71,6 +71,7 @@ const { createQishuiApiBridge } = require('./qishuiApiBridge.cjs');
 const { createQishuiMediaPolicy } = require('./qishui/mediaCors.cjs');
 const { createBodianApiBridge } = require('./bodian/bodianApiBridge.cjs');
 const { createBodianMediaPolicy } = require('./bodian/mediaCors.cjs');
+const { createBilibiliMediaPolicy } = require('./bilibili/mediaPolicy.cjs');
 const { createYtmApiBridge } = require('./ytm/ytmApiBridge.cjs');
 const { createYtmSandbox } = require('./ytm/sandbox.cjs');
 const { YTM_AUDIO_PRIVILEGED_SCHEME, YTM_AUDIO_SCHEME } = require('./ytm/audio.cjs');
@@ -280,6 +281,7 @@ const transcodeService = createTranscodeService({
 const kugouApiBridge = createKugouApiBridge({ store, safeStorage });
 const qishuiMediaPolicy = createQishuiMediaPolicy();
 const bodianMediaPolicy = createBodianMediaPolicy();
+const bilibiliMediaPolicy = createBilibiliMediaPolicy();
 const bodianApiBridge = createBodianApiBridge({ store, safeStorage,
   onAudioSource: url => bodianMediaPolicy.register(url),
   requestFactory: (options, onResponse) => {
@@ -3611,6 +3613,12 @@ function setupCorsBypassHandlers() {
       resourceType: details.resourceType,
     } : null;
   };
+  // B站 DASH 流要求 Referer 在 bilibili.com 域下，否则 403；只对本 provider 登记过的 URL 生效。
+  ses.webRequest.onBeforeSendHeaders((details, callback) => {
+    if (bilibiliMediaPolicy.applyHeaders(details)) return callback({ requestHeaders: details.requestHeaders });
+    callback({ requestHeaders: details.requestHeaders });
+  });
+
   ses.webRequest.onHeadersReceived((details, callback) => {
     const responseHeaders = { ...details.responseHeaders };
     const originUrl = details.url;
@@ -3626,7 +3634,7 @@ function setupCorsBypassHandlers() {
         hostname === 'kugou.com' ||
         hostname.endsWith('.kugou.com') ||
         // Bodian audio and cover CDNs may omit CORS headers needed by Web Audio and canvas/WebGL.
-        bodianMediaPolicy.allows(details) || qishuiMediaPolicy.allows(details);
+        bilibiliMediaPolicy.allows(details) || bodianMediaPolicy.allows(details) || qishuiMediaPolicy.allows(details);
     } catch (error) {
       isTargetDomain = false;
     }
@@ -3641,7 +3649,7 @@ function setupCorsBypassHandlers() {
     callback({ cancel: false, responseHeaders });
   });
 
-  ses.webRequest.onBeforeRedirect(details => { bodianMediaPolicy.followRedirect(details); qishuiMediaPolicy.followRedirect(details); });
+  ses.webRequest.onBeforeRedirect(details => { bilibiliMediaPolicy.followRedirect(details); bodianMediaPolicy.followRedirect(details); qishuiMediaPolicy.followRedirect(details); });
 
   ses.webRequest.onErrorOccurred({ urls: ['*://*.kugou.com/*'] }, details => {
     const requestInfo = getKugouMediaRequestInfo(details);
@@ -6913,6 +6921,11 @@ ipcMain.handle('kugou-api-request', createSenderGuardedHandler({
   isTrusted: isFirstPartyWindowContents,
   handler: (_event, operation, params) => kugouApiBridge.request(operation, params),
 }));
+ipcMain.handle('bilibili-register-media', (event, url) => {
+  if (!isTrustedMainWindowContents(event.sender)) return false;
+  try { bilibiliMediaPolicy.register(String(url)); return true; } catch { return false; }
+});
+
 ipcMain.handle('bodian-api-request', (event, operation, params) => {
   if (!isTrustedMainWindowContents(event.sender)) {
     return { ok: false, error: { code: 'unavailable', message: 'Untrusted Bodian request' } };

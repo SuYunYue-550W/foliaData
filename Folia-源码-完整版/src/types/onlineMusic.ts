@@ -169,6 +169,12 @@ export interface ProviderAudioSource {
      * (`omni.previewClipStartMsOfAudioSource`) to line the lyrics up with the clip.
      */
     clipStartMs?: number;
+    /**
+     * 同一首歌的画面地址（B站的 DASH 视频流）：平台把它和音频分开给时才有。
+     * 有它时播放层会另起一个静音的视频元素跟音频一起放（见 BilibiliVideoSurface），
+     * 音频仍走主播放引擎，两边同一时刻开始。没有它就是纯音频的平台。
+     */
+    videoUrl?: string;
 }
 
 export type ProviderSongAvailabilityState = 'playable' | 'unavailable' | 'unknown';

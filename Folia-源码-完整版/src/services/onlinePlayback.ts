@@ -10,6 +10,7 @@ import { resolveLyricSourcePreference } from '../utils/lyrics/lyricSourcePrefere
 import { createSafeObjectUrl } from '../utils/blobGuards';
 import type { AudioQualityPreference, MediaId, ProviderAudioSource } from '../types/onlineMusic';
 import { omni } from './onlineMusic/omni';
+import { useBilibiliVideoStore } from '../stores/useBilibiliVideoStore';
 import { autoRetryDelaysMs, logOnlineFailure, onlineFailureOf, type OnlineFailure } from './onlineMusic/failure/onlineFailureCase';
 import { noteOnlineRequestCooldown, onlineRequestCooldown } from './onlineMusic/failure/onlineRequestCooldown';
 import { getSongResourceCacheKey } from './onlineMusic/resourceKeys';
@@ -168,6 +169,9 @@ export async function loadOnlineSongAudioSource(
         if (url) {
             const replayGain = applyOnlineAudioSourceMetadata(song, source?.replayGain).replayGain;
             updatePrefetchedAudioUrl(song, url, audioQuality, replayGain);
+            // 平台把画面和声音分开给时（B站 DASH），画面另起一个静音元素跟音频一起放：
+            // 音频仍走主播放引擎，两边同一个 source、同一个时刻开始。
+            if (source?.videoUrl) startOnlineVideoSurface(song, source.videoUrl);
             return { kind: 'ok', audioSrc: url, replayGain, preview: omni.isPreviewAudioSource(url) };
         }
         const failure = thrown === undefined
@@ -188,6 +192,18 @@ export async function loadOnlineSongAudioSource(
         return await unavailable(failure, thrown);
     }
 }
+
+/**
+ * 平台给了画面时，把它交给画面层：视频元素放画面，音频元素放这条流的地址。
+ * 两者同一时刻开始，主引擎的音频时钟与画面对齐（见 BilibiliVideoSurface）。
+ */
+const startOnlineVideoSurface = (song: SongResult, videoUrl: string): void => {
+    const ref = song.sourceRef;
+    if (!ref || ref.kind !== 'online' || ref.providerId !== 'bilibili') return;
+    const bvid = ref.mediaId.startsWith('room:') ? ref.mediaId.slice(5) : ref.mediaId;
+    if (!bvid) return;
+    useBilibiliVideoStore.getState().play(bvid, videoUrl);
+};
 
 export const applyOnlineAudioSourceMetadata = (
     song: SongResult,

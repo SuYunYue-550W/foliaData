@@ -19,6 +19,8 @@ import { feiniuProvider } from './feiniuProvider';
 import { qishuiProvider } from './qishuiProvider';
 // Apple Music 的音频在应用外的 companion 播放器里出声（DRM），走 externalPlayback 路由。
 import { appleMusicProvider } from './appleMusicProvider';
+// B站：视频音轨，搜索/播放/扫码登录 + 七模块（见 bilibili/）。
+import { bilibiliProvider } from './bilibili/bilibiliProvider';
 
 // src/services/onlineMusic/providerRegistry.ts
 
@@ -131,3 +133,4 @@ registerOnlineMusicProvider(spotifyProvider);
 registerOnlineMusicProvider(feiniuProvider);
 registerOnlineMusicProvider(qishuiProvider);
 registerOnlineMusicProvider(appleMusicProvider);
+registerOnlineMusicProvider(bilibiliProvider);

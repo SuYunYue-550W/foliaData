@@ -21,7 +21,7 @@ export const PLACE_KINDS = {
 export type PlaceKind = keyof typeof PLACE_KINDS;
 
 export interface PlatformNamePlace {
-    n: Partial<Record<'netease' | 'qq' | 'kugou' | 'bodian' | 'ytm' | 'spotify' | 'qishui', number>>;
+    n: Partial<Record<'netease' | 'qq' | 'kugou' | 'bodian' | 'ytm' | 'spotify' | 'qishui' | 'bilibili', number>>;
     // The kind of the file's lines of code; its comment lines are counted as comments.
     kind: PlaceKind;
     // What the lines are, where the kind alone does not say it.
@@ -29,6 +29,12 @@ export interface PlatformNamePlace {
 }
 
 export const PLATFORM_NAME_PLACES: Record<string, PlatformNamePlace> = {
+    // B站：视频音轨的平台，名字出现在画面层、播放接线、状态与主进程桥上。
+    'src/components/visualizer/VisualizerBackdrop.tsx': { n: { bilibili: 4 }, kind: 'file', why: 'the picture surface of a B站 video is mounted here; the rules of the platform live in src/services/onlineMusic/bilibili/' },
+    'src/services/onlinePlayback.ts': { n: { bilibili: 5 }, kind: 'file', why: 'starts the picture surface when the provider hands out a video URL; the check is the provider id of that platform' },
+    'src/stores/useBilibiliVideoStore.ts': { n: { bilibili: 10 }, kind: 'file', why: 'the state of the picture surface, named after the platform it shows' },
+    // B站：扫码状态机照 QQ 那套描述；注册点在平台清单里（list）。
+    'src/services/onlineMusic/bilibili/bilibiliProvider.ts': { n: { qq: 1 }, kind: 'doc' },
     'src/services/listeningArchive/archiveRpc.ts': { n: { netease: 2 }, kind: 'stored', why: 'the mod protocol\'s own rpc names: the platform\'s rows are composed into the mod\'s table here (the rules and the state live in src/services/onlineMusic/netease/neteaseArchiveRpc.ts)' },
     // 模组自己的简介是第三方作者写的话，随包照抄进清单，不是我们这边按平台写的规则。
     'src/mods/builtin/builtinMods.ts': { n: { netease: 2, qq: 1 }, kind: 'text', why: 'the bundled mods\' own descriptions, copied from their mod.json' },
@@ -40,9 +46,9 @@ export const PLATFORM_NAME_PLACES: Record<string, PlatformNamePlace> = {
     'electron/backendLifecycle.cjs': { n: { netease: 1, qq: 1 }, kind: 'doc' },
     'electron/linuxPasswordStore.cjs': { n: { qq: 1, kugou: 1 }, kind: 'doc' },
     'electron/loginBackendIpc.cjs': { n: { netease: 6, qq: 6 }, kind: 'main', why: 'the IPC channels of the two embedded backends and the table that finds a backend by its platform id' },
-    'electron/main.cjs': { n: { netease: 8, qq: 15, kugou: 25, bodian: 13, ytm: 23, spotify: 24, qishui: 22 }, kind: 'main', why: 'starts each platform\'s local service and bridge, its IPC channels, its media hosts; raised by the upstream merge 2026-10-17; raised by the upstream merge 2026-10-17' },
+    'electron/main.cjs': { n: { netease: 8, qq: 15, kugou: 25, bodian: 13, ytm: 23, spotify: 24, qishui: 22, bilibili: 8 }, kind: 'main', why: 'starts each platform\'s local service and bridge, its IPC channels, its media hosts; raised by the upstream merge 2026-10-17; raised by the upstream merge 2026-10-17' },
     'electron/networkRecorder.cjs': { n: { netease: 4, qq: 3 }, kind: 'main', why: 'the hosts by which a request is filed under the backend that sent it' },
-    'electron/preload.cjs': { n: { netease: 6, qq: 5, kugou: 2, bodian: 1, ytm: 1, spotify: 1, qishui: 1 }, kind: 'main', why: 'the bridge methods and IPC channels of each platform' },
+    'electron/preload.cjs': { n: { netease: 6, qq: 5, kugou: 2, bodian: 1, ytm: 1, spotify: 1, qishui: 1, bilibili: 1 }, kind: 'main', why: 'the bridge methods and IPC channels of each platform' },
     'electron/qishui/qishui-api.js': { n: { netease: 1 }, kind: 'doc' },
     'electron/qishui/qishui-auth-v6/bdms.js': { n: { qq: 1 }, kind: 'question', why: 'raised by the upstream merge 2026-10-17' },
     'electron/qishuiApiBridge.cjs': { n: { netease: 1, qishui: 142 }, kind: 'doc' },
@@ -72,7 +78,7 @@ export const PLATFORM_NAME_PLACES: Record<string, PlatformNamePlace> = {
     'src/components/modal/settings/pages/integration/options.ts': { n: { netease: 1 }, kind: 'stored', why: 'an i18n key' },
     'src/components/panelTab/FmTab.tsx': { n: { qq: 1, bodian: 1 }, kind: 'doc' },
     'src/components/shared/CoverSizeAuditPanel.tsx': { n: { netease: 6 }, kind: 'question', why: 'a developer panel: a filter for the cover requests that go to one picture host' },
-    'src/hooks/useCapacitorPlaybackBridge.ts': { n: { netease: 4, qq: 1, kugou: 2 }, kind: 'stored', why: "pushes the platform's own account id to the native gateway (the provider id and its IPC payload) and keeps a note on which platforms have no native like channel" },
+    'src/hooks/useCapacitorPlaybackBridge.ts': { n: { netease: 4, qq: 1, kugou: 2 }, kind: 'stored', why: "pushes the platform own account id to the native gateway (the provider id and its IPC payload) and keeps a note on which platforms have no native like channel" },
     'src/hooks/useNeteaseLibrary.ts': { n: { netease: 5 }, kind: 'file', why: 'one platform\'s account for App' },
     'src/library/app/useLibraryAccountController.ts': { n: { netease: 1 }, kind: 'doc' },
     'src/library/core/account/account.contract.ts': { n: { netease: 1, qq: 3 }, kind: 'doc' },
@@ -142,7 +148,7 @@ export const PLATFORM_NAME_PLACES: Record<string, PlatformNamePlace> = {
     'src/services/onlineMusic/omni/providerMethods.ts': { n: { netease: 2, kugou: 2 }, kind: 'doc', why: 'raised by the upstream merge 2026-10-17' },
     'src/services/onlineMusic/onlineCoverFallback.ts': { n: { netease: 2, qq: 1, kugou: 2 }, kind: 'question', why: 'raised by the upstream merge 2026-10-17' },
     'src/services/onlineMusic/providerAccountCache.ts': { n: { kugou: 1 }, kind: 'doc' },
-    'src/services/onlineMusic/providerRegistry.ts': { n: { netease: 2, qq: 2, kugou: 2, bodian: 2, ytm: 2, spotify: 4, qishui: 6 }, kind: 'list', why: 'raised by the upstream merge 2026-10-17' },
+    'src/services/onlineMusic/providerRegistry.ts': { n: { netease: 2, qq: 2, kugou: 2, bodian: 2, ytm: 2, spotify: 4, qishui: 6, bilibili: 3 }, kind: 'list', why: 'the one list of providers; B站 added 2026-11-19' },
     'src/services/onlineMusic/qishuiCatalog.ts': { n: { qishui: 39 }, kind: 'file', why: 'the flat half of this fork\'s 汽水 adapter: the catalogue and the feed' },
     'src/services/onlineMusic/qishuiLibrary.ts': { n: { qishui: 16 }, kind: 'file', why: 'the flat half of this fork\'s 汽水 adapter: the account library' },
     'src/services/onlineMusic/qishuiMutations.ts': { n: { qishui: 19 }, kind: 'file', why: 'the flat half of this fork\'s 汽水 adapter: likes and playlist edits' },
@@ -162,7 +168,7 @@ export const PLATFORM_NAME_PLACES: Record<string, PlatformNamePlace> = {
     'src/stores/useSearchNavigationStore.ts': { n: { netease: 1 }, kind: 'doc', why: 'a comment on which tabs a platform switch keeps its place' },
     'src/types.ts': { n: { netease: 11, qq: 2, ytm: 1 }, kind: 'stored', why: 'the stage API\'s lyric source, a stored song field, the AMLL DB platform' },
     'src/types/localLibrary.ts': { n: { netease: 1, qq: 1, kugou: 1, spotify: 2 }, kind: 'doc' },
-    'src/types/onlineMusic.ts': { n: { netease: 5, qq: 5, kugou: 2, bodian: 1, ytm: 5, spotify: 3, qishui: 1 }, kind: 'list', why: 'the type of a platform id, and the platform that is active where none was chosen; raised by the upstream merge 2026-10-17; netease/qq/kugou +1 each on 2026-11-12 from one line of the atmos tier doc comment naming the fixed-key backends' },
+    'src/types/onlineMusic.ts': { n: { netease: 5, qq: 5, kugou: 2, bodian: 1, ytm: 5, spotify: 3, qishui: 1, bilibili: 2 }, kind: 'list', why: 'the type of a platform id, and the platform that is active where none was chosen; raised by the upstream merge 2026-10-17; netease/qq/kugou +1 each on 2026-11-12 from one line of the atmos tier doc comment naming the fixed-key backends' },
     'src/utils/appPlaybackGuards.ts': { n: { netease: 1 }, kind: 'stored', why: 'the platform of a stored song that names none' },
     'src/utils/appPlaybackHelpers.ts': { n: { qq: 5, kugou: 3 }, kind: 'stored', why: 'URL hosts; raised by the upstream merge 2026-10-17' },
     'src/utils/consoleLogBuffer.ts': { n: { kugou: 1 }, kind: 'doc' },
@@ -196,7 +202,7 @@ export const PLATFORM_NAME_PLACES: Record<string, PlatformNamePlace> = {
     'src/utils/secureApiBase.ts': { n: { kugou: 1 }, kind: 'doc' },
     'src/utils/songPlatform.ts': { n: { netease: 1, qq: 1, kugou: 1 }, kind: 'doc' },
     'src/utils/stageClientDemo.ts': { n: { netease: 3 }, kind: 'stored', why: 'the stage API\'s lyric source type' },
-    'src/vite-env.d.ts': { n: { netease: 23, qq: 13, kugou: 5, bodian: 4, ytm: 4, spotify: 4, qishui: 4 }, kind: 'stored', why: 'the types of the preload bridge and of the stage API\'s lyric source; raised by the upstream merge 2026-10-17' },
+    'src/vite-env.d.ts': { n: { netease: 23, qq: 13, kugou: 5, bodian: 4, ytm: 4, spotify: 4, qishui: 4, bilibili: 1 }, kind: 'stored', why: 'the types of the preload bridge and of the stage API\'s lyric source; raised by the upstream merge 2026-10-17' },
     'worker/index.ts': { n: { qq: 11 }, kind: 'main', why: 'routes the QQ backend' },
     'worker/lyric-proxy.ts': { n: { qq: 1, kugou: 1 }, kind: 'main', why: 'the hosts the lyric relay may reach' },
     'worker/qq.ts': { n: { qq: 32 }, kind: 'main', why: 'the worker entry of the QQ backend' },
