@@ -44,7 +44,14 @@ export const useBilibiliVideoStore = create<BilibiliVideoState>(set => ({
 /** 当前有没有 B站视频在播：UI 据此把画面放进播放页。 */
 export const selectBilibiliVideoActive = (state: BilibiliVideoState): boolean => Boolean(state.bvid);
 
-/** 走哪条内核：用户强制 iframe，或没有 DASH 地址时，用官方播放器。 */
+/**
+ * 走哪条内核：用户强制 iframe 时用官方播放器，否则用自研 DASH。
+ *
+ * 注意：**不由「当前有没有 videoUrl」决定**。取流是异步的：面板点一条时先起画面，
+ * videoUrl 要等取流回来才有。若按有没有地址来定内核，那一刻还没有地址，
+ * 就永远停在 iframe 了。改为：先按 dash 起步，等 videoUrl 到了就自然有画面；
+ * DASH 真失败时组件自己切 preferIframe（见 BilibiliVideoSurface 的 handleDashError）。
+ */
 export const selectBilibiliPlaybackMode = (state: BilibiliVideoState): BilibiliPlaybackMode => (
-    state.preferIframe || !state.videoUrl ? 'iframe' : 'dash'
+    state.preferIframe ? 'iframe' : 'dash'
 );

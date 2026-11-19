@@ -1818,6 +1818,8 @@ export default {
     "loginTitleQq": "Scan to sign in to QQ Music",
     "loginTitleBodian": "Scan with Bodian Music",
     "loginTitleBilibili": "Scan with the Bilibili app",
+    "biliPanelTitle": "Bilibili",
+    "biliNowPlaying": "Playing: {bvid}",
     "biliClose": "Close",
     "biliLoading": "Loading...",
     "biliEmpty": "Nothing here yet",

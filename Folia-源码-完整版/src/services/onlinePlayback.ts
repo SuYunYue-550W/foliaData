@@ -57,6 +57,12 @@ export async function loadOnlineSongAudioSource(
     prefetched: PrefetchedSongData | null,
     options: LoadOnlineAudioSourceOptions = {},
 ): Promise<OnlineAudioSourceResult> {
+    // 切到别的平台的歌时，B站画面层留着会盖在新歌的歌词上；先收掉。
+    // B站自己的歌不用收：取流成功时 startOnlineVideoSurface 会把这一条的地址写进去。
+    if (getOnlineProviderIdForSong(song) !== 'bilibili') {
+        const surface = useBilibiliVideoStore.getState();
+        if (surface.bvid) surface.stop();
+    }
     // The copy in the media cache is taken only where it was fetched at the level the option now
     // means for this song's provider, or at an unknown one. A copy of another level is passed
     // over for a URL of the level asked for: the option decides what plays, cached or not.

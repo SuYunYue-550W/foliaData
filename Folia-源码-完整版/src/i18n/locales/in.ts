@@ -1818,6 +1818,8 @@ export default {
     "loginTitleQq": "Pindai untuk masuk ke QQ Music",
     "loginTitleBodian": "Pindai dengan Bodian Music",
     "loginTitleBilibili": "Pindai dengan aplikasi Bilibili",
+    "biliPanelTitle": "Bilibili",
+    "biliNowPlaying": "Sedang diputar: {bvid}",
     "biliClose": "Tutup",
     "biliLoading": "Memuat...",
     "biliEmpty": "Belum ada apa-apa di sini",

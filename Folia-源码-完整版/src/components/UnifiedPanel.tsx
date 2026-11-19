@@ -1,5 +1,5 @@
 import React from 'react';
-import { AudioLines, Disc, SlidersHorizontal, ListMusic, FileAudio, FileText, Radio, Cloud, Puzzle, Users } from 'lucide-react';
+import { AudioLines, Disc, SlidersHorizontal, ListMusic, FileAudio, FileText, Radio, Cloud, Puzzle, Users, Tv } from 'lucide-react';
 import { openJamPanel } from '../services/jam/jamStore';
 import PanelButton from './panelTab/shell/PanelButton';
 import { locatePlayingSong } from './app/playing-song-locator/playingSongLocator';
@@ -13,6 +13,8 @@ import LocalTab from './panelTab/LocalTab';
 import FmTab from './panelTab/FmTab';
 import NaviTab from './panelTab/NaviTab';
 import OnlineLyricsTab from './panelTab/OnlineLyricsTab';
+import BilibiliModulePanel from './bilibili/BilibiliModulePanel';
+import { useBilibiliVideoStore } from '../stores/useBilibiliVideoStore';
 import { EmptyState } from './panelTab/shell/EmptyState';
 import PanelHandle from './panelTab/shell/PanelHandle';
 import PanelShell from './panelTab/shell/PanelShell';
@@ -38,7 +40,7 @@ import { useAppViewStore } from '../stores/useAppViewStore';
 // How it looks is in panelTab/shell (the frame, the song at the top, the tab row, the handle) and
 // in the tabs themselves.
 
-export type PanelTab = 'cover' | 'controls' | 'queue' | 'account' | 'local' | 'navi' | 'onlineLyrics' | 'aiDirector'
+export type PanelTab = 'cover' | 'controls' | 'queue' | 'account' | 'local' | 'navi' | 'onlineLyrics' | 'aiDirector' | 'bilibili'
     // Tabs registered by Folium mods (registries.playerPanelTabs).
     | `folium:${string}`;
 
@@ -248,6 +250,11 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
     const isLocal = currentSong && !isNavidrome && (((currentSong as any).isLocal === true) || Boolean((currentSong as any).localRef?.songId));
     const playbackSourceRef = currentSong ? getPlaybackSourceRef(currentSong) : null;
     const isOnline = playbackSourceRef?.kind === 'online';
+    // B站的视频面板：只在正放着 B站的东西时出现（源是 B 站，或画面层正在播 B 站视频）。
+    // 正放着 B 站内容（音频源是 B 站）：面板标题据此说明当前在看的这一条。
+    const isBilibili = playbackSourceRef?.kind === 'online' && playbackSourceRef.providerId === 'bilibili';
+    // 画面层正在播的 B 站视频（可能与主播放引擎当前那首不同：面板里点一条就换画面）。
+    const bilibiliCurrentBvid = useBilibiliVideoStore(state => state.bvid);
     const likeAvailability = resolveLikeAvailability(currentSong, playbackControlsDisabled, isStage);
     const likeDisabledReason = likeAvailability.reason
         ? t(likeAvailability.reason.key, likeAvailability.reason.params)
@@ -271,6 +278,13 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
     } else if (isOnline) {
         tabs.splice(1, 0, { id: 'onlineLyrics' as PanelTab, label: t('localMusic.lyrics'), icon: FileText });
     }
+
+    // B站的面板是刷 B站的入口，恒在这里：不在正放 B 站内容时也能进去逛。
+    tabs.splice(1, 0, {
+        id: 'bilibili' as PanelTab,
+        label: isBilibili && bilibiliCurrentBvid ? t('home.biliNowPlaying', { bvid: bilibiliCurrentBvid }) : t('home.biliPanelTitle'),
+        icon: Tv,
+    });
 
     foliumTabs.forEach((tab) => tabs.push({ id: tab.id, label: tab.label, icon: Puzzle }));
 
@@ -497,6 +511,13 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                 />
             )}
             <FoliumPanelTabBody tab={currentTab} theme={theme} isDaylight={isDaylight} />
+            {currentTab === 'bilibili' && (
+                <BilibiliModulePanel
+                    onClose={() => onTabChange('cover')}
+                    onPlay={(song) => onPlaySong(song, [song])}
+                    currentBvid={bilibiliCurrentBvid}
+                />
+            )}
             {currentTab === 'onlineLyrics' && isOnline && currentSong && (
                 <OnlineLyricsTab
                     song={currentSong}

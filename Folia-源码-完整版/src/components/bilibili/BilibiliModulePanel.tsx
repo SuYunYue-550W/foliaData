@@ -22,11 +22,13 @@ const MODULES: { id: BilibiliModuleId; labelKey: string }[] = [
 interface BilibiliModulePanelProps {
     /** 关闭面板。 */
     onClose: () => void;
-    /** 播放一个 B站视频（音频走主播放引擎）。 */
+    /** 播放一个 B站视频：音频走主播放引擎，画面由播放链接管（见 onlinePlayback.ts）。 */
     onPlay: (song: UnifiedSong) => void;
+    /** 正在播的 B 站视频（bvid）；面板据此标出当前这一条。 */
+    currentBvid?: string | null;
 }
 
-const BilibiliModulePanel: React.FC<BilibiliModulePanelProps> = ({ onClose, onPlay }) => {
+const BilibiliModulePanel: React.FC<BilibiliModulePanelProps> = ({ onClose, onPlay, currentBvid }) => {
     const { t } = useTranslation();
     const module = useBilibiliVideoStore(state => state.module);
     const setModule = useBilibiliVideoStore(state => state.setModule);
@@ -56,7 +58,8 @@ const BilibiliModulePanel: React.FC<BilibiliModulePanelProps> = ({ onClose, onPl
     const select = (song: UnifiedSong) => {
         const ref = song.sourceRef;
         if (!ref || ref.kind !== 'online') return;
-        // 画面交给 VideoSurface；声音交给主播放引擎（onPlay）。
+        // 先起画面（画面层等取流回来的 videoUrl），再走标准播放：音频走主播放引擎。
+        // 声音不重复：画面层只放画面，声音始终由主播放引擎出。
         const bvid = ref.mediaId.startsWith('room:') ? ref.mediaId.slice(5) : ref.mediaId;
         playVideo(bvid);
         onPlay(song);
@@ -86,7 +89,7 @@ const BilibiliModulePanel: React.FC<BilibiliModulePanelProps> = ({ onClose, onPl
                     <Button
                         key={song.id}
                         variant="bare"
-                        className="group flex h-auto flex-col items-start gap-2 rounded-xl p-0 text-left"
+                        className={`group flex h-auto flex-col items-start gap-2 rounded-xl p-0 text-left ${currentBvid === song.id ? 'opacity-100' : ''}`}
                         onClick={() => select(song)}
                     >
                         {song.album.coverUrl && (
