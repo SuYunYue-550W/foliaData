@@ -1,22 +1,26 @@
 # 模板文件，未启用。
-# 启用条件：构建 0.7.37-alpha.1 版本，创建 tag=cielo 的 Release，
+# 启用条件：构建 0.7.38-alpha.1 版本，创建 tag=cielo 的 Release，
 # 把本文件改名为 alpha.yml 并作为该 Release 的附件上传。
-version: 0.7.37-alpha.1
+version: 0.7.38-alpha.1
 files:
-  - url: Folia-Setup-0.7.37.exe
-    sha512: xT6Uv9SdLjK2h2pJGl5Izgcd87FPlJ/ZO6N8sH3lVeEJT/xLtQFA1Ifrpiza5NXgCRrn+i4zeITJQvzjCRmbmw==
-    size: 326361861
-path: Folia-Setup-0.7.37.exe
-sha512: xT6Uv9SdLjK2h2pJGl5Izgcd87FPlJ/ZO6N8sH3lVeEJT/xLtQFA1Ifrpiza5NXgCRrn+i4zeITJQvzjCRmbmw==
-releaseDate: '2026-11-21T21:51:46.996Z'
+  - url: Folia-Setup-0.7.38.exe
+    sha512: K+LNIjRZUMe4UMjZwH5cOXzR9TiEUPJ7AoQXF+0n/fizkx02Wa6OASwqT9JIcrZcVdzgYPtUODpAtZnweU3BRw==
+    size: 326367091
+path: Folia-Setup-0.7.38.exe
+sha512: K+LNIjRZUMe4UMjZwH5cOXzR9TiEUPJ7AoQXF+0n/fizkx02Wa6OASwqT9JIcrZcVdzgYPtUODpAtZnweU3BRw==
+releaseDate: '2026-11-21T22:19:22.290Z'
 releaseNotes: |
-  ## v0.7.37 · 修复安卓 B站扫码登录
+  ## v0.7.38 · 修好安卓更新下载，闭环 B站登录
   
-  本版修复 0.7.36 上安卓端「哔哩哔哩」扫码登录点开就报 `Failed to fetch` 的问题，其它功能与 0.7.36 一致。
+  本版修掉两件真问题：安卓应用内更新下不了（清单地址 404），以及 B站扫码登录「扫得出码、登不上号」。
   
-  - **安卓扫码登录**：B站接口不给 `https://localhost`（安卓 WebView 的页面来源）返回 CORS 头，0.7.36 里裸 `fetch` 请求 `passport.bilibili.com` 的二维码生成/轮询接口被同源检查拦下，176ms 就失败，诊断里报 `case unreachable (kind B) / errorCode=network`。现在 B站所有请求在安卓上改走 FoliaNative.httpRequest（OkHttp，不受 CORS 且自动带 WebView cookie），桌面端仍用全局 fetch。视频播放的 DASH 流此前已走原生回环代理，本次一并统一到同一条原生 HTTP 路上。
-  - 补了 transport 层单测：扫码生成/轮询走原生、请求头、网络错误分类，以及「不得再出现裸 fetch」的源码护栏。
-  - 版本号 0.7.37，安卓 versionCode 7031700（高于 0.7.36 的 7031600，覆盖安装不会判为降级）。
-  - 验证：B站与登录相关 195 个测试通过；ui / size 门禁全绿；桌面 Electron 实测页签与模块按钮齐全。
+  - **安卓应用内更新修复**：上一版的版本清单里写的安装包名字用的是本地构建文件名，而真正上传的附件叫另一个名字，地址 404 —— 点了下载没反应。清单现在按上传时的附件名生成，发版流程里也加了一道烟雾测试：逐个请求清单里的地址并比对大小，不通过就不算发完。
+  - **安装包完整性校验**：清单里带上安装包的 SHA-512，Android 下载时同步计算摘要，对不上就把文件删掉、不交给系统安装器 —— 挡的是下载损坏和清单被替换。
+  - **B站扫码登录闭环**：此前扫码成功后账号仍显示未登录（原生存的会话被调用方自带的 Cookie 头挡掉了），登出后重启又自动登录回来（原生那份会话没清）。现在请求按 Cookie 名字合并，登出按域名清掉 B站这一份，其它平台不受影响。
+  - **B站二维码改为本地生成**：扫码地址本身是网页不是图片，之前直接当图片渲染所以显示破图；现在用本地依赖生成二维码，不需要第三方服务。
+  - **更新源多路回退**：GitHub 直连不通时自动改走加速域名，设置页也给出多个下载入口。
+  - **省电**：后台节流改为默认开启（最小化到托盘后不再空跑 60/120fps）；壁纸在暂停且颜色收敛后停下帧循环；预取缓存按 8MB 封顶。
+  - 版本号 0.7.38，安卓 versionCode 7031800（高于 0.7.37 的 7031700，覆盖安装不会判为降级）。
+  - 验证：13400+ 个单测通过，Android 原生侧 Kotlin 编译通过，发布烟雾测试通过。
   
   逐项记录见仓库 CHANGELOG.md、Issue #21 与 release-manifests/构建与发布.md。
