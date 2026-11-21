@@ -1,20 +1,20 @@
-version: 0.7.35
+version: 0.7.36
 files:
-  - url: Folia-Setup-0.7.35.exe
-    sha512: H2yjQ625Bb9RVDmA7Kd0zCS9bZ/R91WqahMmWAYBKdQ60a5rdcBySQc8m1JTxJMhLCO7DlueOpnE7MslW5cpvg==
-    size: 318129605
-path: Folia-Setup-0.7.35.exe
-sha512: H2yjQ625Bb9RVDmA7Kd0zCS9bZ/R91WqahMmWAYBKdQ60a5rdcBySQc8m1JTxJMhLCO7DlueOpnE7MslW5cpvg==
-releaseDate: '2026-11-18T18:12:00.000Z'
+  - url: Folia-Setup-0.7.36.exe
+    sha512: AvW6pWrcq78TLiyswAyCs+YC1nKXKwpMupxlhKeOLTnx51wPZqFWNseH6SqiaOCz5lXBqukn4boVSBrPLIcWaA==
+    size: 318133720
+path: Folia-Setup-0.7.36.exe
+sha512: AvW6pWrcq78TLiyswAyCs+YC1nKXKwpMupxlhKeOLTnx51wPZqFWNseH6SqiaOCz5lXBqukn4boVSBrPLIcWaA==
+releaseDate: '2026-11-21T16:29:23.677Z'
 releaseNotes: |
-  ## v0.7.35 · 修复手机端「听歌档案启动出错」和上游部分同步
+  ## v0.7.36 · 哔哩哔哩视频播放版
   
-  这版修的是手机上一个真实的启动失败：固定在安卓上弹「模组「听歌档案」启动时出错了」。
+  本版在播放页新增「哔哩哔哩」页签，桌面端与安卓端都可直接搜索并播放 B 站视频；应用的「检查更新」继续指向本仓库 Releases。
   
-  - **手机端内置模组无法启动**：Capacitor 打包后入口 JS 在 `/assets/` 下，而随包模组的地址写成了相对路径 `./mods/builtin/...`。动态 import 的相对路径是相对 **JS 模块**解析的，于是变成 `https://localhost/assets/mods/builtin/...`，文件实际却在 `https://localhost/mods/builtin/...` —— 三个随包模组（听歌档案 / 黑胶唱片 / 跳一跳）在手机上全都加载失败。桌面端 file:// 必须用相对路径（写死 `/mods/...` 会被解析到盘符根），所以两端不能共用一种写法：现在由构建标记区分，Capacitor 用绝对路径、桌面维持相对路径。已在打出的 APK 内验证路径正确。
-  - **模组错误提示带上真实原因**：启动失败的提示后面会附上手抛出的原文（`哪里: 错误`，截断 160 字）。手机 WebView 没有开发者工具，之前用户只看到「启动出错了」，既没法自行判断也没法反馈有效信息。
-  - **上游 v0.7.29 部分同步**：同步了两个经单测验证的独立修复——本地歌曲首曲的莫奈背景（`blob:`/`data:` 不再错加 crossOrigin）、YouTube Music 便携版浏览器登录（Windows 上读注册表找默认浏览器）。其余上游功能因本仓库基于 folia-sonnet、与上游主线架构分叉，逐批尝试后均回退，详见仓库内 `上游同步说明-v0.7.29.md`。
-  - **顺带修掉一个竞态**：全量单测发现 Jam 联播传输在 `await` 之后仍向已关闭的 channel 发送，现补上二次检查。
+  - **B 站视频页签**：播放页常驻「哔哩哔哩」入口，内含推荐、热门、动画、影视、直播、收藏、历史记录七个模块，支持搜索、扫码登录。播放走 DASH 流，无法取流时回退到 iframe 嵌入。
+  - **双端播放**：桌面端直接取流播放；安卓端复用已有的本地回环代理给视频与音频两条流带上 B 站所需的 Referer（WebView 无法自行设置 `<video>` 的 Referer，否则 403），无需改动 Kotlin 原生代码。
+  - **测试清单同步**：新增平台后补齐了内置平台枚举相关的测试用例，避免全量单测回归。
+  - 版本号 0.7.36，安卓 versionCode 7031600（高于上一版 7031500，覆盖安装不会判为降级）。
+  - 验证：13419 个单测通过；tsc 0 错误；ui / size / versions / harmony / 契约门禁全绿；桌面端 Electron 实测页签与模块按钮齐全。
   
-  - 版本号 0.7.35，安卓 versionCode 7031500（高于 0.7.34 的 7031400）。
-  - 验证：tsc 0 错误；13413 个单测通过；ui / size / versions / harmony / 密钥检查全绿。
+  逐项记录见仓库 CHANGELOG.md 与 release-manifests/构建与发布.md。
