@@ -2,13 +2,13 @@
 
 全屏沉浸式歌词播放器 **Folia** 的整合增强版。基于 Folia-major。
 
-> **当前版本：`v0.7.33`（启动卡住修复与新平台构建版，2026-11-16）。**
-> 本版由**本仓库源码在本机真实编译**，修复 Windows 打开后停在 Folia logo 加载页、永不进入主界面的问题；Linux 构建扩展到 ARM64；HarmonyOS 壳工程用华为官方 Command Line Tools 真实编译出 HAP。桌面与安卓的「检查更新」均指向本仓库 Releases。v0.7.32 的 Apple Music 双端登录与音质设置改动全部保留，详见 `CHANGELOG.md`。
-> v0.7.28 的上游同步清单见 [`上游同步说明-v0.7.28.md`](上游同步说明-v0.7.28.md)，版本记录见 [`CHANGELOG.md`](CHANGELOG.md)，出包与发布步骤见 [`release-manifests/构建与发布.md`](release-manifests/构建与发布.md)。
+> **当前版本：`v0.7.38`（安卓更新下载修复 + B站登录闭环，2026-11-21）。**
+> 本版修好两件真问题：**安卓应用内更新下不了**（版本清单里的安装包名字与实际上传的附件不一致，地址 404 —— 已在 v0.7.37 上紧急修复）**，以及 **B站扫码登录「扫得出码、登不上号」**（原生存的会话被调用方自带的 Cookie 头挡掉、登出后重启又自动登录回来）。另外把安装包完整性校验（SHA-512）、GitHub 镜像多路回退、二维码本地生成、后台节流默认开启一并做掉。桌面与安卓的「检查更新」均指向本仓库 Releases。
+> 版本记录见 [`CHANGELOG.md`](CHANGELOG.md)，出包与发布步骤见 [`release-manifests/构建与发布.md`](release-manifests/构建与发布.md)。
 
 > 本仓库由维护者独立整理上传。上传前已移除原发布渠道的更新地址、旧仓库来源指向与原项目社区群信息；**软件更新源现统一指向本仓库的 Releases**。
 > 请支持原作者赞助原作者
-> 完整的交付声明见 [`声明文件-FoliaData.md`](声明文件-FoliaData.md)，微引擎算法见 [`microRender-算法说明.md`](microRender-算法说明.md)。
+> 完整的交付声明与自研改动清单见 [`声明文件-FoliaData.md`](声明文件-FoliaData.md)，版本记录见 [`CHANGELOG.md`](CHANGELOG.md)，微引擎算法见 [`microRender-算法说明.md`](microRender-算法说明.md)。
 
 ---
 
@@ -17,7 +17,7 @@
 | 项 | 内容 |
 |---|---|
 | 基础项目 | Folia（`folia-major`）v0.7.25 的 `folia-sonnet` fork；v0.7.30 起回到健康基线 |
-| 当前版本 | `0.7.32`（`package.json` 的 `version` / `displayVersion`；安卓 `versionCode` `7031200`） |
+| 当前版本 | `0.7.38`（`package.json` 的 `version` / `displayVersion`；安卓 `versionCode` `7031800`） |
 | 定位 | Lyrics Reimagine —— 桌面 + 移动端的在线音乐播放与全屏歌词可视化 |
 | 技术栈 | React 19 + TypeScript 6 + Vite 8；three / React Three Fiber / pixi.js / framer-motion / animejs；桌面 Electron 43，移动 Capacitor 8 |
 | 规模 | 28 个可视化模式 + 6 种背景模式；`src/` 下约 2790 个 TS/TSX 文件 |

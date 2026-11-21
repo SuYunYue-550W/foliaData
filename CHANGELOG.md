@@ -1,5 +1,56 @@
 # 更新日志 / CHANGELOG
 
+## v0.7.38 · 2026-11-21
+
+**安卓更新下载修复与 B站登录闭环。** 修好两件真问题：安卓应用内更新点了下载没反应（版本清单里的安装包名字与实际上传的附件对不上，地址 404），以及 B站扫码登录「扫得出码、登不上号」。另把安装包完整性校验、GitHub 镜像多路回退、二维码本地生成、后台节流默认开启一并做掉。
+
+- **安卓应用内更新修复（重点）**：清单里写的安装包名字用的是本地构建文件名（`app-release.apk`），而真正上传的附件叫 `Folia-Android-0.7.37.apk`，地址 404（实测）。清单生成器新增 `--apk-name`（上传时的附件名），不传会打印提醒；发版流程补一道烟雾测试（`release-manifests/烟雾测试.py`）：逐个请求清单里的地址并比对大小，不通过就不算发完。**线上 v0.7.37 的 `update.json` 已紧急替换修正**，正在用 0.7.37 的用户不必等新版本即可更新。
+- **安装包完整性校验**：清单带上安装包的 SHA-512（base64 与 hex 两种），Android 下载时同步计算摘要，对不上就删掉文件、不交给系统安装器 —— 挡的是下载损坏与清单被替换。Android 系统安装器仍会检查覆盖安装签名，这层补的是应用侧的防护。
+- **B站扫码登录闭环**：
+  - *扫码后账号仍匿名*：原生 `httpRequest` 原先是「调用方给了 Cookie 头就完全不用 CookieManager 里的」，而 `bilibiliTransport` 总会显式带上自己拼的 Cookie，于是扫码存下的 SESSDATA 没随 `nav` 请求发出。改为**按 Cookie 名字合并**（同名以调用方为准，不同名都保留）。
+  - *登出只清了一半*：原先只清 localStorage，原生那份会话还在，重启又自动登录回去。新增 `clearCookies` 原生桥，登出按 `bilibili.com` 域名清，其它平台不受影响。
+  - *二维码破图*：B站扫码地址本身是网页（响应 `text/html`）不是图片，此前直接当 `<img src>` 渲染所以显示破图。改用项目已有的 `qrcode` 依赖本地生成 PNG data URL，不需要第三方二维码服务。
+- **更新源多路回退**：GitHub 直连不通时自动改走加速域名（`gh-proxy.com`、`ghfast.top`），设置页同时给出多个下载入口；桌面「下载来源」菜单与 Web/鸿蒙壳的帮助页同步提供。gh-proxy 是本仓库模型下载清单已在用的域名。
+- **省电**：后台节流改为**默认开启**（最小化到托盘后不再空跑 60/120fps；显式关过的老用户保持原样）；壁纸在暂停且颜色收敛后停下帧循环（用「重启签名」而非 payload 做判据 —— payload 每次推送都是新对象，直接依赖会因高频推送反复重启）；预取缓存按 8MB 封顶（原只限 200 条，长歌词仍可能占很多）；分析服务空闲释放从 120 秒缩到 90 秒（仍晚于 worker 释放模型的 60 秒，留出缓冲）。
+- **类型修复**：修掉 `test/unit/bilibili/bilibiliTransport.test.ts` 的 TS18046（`result.data` 是 `unknown`，补响应泛型）。
+- 版本号升到 `0.7.38`，安卓 `versionCode` `7031800`（高于 0.7.37 的 7031700，覆盖安装不会判为降级）。Kotlin 编译通过；620 个相关单测通过；UI / 体积 / 版本门禁通过；发布烟雾测试通过。
+
+## v0.7.37 · 2026-11-21
+
+**B站视频播放版。** 播放页新增常驻「哔哩哔哩」页签，桌面与安卓都可直接搜索并播放 B 站视频。
+
+- **B站页签**：内含推荐、热门、动画、影视、直播、收藏、历史记录七个模块，支持搜索与扫码登录；播放走 DASH 流，取不到流时回退到 iframe 嵌入。
+- **双端播放**：桌面直接取流；安卓复用已有的本地回环代理给视频与音频两条流带上 B 站所需的 Referer（WebView 无法自行设置 `<video>` 的 Referer，否则 403），未改动 Kotlin 原生代码。
+- **测试清单同步**：新增平台后补齐内置平台枚举相关的测试用例，避免全量单测回归。
+- 版本号 `0.7.37`，安卓 `versionCode` `7031700`。
+
+## v0.7.36 · 2026-11-20
+
+**B站视频功能首版。** 首次把 B 站接进播放页，打通搜索、取流与七个内容模块。
+
+- 播放页接入 B 站搜索与推荐模块，桌面端先行。
+- 桌面取流走主进程登记的媒体策略（注入 Referer 与桌面 UA），B 站的 Web 端取流要求 Referer 在 bilibili.com 域下且 UA 非空。
+- 补齐 B站 provider 的归一化与模块映射单测。
+
+## v0.7.35 · 2026-11-18
+
+**修好手机端「听歌档案启动出错」。** 这版修的是一个真实的启动失败：固定在安卓上弹「模组「听歌档案」启动时出错了」。
+
+- **手机端内置模组无法启动**：Capacitor 打包后入口 JS 在 `/assets/` 下，而随包模组的地址写成了相对路径 `./mods/builtin/...`。动态 import 的相对路径是相对 **JS 模块**解析的，于是变成 `https://localhost/assets/mods/builtin/...`，文件实际却在 `https://localhost/mods/builtin/...` —— 三个随包模组在手机上全都加载失败。桌面端 file:// 必须用相对路径（写死 `/mods/...` 会被解析到盘符根），所以两端不能共用一种写法：现在由构建标记区分，Capacitor 用绝对路径、桌面维持相对路径。
+- **模组错误提示带上真实原因**：启动失败的提示后面会附上手抛出的原文（截断 160 字），手机 WebView 没有开发者工具，用户之前只看到「启动出错了」，既没法自行判断也没法反馈有效信息。
+- **上游 v0.7.29 部分同步**：同步了两个经单测验证的独立修复 —— 本地歌曲首曲的莫奈背景（`blob:`/`data:` 不再错加 crossOrigin）、YouTube Music 便携版浏览器登录（Windows 上读注册表找默认浏览器）。
+- **顺带修掉一个竞态**：全量单测发现 Jam 联播传输在 `await` 之后仍向已关闭的 channel 发送，补上二次检查。
+- 版本号 `0.7.35`，安卓 `versionCode` `7031500`。
+
+## v0.7.34 · 2026-11-17
+
+**HarmonyOS 首次真实编译。** 装上华为官方 Command Line Tools 26.0.1（内嵌 SDK），把鸿蒙壳工程从「结构齐备」推进到「真的编出 HAP」。
+
+- **HAP 真实编译**：产出未签名 HAP 并上传 Release（需华为开发者证书才能装真机）。踩过的坑：26.0.1 是 all-in-one 模式，`hvigor-config.json5` 的 `dependencies` 必须为 `{}`、modelVersion 6.0.0（写私有包依赖会让 pnpm 去 npm 拉而 404）；hvigor 拒绝中文路径，工程须复制到纯 ASCII 路径编译；ArkTS 里 `Object` 不能作泛型实参，动态 JSON 用 `Record<string, ESObject>`。
+- **原生播放移植**：AVPlayer 原生播放（prepare/play/pause/stop/seek/音量/倍速/循环 + foliaNativePlayer 事件）、AVSession 媒体会话（通知栏/锁屏控制 + foliaPlaybackCommand 事件）、事件通道（FoliaEventBus + JS 侧 callbackId 机制）。AVSession 在 `@kit.AVSessionKit`（导出 `avSession`），不在 `@kit.MediaKit`。
+- **桥契约护栏**：桥方法表由 `dev/tools/extract-harmony-plugin-methods.mjs` 从前端 TS 接口自动提取，`npm run check:harmony` 防漂移（已进 ci:local）。`addListener` 必须声明 rtype 'callback'，否则 Capacitor 会丢弃 listener、原生事件永远到不了页面。
+- 版本号 `0.7.34`，安卓 `versionCode` `7031400`。
+
 ## v0.7.33 · 2026-11-16
 
 **启动卡住修复与新平台构建版。** 由本仓库源码重新编译 Windows EXE 与 Android APK，修复部分 Windows 环境下打开后停在 Folia logo 加载页、永不进入主界面的问题；Linux 构建扩展到 ARM64；HarmonyOS 壳工程补齐到可在 DevEco 中 Sync/构建的结构。
