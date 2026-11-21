@@ -9,7 +9,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { APP_UPDATE_RELEASES_PAGE } from '../../../services/appUpdate';
+import { APP_UPDATE_RELEASES_MIRRORS, APP_UPDATE_RELEASES_PAGE } from '../../../services/appUpdate';
 import {
   installDownloadedUpdate,
   isUpdateVersionIgnored,
@@ -290,6 +290,18 @@ const AndroidUpdatePanel: React.FC<AndroidUpdatePanelProps> = ({
                     <ExternalLink size={11} />
                     {t('options.androidUpdateOpenPage')}
                 </Button>
+                {/* 检查失败多半是 GitHub 直连不通：多给两个加速域名入口，用户自己挑能开的。 */}
+                {result?.status === 'failed' && APP_UPDATE_RELEASES_MIRRORS.map(mirror => (
+                    <Button
+                        key={mirror.label}
+                        onClick={() => void openExternalUrl(mirror.url).catch(() => undefined)}
+                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] opacity-65 transition-colors hover:bg-white/10 hover:opacity-100"
+                        style={{ color: 'var(--text-secondary)' }}
+                    >
+                        <ExternalLink size={11} />
+                        {t('options.androidUpdateMirrorPage', { mirror: mirror.label })}
+                    </Button>
+                ))}
             </div>
 
             {release?.notes && (

@@ -2780,6 +2780,7 @@ export default {
     "androidUpdateReady": "下载完成",
     "androidUpdateInstall": "立即安装",
     "androidUpdateOpenPage": "打开发布页",
+    "androidUpdateMirrorPage": "通过 {{mirror}} 打开",
     "androidUpdateInstallHint": "更新包会先下载到应用私有目录，下完在这里点「立即安装」，由系统安装器接手 —— Android 不允许应用自己静默装更新。",
     "androidUpdateInstallPermissionHint": "已打开「允许来自此来源的应用」设置页，授权后回到这里再点一次「立即安装」。",
     "androidUpdateFailedNotice": "检查更新需要能访问更新服务器，网络对不上时可以先用上面那个发布页入口。",

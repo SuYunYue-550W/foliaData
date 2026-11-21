@@ -2779,6 +2779,7 @@ export default {
     "androidUpdateReady": "Download complete",
     "androidUpdateInstall": "Install now",
     "androidUpdateOpenPage": "Open release page",
+    "androidUpdateMirrorPage": "Open via {{mirror}}",
     "androidUpdateInstallHint": "The package is downloaded into the app's private storage first. Tap \"Install now\" here when it finishes and the system installer takes over — Android does not let an app install an update silently.",
     "androidUpdateInstallPermissionHint": "The \"Install unknown apps\" settings page has been opened. Allow it there, then come back and tap \"Install now\" again.",
     "androidUpdateFailedNotice": "Checking for updates needs to reach the update server. If the network cannot, use the release page link above.",

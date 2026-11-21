@@ -2779,6 +2779,7 @@ export default {
     "androidUpdateReady": "Unduhan selesai",
     "androidUpdateInstall": "Pasang sekarang",
     "androidUpdateOpenPage": "Buka halaman rilis",
+    "androidUpdateMirrorPage": "Buka lewat {{mirror}}",
     "androidUpdateInstallHint": "Paket diunduh dulu ke penyimpanan privat aplikasi. Setelah selesai, ketuk \"Pasang sekarang\" di sini dan installer sistem yang mengambil alih — Android tidak mengizinkan aplikasi memasang pembaruan sendiri.",
     "androidUpdateInstallPermissionHint": "Halaman pengaturan \"Pasang aplikasi tak dikenal\" sudah dibuka. Izinkan di sana, lalu kembali dan ketuk \"Pasang sekarang\" lagi.",
     "androidUpdateFailedNotice": "Pemeriksaan pembaruan harus bisa menjangkau server pembaruan. Kalau jaringan tidak bisa, pakai tautan halaman rilis di atas.",

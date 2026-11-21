@@ -22,17 +22,39 @@ import {
 // 版本号来源是编译期注入的 `__APP_VERSION__`（vite.config.ts 从 package.json 读），
 // 和清单里的 version 直接对齐。
 
-/** 版本清单地址。 */
+/** 版本清单地址（主源，保留导出供测试与「打开发布页」复用）。 */
 export const APP_UPDATE_MANIFEST_URL = 'https://github.com/SuYunYue-550W/foliaData/releases/latest/download/update.json';
+
+/**
+ * 清单候选源，按顺序尝试。国内直连 github.com 常常不通，Release 附件域更是间歇性不可达；
+ * gh-proxy.com 是本仓库模型下载镜像清单（shared/modelManifest.json）已在用的加速域名，
+ * ghfast.top 作为第二备源。哪条通用哪条，取到清单就停。
+ */
+export const APP_UPDATE_MANIFEST_URLS = [
+  APP_UPDATE_MANIFEST_URL,
+  `https://gh-proxy.com/${APP_UPDATE_MANIFEST_URL}`,
+  `https://ghfast.top/${APP_UPDATE_MANIFEST_URL}`,
+] as const;
 
 /** 打开发布页的兜底入口：清单里给了 page_url 就用清单的。 */
 export const APP_UPDATE_RELEASES_PAGE = `https://github.com/SuYunYue-550W/foliaData/releases`;
 
 /**
+ * 打不开 GitHub 时的备用发布页（走加速域名）。只用于「打开发布页」这类浏览器跳转，
+ * 不参与清单抓取——那边的候选源在 APP_UPDATE_MANIFEST_URLS。
+ */
+export const APP_UPDATE_RELEASES_MIRRORS = [
+  { label: 'gh-proxy', url: `https://gh-proxy.com/${APP_UPDATE_RELEASES_PAGE}` },
+  { label: 'ghfast', url: `https://ghfast.top/${APP_UPDATE_RELEASES_PAGE}` },
+] as const;
+
+/**
  * 请求超时。检查更新是个后台动作，网络对不上时不该让用户对着转圈等，
  * 超时后界面给的是一条能看懂的失败原因 + 手动入口。
+ * 多候选源时每个用较短的超时，避免三条源串行等满一分钟。
  */
 const REQUEST_TIMEOUT_MS = 12_000;
+const MIRROR_TIMEOUT_MS = 6_000;
 
 /** update.json 里我们用到的字段：只有 version 与 download_url 是必需的。 */
 type UpdateManifestPayload = {
@@ -266,23 +288,35 @@ const describeFetchFailure = (error: unknown): string => {
  * 桥也没拿到时再退回全局 fetch，好让失败原因是真实的 HTTP 状态而不是一句「桥不可用」。
  */
 const fetchUpdateManifest = async (signal?: AbortSignal): Promise<UpdateManifestPayload> => {
-  if (isNativeHttpAvailable()) {
+  let lastError: unknown;
+  for (const [index, url] of APP_UPDATE_MANIFEST_URLS.entries()) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    const timeoutMs = index === 0 ? REQUEST_TIMEOUT_MS : MIRROR_TIMEOUT_MS;
+    if (isNativeHttpAvailable()) {
+      try {
+        const text = await nativeGetText(url, timeoutMs);
+        return JSON.parse(text) as UpdateManifestPayload;
+      } catch (error) {
+        lastError = error;
+      }
+    }
     try {
-      const text = await nativeGetText(APP_UPDATE_MANIFEST_URL, REQUEST_TIMEOUT_MS);
-      return JSON.parse(text) as UpdateManifestPayload;
-    } catch {
-      // 落到下面的 fetch。
+      return await fetchJsonWithRetry<UpdateManifestPayload>(
+        url,
+        {
+          signal,
+          // CDN 上可能留着上一版清单，带 no-store 拿最新的；缓存由 CDN 自己在边缘管。
+          cache: 'no-store',
+        },
+        // 换源本身就是重试：每个源内部不再重试，否则直连的两次 12s 会把镜像入口拖到半分钟后。
+        { timeoutMs, retries: 0 },
+      );
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') throw error;
+      lastError = error;
     }
   }
-  return fetchJsonWithRetry<UpdateManifestPayload>(
-    APP_UPDATE_MANIFEST_URL,
-    {
-      signal,
-      // CDN 上可能留着上一版清单，带 no-store 拿最新的；缓存由 CDN 自己在边缘管。
-      cache: 'no-store',
-    },
-    { timeoutMs: REQUEST_TIMEOUT_MS },
-  );
+  throw lastError ?? new Error('all update sources failed');
 };
 
 /**

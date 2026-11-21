@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  APP_UPDATE_MANIFEST_URLS,
   checkForAppUpdate,
   compareAppVersions,
   parseAppVersion,
@@ -217,5 +218,46 @@ describe('checkForAppUpdate（update.json 版本清单）', () => {
         const result = await checkForAppUpdate();
         expect(result.status).toBe('failed');
         if (result.status === 'failed') expect(result.message).toBe('manifest-missing');
+    });
+});
+
+
+describe('更新清单多源回退', () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('候选源按「直连 → gh-proxy → ghfast」排列，且都指向同一份 update.json', () => {
+        expect(APP_UPDATE_MANIFEST_URLS).toHaveLength(3);
+        expect(APP_UPDATE_MANIFEST_URLS[0]).toBe('https://github.com/SuYunYue-550W/foliaData/releases/latest/download/update.json');
+        expect(APP_UPDATE_MANIFEST_URLS[1]).toContain('gh-proxy.com/https://github.com/');
+        expect(APP_UPDATE_MANIFEST_URLS[2]).toContain('ghfast.top/https://github.com/');
+        for (const url of APP_UPDATE_MANIFEST_URLS) {
+            expect(url.endsWith('/releases/latest/download/update.json')).toBe(true);
+        }
+    });
+
+    it('直连失败时尝试下一个源，拿到清单即可', async () => {
+        const fetchMock = vi.fn()
+            .mockRejectedValueOnce(new Error('Failed to fetch'))
+            .mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                json: async () => ({ version: '9.9.9', download_url: 'https://mirror.example.com/app.apk' }),
+            });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const result = await checkForAppUpdate();
+        expect(result.status).toBe('update-available');
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(fetchMock.mock.calls[0][0]).toBe(APP_UPDATE_MANIFEST_URLS[0]);
+        expect(fetchMock.mock.calls[1][0]).toBe(APP_UPDATE_MANIFEST_URLS[1]);
+    });
+
+    it('全部源都失败时报失败，不抛异常', async () => {
+        const fetchMock = vi.fn().mockRejectedValue(new Error('Failed to fetch'));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const result = await checkForAppUpdate();
+        expect(result.status).toBe('failed');
+        expect(fetchMock).toHaveBeenCalledTimes(APP_UPDATE_MANIFEST_URLS.length);
     });
 });
