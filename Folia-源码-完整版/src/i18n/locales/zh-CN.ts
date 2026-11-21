@@ -3701,7 +3701,7 @@ export default {
     "glowBlurQuantizeDocs": "文档",
     "backgroundThrottling": "后台节流",
     "backgroundThrottlingHint": "Folia 最小化或隐藏时节流渲染，歌词动画停在当前画面",
-    "backgroundThrottlingDesc": "窗口最小化或隐藏到托盘时交给 Chromium 节流，歌词动画也停下，回来后从当前进度接着播；只是切到别的应用、窗口还看得见时照常动。音乐照常播放。默认关闭，因为用 OBS 窗口采集 Folia 直播时，窗口在后台也要照常画。壁纸模式、导出视频和 OBS 浏览器源连着时自动不生效。",
+    "backgroundThrottlingDesc": "窗口最小化或隐藏到托盘时交给 Chromium 节流，歌词动画也停下，回来后从当前进度接着播；只是切到别的应用、窗口还看得见时照常动。音乐照常播放。默认开启以省电；用 OBS 窗口采集 Folia 直播时请手动关闭（窗口在后台也要照常画）。之前手动关过的保持原样。壁纸模式、导出视频和 OBS 浏览器源连着时自动不生效。",
     "gpuPreference": "渲染显卡",
     "gpuPreferenceHint": "双显卡电脑上选择用哪张显卡渲染画面，重启后生效",
     "gpuPreferenceDesc": "自动：由系统决定，笔记本上通常是接屏幕的核显，更省电。高性能：用独立显卡，动画更流畅但更耗电，在后台放歌时也一样。省电：用核显。在 Windows「图形设置」里给 Folia 单独指定过显卡时，以系统设置为准。",

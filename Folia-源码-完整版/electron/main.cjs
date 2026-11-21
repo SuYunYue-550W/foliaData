@@ -2427,7 +2427,7 @@ let mainWindowSkipTaskbarEnabled = false;
 let videoExportWindowRestoreState = null;
 // The 后台节流 switch; refresh() wherever one of its stand-down reasons can change.
 const backgroundThrottling = createBackgroundThrottling({
-  isEnabled: () => readStoredBoolean(BACKGROUND_THROTTLING_SETTING_KEY, false),
+  isEnabled: () => readStoredBoolean(BACKGROUND_THROTTLING_SETTING_KEY, true),
   getStandDownReason: () => {
     if (isWallpaperModeEnabled()) return 'wallpaper mode';
     if (videoExportWindowRestoreState) return 'video export';
@@ -2618,7 +2618,7 @@ function getPublicSettings() {
     [VOICE_INPUT_PAUSE_ENABLED_SETTING_KEY]: readStoredBoolean(VOICE_INPUT_PAUSE_ENABLED_SETTING_KEY, false),
     [PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK_SETTING_KEY]: readStoredBoolean(PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK_SETTING_KEY, false),
     [MOD_SYSTEM_ENABLED_SETTING_KEY]: readStoredBoolean(MOD_SYSTEM_ENABLED_SETTING_KEY, false),
-    [BACKGROUND_THROTTLING_SETTING_KEY]: readStoredBoolean(BACKGROUND_THROTTLING_SETTING_KEY, false),
+    [BACKGROUND_THROTTLING_SETTING_KEY]: readStoredBoolean(BACKGROUND_THROTTLING_SETTING_KEY, true),
     [UPDATE_CHANNEL_SETTING_KEY]: getCurrentReleaseChannel().id,
     'enable_player_page_native_blur': store.get('enable_player_page_native_blur') === true,
     'wallpaper_attach_mode': process.platform === 'win32' ? wallpaperWindowsAttachMode : null,

@@ -141,7 +141,7 @@ export const useDesktopSettingsStore = create<DesktopSettingsState>((set, get) =
     wallpaperMacAutohideDock: getStoredBoolean(WALLPAPER_MAC_AUTOHIDE_DOCK_STORAGE_KEY, true),
     openPlayerOnLaunch: getStoredBoolean(OPEN_PLAYER_ON_LAUNCH_STORAGE_KEY, false),
     gpuPreference: readGpuPreference(getStoredString(GPU_PREFERENCE_STORAGE_KEY, 'auto')) ?? 'auto',
-    backgroundThrottling: getStoredBoolean(BACKGROUND_THROTTLING_STORAGE_KEY, false),
+    backgroundThrottling: getStoredBoolean(BACKGROUND_THROTTLING_STORAGE_KEY, true),
     windowAlwaysOnTopSupported: true,
     setDesktopPreferenceSnapshot: (settings) => {
         const patch: Partial<DesktopSettingsState> = {};
