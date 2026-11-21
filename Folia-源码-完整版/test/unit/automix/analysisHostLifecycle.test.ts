@@ -299,3 +299,22 @@ describe('analysis host thread pools', () => {
         expect(await nextGrid).toBe(true);
     });
 });
+
+// The host must outlive the worker's own model-release window: the worker frees htdemucs a minute
+// after its last run (STEMS_IDLE_MS), and only after that may the host stop the whole process. If
+// the host fired first it would kill the worker mid-release, throwing away the keeping-the-process
+// design. Guarded here because both numbers are defaults nobody passes in the tests above.
+describe('analysis host idle budget', () => {
+    it('host idle timeout leaves room after the worker releases htdemucs', () => {
+        const fs = require('node:fs') as typeof import('node:fs');
+        const host = fs.readFileSync(path.join(REPO, 'electron/analysis/host.cjs'), 'utf8');
+        const worker = fs.readFileSync(path.join(REPO, 'electron/analysis/worker.cjs'), 'utf8');
+        const hostMs = Number(/const IDLE_MS = ([\d_]+);/.exec(host)?.[1].replaceAll('_', ''));
+        const releaseMs = Number(/const STEMS_IDLE_MS = ([\d_]+);/.exec(worker)?.[1].replaceAll('_', ''));
+        expect(Number.isFinite(hostMs) && hostMs > 0).toBe(true);
+        expect(Number.isFinite(releaseMs) && releaseMs > 0).toBe(true);
+        expect(hostMs).toBeGreaterThan(releaseMs);
+        // Not so long that an idle process keeps its memory for minutes.
+        expect(hostMs).toBeLessThanOrEqual(90_000);
+    });
+});

@@ -41,7 +41,7 @@ const path = require('path');
  * (From the PR #750 re-review, 2026-10-19: with automix on too. The worker has released htdemucs by
  * then, a minute after its last run (STEMS_IDLE_MS there), so this gives back the rest of the process.)
  */
-const IDLE_MS = 120_000;
+const IDLE_MS = 90_000;
 
 /** Answer for a request whose worker died under it. Never leaves this file - see `ask`. */
 const CRASHED = Symbol('crashed');

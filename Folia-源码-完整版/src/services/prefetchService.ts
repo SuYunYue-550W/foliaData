@@ -46,6 +46,9 @@ const PREFETCH_COUNT_NEXT = 2;  // The next two songs' light resources (URL + ly
 const PREFETCH_COUNT_PREV = 1;  // One behind, so "previous" is instant rather than a refetch
 const URL_TTL_MS = 1200 * 1000; // 1200 seconds = 20 minutes
 const MAX_PREFETCH_CACHE_SIZE = 200; // Evict least recently used entries beyond this limit
+// A lyric can be tens of KB, so 200 entries have no predictable footprint. Cap the cached strings
+// by bytes too (UTF-16 code units x2), keeping the LRU order already used above.
+const MAX_PREFETCH_CACHE_BYTES = 8 * 1024 * 1024;
 
 /**
  * Hands a track to the automix analyser with whatever URL this file resolved for it.
@@ -143,12 +146,40 @@ export interface PrefetchedSongData {
 
 // In-memory prefetch cache (not persisted to IndexedDB to avoid stale URLs)
 const prefetchCache = new Map<string, PrefetchedSongData>();
+let prefetchCacheBytes = 0;
 
 const getPrefetchSongKey = (song: SongResult): string => getSongResourceCacheKey('audio', song);
 
-const touchPrefetchCacheEntry = (songKey: string, data: PrefetchedSongData): PrefetchedSongData => {
+/** Approximate retained size of one entry: only the strings can grow without bound. */
+const estimatePrefetchBytes = (data: PrefetchedSongData): number => {
+    const strings = [
+        data.songKey, data.audioUrl, data.audioUrlQuality, data.coverUrl,
+        data.lyricPreferenceSource,
+        data.lyrics ? JSON.stringify(data.lyrics) : '',
+        data.lyricRaw?.mainLrc, data.lyricRaw?.yrcLrc, data.lyricRaw?.transLrc,
+    ];
+    return strings.reduce((sum, value) => sum + (typeof value === 'string' ? value.length * 2 : 0), 512);
+};
+
+/** Insert after evicting least-recently-used entries until both budgets fit. */
+const setPrefetchCacheEntry = (songKey: string, data: PrefetchedSongData): void => {
+    const bytes = estimatePrefetchBytes(data);
+    const existing = prefetchCache.get(songKey);
+    if (existing) prefetchCacheBytes -= estimatePrefetchBytes(existing);
     prefetchCache.delete(songKey);
     prefetchCache.set(songKey, data);
+    prefetchCacheBytes += bytes;
+    while (prefetchCache.size > MAX_PREFETCH_CACHE_SIZE || prefetchCacheBytes > MAX_PREFETCH_CACHE_BYTES) {
+        const oldestKey = prefetchCache.keys().next().value;
+        if (oldestKey === undefined) break;
+        const oldest = prefetchCache.get(oldestKey);
+        if (oldest) prefetchCacheBytes -= estimatePrefetchBytes(oldest);
+        prefetchCache.delete(oldestKey);
+    }
+};
+
+const touchPrefetchCacheEntry = (songKey: string, data: PrefetchedSongData): PrefetchedSongData => {
+    setPrefetchCacheEntry(songKey, data);
     return data;
 };
 
@@ -454,19 +485,7 @@ const prefetchSong = async (
         }
     }
 
-    prefetchCache.delete(songKey);
-
-    // Evict least recently used entries if cache exceeds limit
-    while (prefetchCache.size >= MAX_PREFETCH_CACHE_SIZE) {
-        const oldestKey = prefetchCache.keys().next().value;
-        if (oldestKey !== undefined) {
-            prefetchCache.delete(oldestKey);
-        } else {
-            break;
-        }
-    }
-
-    prefetchCache.set(songKey, data);
+    setPrefetchCacheEntry(songKey, data);
 
     // Measured here because this is where the bytes are cheapest: the track is about to be cached
     // anyway, so with song caching on it is one download feeding both the cache and the analysis,
@@ -676,6 +695,8 @@ export const cleanupPrefetchCache = (currentQueue: SongResult[]): void => {
 
     for (const songKey of prefetchCache.keys()) {
         if (!queueIds.has(songKey)) {
+            const removed = prefetchCache.get(songKey);
+            if (removed) prefetchCacheBytes -= estimatePrefetchBytes(removed);
             prefetchCache.delete(songKey);
         }
     }
@@ -685,12 +706,15 @@ export const cleanupPrefetchCache = (currentQueue: SongResult[]): void => {
 
 export const invalidatePrefetchedLyrics = (): void => {
     for (const [songKey, cached] of prefetchCache.entries()) {
-        prefetchCache.set(songKey, {
+        prefetchCacheBytes -= estimatePrefetchBytes(cached);
+        const cleared = {
             ...cached,
             lyrics: null,
             lyricRaw: null,
             lyricPreferenceSource: null,
-        });
+        };
+        prefetchCache.set(songKey, cleared);
+        prefetchCacheBytes += estimatePrefetchBytes(cleared);
     }
 
     console.log(`[Prefetch] Invalidated lyrics for ${prefetchCache.size} prefetched songs`);
@@ -704,6 +728,7 @@ export const clearPrefetchRuntime = (): void => {
     audioWarmupControllers.clear();
     audioWarmups.clear();
     prefetchCache.clear();
+    prefetchCacheBytes = 0;
     analysisScopeSongs = [];
 };
 
