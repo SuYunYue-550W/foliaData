@@ -9,6 +9,13 @@
 
 import { OnlineProviderError } from '../../../types/onlineMusic';
 import { getProviderSessionKey } from '../providerStorage';
+import { createNativeFetch } from '../../nativeHttpFetch';
+
+// B站接口不给 `https://localhost` 回 CORS 头，安卓 WebView 里裸 fetch 会直接
+// `TypeError: Failed to fetch`（扫码登录 qr-generate 实测 176ms 就失败）。
+// createNativeFetch 在安卓上走 FoliaNative.httpRequest（OkHttp，不受 CORS 且自动带
+// WebView cookie），其它平台回落全局 fetch。与 Spotify 的页内请求同一条路。
+const biliFetch = createNativeFetch();
 
 export type BilibiliModule =
     | 'recommend' | 'popular' | 'ranking'
@@ -74,7 +81,7 @@ const ensureBuvid = async (): Promise<string | null> => {
     if (buvidPromise) return buvidPromise;
     buvidPromise = (async () => {
         try {
-            const response = await fetch('https://www.bilibili.com/', {
+            const response = await biliFetch('https://www.bilibili.com/', {
                 headers: { 'User-Agent': UA },
                 credentials: 'include',
             });
@@ -128,7 +135,7 @@ const send = async <T>(url: string, params: Record<string, string | number | und
 
     let response: Response;
     try {
-        response = await fetch(target, { headers, credentials: 'include' });
+        response = await biliFetch(target, { headers, credentials: 'include' });
     } catch (error) {
         throw new OnlineProviderError('network', `bilibili ${module}: ${error instanceof Error ? error.message : String(error)}`);
     }
