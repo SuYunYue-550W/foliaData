@@ -8,7 +8,7 @@ files:
     size: 326361861
 path: Folia-Setup-0.7.37.exe
 sha512: xT6Uv9SdLjK2h2pJGl5Izgcd87FPlJ/ZO6N8sH3lVeEJT/xLtQFA1Ifrpiza5NXgCRrn+i4zeITJQvzjCRmbmw==
-releaseDate: '2026-11-21T19:48:54.686Z'
+releaseDate: '2026-11-21T21:51:46.996Z'
 releaseNotes: |
   ## v0.7.37 · 修复安卓 B站扫码登录
   
