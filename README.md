@@ -1,6 +1,6 @@
 # Folia 整合增强版 · foliaData
 
-全屏沉浸式歌词播放器 **Folia** 的整合增强版。基于 Folia-major 0.7.25，叠加色散玻璃导航条与自研 **microRender** GPU 调度微内核，提供 Windows 与 Android 双端构建。
+全屏沉浸式歌词播放器 **Folia** 的整合增强版。基于 Folia-major。
 
 > **当前版本：`v0.7.33`（启动卡住修复与新平台构建版，2026-11-16）。**
 > 本版由**本仓库源码在本机真实编译**，修复 Windows 打开后停在 Folia logo 加载页、永不进入主界面的问题；Linux 构建扩展到 ARM64；HarmonyOS 壳工程用华为官方 Command Line Tools 真实编译出 HAP。桌面与安卓的「检查更新」均指向本仓库 Releases。v0.7.32 的 Apple Music 双端登录与音质设置改动全部保留，详见 `CHANGELOG.md`。
@@ -243,7 +243,6 @@ npm run build:android:debug   # Android debug APK
 ## 九、授权与致谢
 
 - 本体 Folia：**AGPL-3.0**，遵循其条款（`LICENSE` 全文）；上游同步内容同样来自 AGPL-3.0 项目。
-- 视觉灵感：感谢 Mineradio 2.2.0 作者提供色散玻璃 `control-glass` 的设计思路；本项目已独立重写，未复制其源码，未引入任何与 AGPL 不相容的第三方源码。
 - 汽水音乐签名组件 `bdms.node` / `metasecml.dll` 来自官方客户端 Web 安全组件，仅用于生成请求签名，版权归字节跳动与汽水音乐所有。
 - 在线音乐、歌词、封面及其他第三方内容的版权归相应权利人所有，请遵守所在地法律及服务条款，并通过官方渠道支持正版。
 - 可能存在细微问题；仅供个人学习、技术交流与非营利测试使用，请勿用于商业盈利用途。
