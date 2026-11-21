@@ -1,15 +1,15 @@
 {
-  "version": "0.7.36",
-  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.36/app-release.apk",
-  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.36",
-  "notes": "## v0.7.36 · 哔哩哔哩视频播放版\n\n本版在播放页新增「哔哩哔哩」页签，桌面端与安卓端都可直接搜索并播放 B 站视频；应用的「检查更新」继续指向本仓库 Releases。\n\n- **B 站视频页签**：播放页常驻「哔哩哔哩」入口，内含推荐、热门、动画、影视、直播、收藏、历史记录七个模块，支持搜索、扫码登录。播放走 DASH 流，无法取流时回退到 iframe 嵌入。\n- **双端播放**：桌面端直接取流播放；安卓端复用已有的本地回环代理给视频与音频两条流带上 B 站所需的 Referer（WebView 无法自行设置 `<video>` 的 Referer，否则 403），无需改动 Kotlin 原生代码。\n- **测试清单同步**：新增平台后补齐了内置平台枚举相关的测试用例，避免全量单测回归。\n- 版本号 0.7.36，安卓 versionCode 7031600（高于上一版 7031500，覆盖安装不会判为降级）。\n- 验证：13419 个单测通过；tsc 0 错误；ui / size / versions / harmony / 契约门禁全绿；桌面端 Electron 实测页签与模块按钮齐全。\n\n逐项记录见仓库 CHANGELOG.md 与 release-manifests/构建与发布.md。",
-  "published_at": "2026-11-21T16:29:23.677Z",
-  "size": 124034930,
+  "version": "0.7.37",
+  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.37/app-release.apk",
+  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.37",
+  "notes": "## v0.7.37 · 修复安卓 B站扫码登录\n\n本版修复 0.7.36 上安卓端「哔哩哔哩」扫码登录点开就报 `Failed to fetch` 的问题，其它功能与 0.7.36 一致。\n\n- **安卓扫码登录**：B站接口不给 `https://localhost`（安卓 WebView 的页面来源）返回 CORS 头，0.7.36 里裸 `fetch` 请求 `passport.bilibili.com` 的二维码生成/轮询接口被同源检查拦下，176ms 就失败，诊断里报 `case unreachable (kind B) / errorCode=network`。现在 B站所有请求在安卓上改走 FoliaNative.httpRequest（OkHttp，不受 CORS 且自动带 WebView cookie），桌面端仍用全局 fetch。视频播放的 DASH 流此前已走原生回环代理，本次一并统一到同一条原生 HTTP 路上。\n- 补了 transport 层单测：扫码生成/轮询走原生、请求头、网络错误分类，以及「不得再出现裸 fetch」的源码护栏。\n- 版本号 0.7.37，安卓 versionCode 7031700（高于 0.7.36 的 7031600，覆盖安装不会判为降级）。\n- 验证：B站与登录相关 195 个测试通过；ui / size 门禁全绿；桌面 Electron 实测页签与模块按钮齐全。\n\n逐项记录见仓库 CHANGELOG.md、Issue #21 与 release-manifests/构建与发布.md。",
+  "published_at": "2026-11-21T19:48:54.686Z",
+  "size": 124035182,
   "assets": [
     {
       "name": "app-release.apk",
-      "browser_download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.36/app-release.apk",
-      "size": 124034930
+      "browser_download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.37/app-release.apk",
+      "size": 124035182
     }
   ]
 }
