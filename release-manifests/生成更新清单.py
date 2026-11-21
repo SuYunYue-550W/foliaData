@@ -70,6 +70,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--exe', required=True, type=Path, help='Windows 安装包路径')
     parser.add_argument('--apk', required=True, type=Path, help='Android 安装包路径')
+    parser.add_argument(
+        '--apk-name',
+        default=None,
+        help='上传到 Release 时用的附件名。默认取本地文件名，但本地通常是 app-release.apk，'
+             '与真正上传的附件名不一致 —— 清单里的地址会 404，必须显式给出上传时用的名字。')
     parser.add_argument('--tag', default='v0.7.33')
     parser.add_argument('--version', default='0.7.33')
     parser.add_argument('--out', default='release-manifests', type=Path)
@@ -84,9 +89,10 @@ def main():
     stamp = datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
 
     exe_name = args.exe.name
-    apk_name = args.apk.name
+    apk_name = args.apk_name or args.apk.name
     exe_sha, exe_md5 = sha512_pair(args.exe)
     apk_sha, apk_md5 = sha512_pair(args.apk)
+    apk_sha_hex = hashlib.sha512(args.apk.read_bytes()).hexdigest()
     exe_size, apk_size = args.exe.stat().st_size, args.apk.stat().st_size
 
     (out / 'latest.yml').write_text(
@@ -111,10 +117,16 @@ def main():
         'notes': NOTES.strip(),
         'published_at': stamp,
         'size': apk_size,
+        # 摘要：原生下载完成后按它比对，挡住下载损坏与清单被替换。
+        # base64 与 electron-updater 的约定一致；hex 给 Android 侧（Kotlin）直接比对。
+        'sha512': apk_sha,
+        'sha512_hex': apk_sha_hex,
         'assets': [{
             'name': apk_name,
             'browser_download_url': apk_url,
             'size': apk_size,
+            'sha512': apk_sha,
+            'sha512_hex': apk_sha_hex,
         }],
     }
     (out / 'update.json').write_text(
@@ -125,6 +137,9 @@ def main():
     print(f'       sha512(base64) {exe_sha}')
     print(f'  APK  {apk_name}: {apk_size} B | md5 {apk_md5}')
     print(f'       sha512(base64) {apk_sha[:32]}...')
+    print(f'       sha512(hex) {apk_sha_hex[:32]}...')
+    if args.apk_name is None:
+        print('  ⚠ 未指定 --apk-name：清单用的是本地文件名，上传时必须用同一个名字，否则地址 404。')
     print('产出:', ', '.join(sorted(p.name for p in out.iterdir() if p.is_file() and not p.name.endswith('.py'))))
 
 

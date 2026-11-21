@@ -88,7 +88,7 @@ interface FoliaNativePlugin {
      * 落在 App 私有缓存目录（无需存储权限），进度通过 `updateDownloadProgress` 事件
      * 往外推；返回的路径直接喂给 {@link installUpdate}。
      */
-    downloadUpdate(options: { url: string; fileName: string }): Promise<{ path: string; bytes: number }>;
+    downloadUpdate(options: { url: string; fileName: string; sha512Hex?: string }): Promise<{ path: string; bytes: number }>;
     /**
      * 把下载好的包交给系统安装器。
      *
@@ -96,6 +96,11 @@ interface FoliaNativePlugin {
      * 原生侧已经把设置页拉起来了 —— 用户授权回来再点一次即可，界面要把这句话说清楚。
      */
     installUpdate(options: { path: string }): Promise<{ status: string }>;
+    /**
+     * 清掉某个域下的 Cookie。网页登录把会话存在 CookieManager 里，只清应用自己的
+     * localStorage 不够 —— 登出后原生那份登录态还在，下次启动会自动登录回去。
+     */
+    clearCookies(options: { domain: string }): Promise<{ remaining: string }>;
     /** 用原生 OkHttp 发一次请求，不受 WebView 的 CORS 限制。 */
     httpRequest(options: {
         url: string;
@@ -376,13 +381,23 @@ export const watchUpdateDownloadProgress = (
 
 /** 下载更新包。文件名由原生侧清洗，这里只需保证带版本号即可。 */
 export const downloadUpdate = (
-    options: { url: string; fileName: string },
+    options: { url: string; fileName: string; sha512Hex?: string },
 ): Promise<{ path: string; bytes: number }> => FoliaNative.downloadUpdate(options);
 
 /** 拉起系统安装器。 */
 export const installUpdate = (
     options: { path: string },
 ): Promise<{ status: string }> => FoliaNative.installUpdate(options);
+
+/** 清掉某个域下的 Cookie（原生 CookieManager 里的那份会话）。桌面/纯网页没有这一层。 */
+export const isNativeCookieClearAvailable = (): boolean => (
+    isCapacitorAndroid() && typeof FoliaNative.clearCookies === 'function'
+);
+
+/** 清掉某个域下的 Cookie（原生 CookieManager 里的那份会话）。 */
+export const clearCookies = (
+    options: { domain: string },
+): Promise<{ remaining: string }> => FoliaNative.clearCookies(options);
 
 /** 原生桥给的 base64 响应体 → UTF-8 文本。清单里可能有中文更新日志，必须按 UTF-8 解。 */
 export const decodeNativeBody = (bodyBase64?: string): string => {

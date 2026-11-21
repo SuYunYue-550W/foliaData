@@ -15,6 +15,7 @@ import { getBilibiliModule } from './bilibiliModules';
 import { isCapacitorAndroid } from '../../../platform/runtime';
 import { proxyNativeRemoteAudioUrl } from '../../nativeRemoteAudio';
 import QRCode from 'qrcode';
+import { clearCookies, isNativeCookieClearAvailable } from '../../../platform/foliaNative';
 
 // src/services/onlineMusic/bilibili/bilibiliProvider.ts
 //
@@ -196,6 +197,16 @@ export const bilibiliProvider: any = {
         async logout(): Promise<void> {
             writeBilibiliSessdata('');
             qrStates.clear();
+            // 扫码登录把会话存进了原生 CookieManager，只清 localStorage 的话那份登录态还在，
+            // 下次启动 nav 请求又带着它 —— 表现为「登出后重启又自动登录回去了」。
+            // 只清 B 站这个域，别家平台的会话不动。
+            try {
+                if (isNativeCookieClearAvailable()) {
+                    await clearCookies({ domain: 'bilibili.com' });
+                }
+            } catch {
+                // 原生桥不可用（桌面 / 纯网页）时没有 CookieManager 这一层，清本地那份就够了。
+            }
         },
         async startLogin(): Promise<string> {
             const { data } = await requestBilibili<any>('qr-generate');

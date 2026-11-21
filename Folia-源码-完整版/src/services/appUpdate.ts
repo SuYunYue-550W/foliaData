@@ -50,6 +50,9 @@ type UpdateManifestPayload = {
   /** 包体积（可选，用于显示下载大小）。 */
   size?: number;
   /** 多产物（可选）：给了就按后缀挑 apk / aab。 */
+  /** 整个安装包的 SHA-512（base64 / hex），用于下载后校验。 */
+  sha512?: string;
+  sha512_hex?: string;
   assets?: Array<{
     name?: string;
     browser_download_url?: string;
@@ -62,6 +65,10 @@ export type AppReleaseAsset = {
   /** 直接下载地址：发给系统浏览器就是一次下载。 */
   downloadUrl: string;
   sizeBytes: number;
+  /** 清单给的 SHA-512（base64，electron-updater 约定）；下载后拿它比对。 */
+  sha512?: string;
+  /** 同一摘要的小写 hex；给不认 base64 的那一侧用。 */
+  sha512Hex?: string;
 };
 
 export type AppReleaseInfo = {
@@ -190,11 +197,15 @@ const assetExtensionOf = (name: string): string => {
  * `release` 的，其次取体积大的（真正的安装包总比校验文件大）。
  */
 export const pickReleaseAsset = (
-  assets: Array<{ name?: string; browser_download_url?: string; size?: number }> | undefined,
+  assets: Array<{
+    name?: string; browser_download_url?: string; size?: number; sha512?: string; sha512_hex?: string;
+  }> | undefined,
   extension: string,
 ): AppReleaseAsset | null => {
   const candidates = (assets ?? [])
-    .filter((asset): asset is { name: string; browser_download_url: string; size?: number } => (
+    .filter((asset): asset is {
+      name: string; browser_download_url: string; size?: number; sha512?: string; sha512_hex?: string;
+    } => (
       typeof asset?.name === 'string'
       && typeof asset.browser_download_url === 'string'
       && assetExtensionOf(asset.name) === extension
@@ -208,6 +219,8 @@ export const pickReleaseAsset = (
     name: chosen.name,
     downloadUrl: chosen.browser_download_url,
     sizeBytes: chosen.size ?? 0,
+    sha512: nonEmptyString(chosen.sha512) ?? undefined,
+    sha512Hex: nonEmptyString(chosen.sha512_hex) ?? undefined,
   };
 };
 
@@ -234,7 +247,13 @@ const toReleaseInfo = (payload: UpdateManifestPayload): AppReleaseInfo | null =>
   // .aab 装不上，宁可报「没有可用安装包」也别让人白下一遍。
   const apk = pickReleaseAsset(assets, 'apk')
     ?? (assetExtensionOf(downloadUrl) === 'apk'
-      ? { name: fileNameOf(downloadUrl), downloadUrl, sizeBytes: Number(payload.size) || 0 }
+      ? {
+        name: fileNameOf(downloadUrl),
+        downloadUrl,
+        sizeBytes: Number(payload.size) || 0,
+        sha512: nonEmptyString(payload.sha512) ?? undefined,
+        sha512Hex: nonEmptyString(payload.sha512_hex) ?? undefined,
+      }
       : null);
 
   return {
@@ -355,10 +374,16 @@ export const onUpdateDownloadProgress = (
 export const downloadUpdateApk = async (
   downloadUrl: string,
   version: string,
+  sha512Hex?: string,
 ): Promise<UpdateDownloadOutcome> => {
   const fileName = `folia-sonnet-${version}.apk`;
   try {
-    const result = await downloadUpdate({ url: downloadUrl, fileName });
+    const result = await downloadUpdate({
+      url: downloadUrl,
+      fileName,
+      // 清单给了摘要就在原生侧比对：下坏了或清单被换过，一律不交给系统安装器。
+      ...(sha512Hex ? { sha512Hex } : {}),
+    });
     const path = typeof result?.path === 'string' ? result.path : '';
     if (!path) throw new Error('Update download returned no file path');
     return { path, bytes: Number(result?.bytes) || 0 };

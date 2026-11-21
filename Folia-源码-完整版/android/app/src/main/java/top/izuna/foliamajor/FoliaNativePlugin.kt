@@ -45,6 +45,7 @@ import java.io.OutputStream
 import java.lang.reflect.Method
 import java.net.URL
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.util.ArrayList
 import java.util.HashMap
 import java.util.LinkedHashMap
@@ -204,6 +205,43 @@ class FoliaNativePlugin : Plugin() {
                 }
             }
             return null
+        }
+
+        /**
+         * 把调用方的 Cookie 头与 CookieManager 里的按**名字**合并。
+         *
+         * 原来这里是二选一：调用方给了 Cookie 头就完全不用 CookieManager 里的。
+         * 但网页登录（如 B 站扫码）是原生侧存下的 SESSDATA 在起作用 —— 调用方只带自己拼的
+         * buvid3，于是那次 nav 请求把刚存下的登录态丢掉了，表现为「已确认扫码，账号仍匿名」。
+         *
+         * 同名的以调用方为准（它显式指定的更权威），不同名的都留下。
+         */
+        private fun mergeCookieHeaders(caller: String?, stored: String?): String? {
+            val callerPairs = parseCookiePairs(caller)
+            val storedPairs = parseCookiePairs(stored)
+            if (callerPairs.isEmpty() && storedPairs.isEmpty()) return null
+            val merged = LinkedHashMap<String, String>()
+            for ((name, value) in storedPairs) merged[name] = value
+            for ((name, value) in callerPairs) merged[name] = value
+            if (merged.isEmpty()) return null
+            return merged.entries.joinToString("; ") { "${it.key}=${it.value}" }
+        }
+
+        /** 把 "a=1; b=2" 拆成按名字的键值对；值里带 '=' 时按第一个分。 */
+        private fun parseCookiePairs(raw: String?): List<Pair<String, String>> {
+            if (raw.isNullOrEmpty()) return emptyList()
+            val pairs = ArrayList<Pair<String, String>>()
+            for (part in raw.split(';')) {
+                val piece = part.trim()
+                if (piece.isEmpty()) continue
+                val eq = piece.indexOf('=')
+                if (eq <= 0) continue
+                val name = piece.substring(0, eq).trim()
+                val value = piece.substring(eq + 1).trim()
+                if (name.isEmpty()) continue
+                pairs.add(Pair(name, value))
+            }
+            return pairs
         }
 
         private val HEADER_HEX = "0123456789ABCDEF".toCharArray()
@@ -905,15 +943,15 @@ class FoliaNativePlugin : Plugin() {
                     }
                 }
             }
-            // OkHttp 这里没有 cookie jar，所以要把 WebView 的 cookie 库自己带上，
-            // 除非调用方已经显式塞了 Cookie 头。
-            if (headers == null || optHeader(headers, "cookie") == null) {
-                val storedCookies = CookieManager.getInstance().getCookie(url)
-                if (storedCookies != null && !storedCookies.isEmpty()) {
-                    // sanitize 可能整体清空（极端脏值），那就干脆不带这个头。
-                    val safeCookie = sanitizeHeaderValue(storedCookies)
-                    if (safeCookie != null) builder.header("Cookie", safeCookie)
-                }
+            // OkHttp 这里没有 cookie jar，所以要把 WebView 的 cookie 库自己带上。
+            // 调用方显式给了 Cookie 头时**按名字合并**而不是二选一：网页登录存下的
+            // SESSDATA 在 CookieManager 里，调用方只带自己拼的那几个，两边都得发出去。
+            val storedCookies = CookieManager.getInstance().getCookie(url)
+            val mergedCookie = mergeCookieHeaders(optHeader(headers, "cookie"), storedCookies)
+            if (mergedCookie != null) {
+                // sanitize 可能整体清空（极端脏值），那就干脆不带这个头。
+                val safeCookie = sanitizeHeaderValue(mergedCookie)
+                if (safeCookie != null) builder.header("Cookie", safeCookie)
             }
 
             var body: RequestBody? = null
@@ -1307,6 +1345,8 @@ class FoliaNativePlugin : Plugin() {
     fun downloadUpdate(call: PluginCall) {
         val url = call.getString("url", "")
         val fileName = call.getString("fileName", "")
+        // 清单给的 SHA-512（小写 hex）。给了就在下载时一并算，比对不过就删掉文件不装。
+        val expectedSha512 = call.getString("sha512Hex", "")?.trim()?.lowercase() ?: ""
         if (url == null || url.isEmpty()) {
             call.reject("Missing update download url")
             return
@@ -1323,6 +1363,8 @@ class FoliaNativePlugin : Plugin() {
 
         var receivedBytes = 0L
         var target: File? = null
+        // 摘要器建在 try 之外：use{} 的 lambda 内部算、lambda 外比对，都要看得见它。
+        val digest = if (expectedSha512.isNotEmpty()) MessageDigest.getInstance("SHA-512") else null
         try {
             val directory = File(getContext().cacheDir, UPDATE_DIRECTORY)
             if (!directory.exists() && !directory.mkdirs()) {
@@ -1350,6 +1392,7 @@ class FoliaNativePlugin : Plugin() {
                         var read = source.read(buffer)
                         while (read != -1) {
                             sink.write(buffer, 0, read)
+                            digest?.update(buffer, 0, read)
                             receivedBytes += read
                             // 每 100ms 推一次就够了：WebView 那边是拿它刷新进度条的，
                             // 逐块转发会把桥打满，进度条反而卡。
@@ -1365,6 +1408,17 @@ class FoliaNativePlugin : Plugin() {
                 emitUpdateProgress(receivedBytes, totalBytes, true)
             }
 
+            // 摘要对不上：文件可能下坏了，或清单被换过。删掉，绝不交给系统安装器。
+            val hasher = digest
+            if (hasher != null) {
+                val actual = hasher.digest().joinToString("") { byte -> "%02x".format(byte) }
+                if (!actual.equals(expectedSha512, ignoreCase = true)) {
+                    target?.delete()
+                    call.reject("Update checksum mismatch")
+                    return
+                }
+            }
+
             val result = JSObject()
             result.put("path", if (target == null) "" else target.absolutePath)
             result.put("bytes", receivedBytes)
@@ -1377,6 +1431,44 @@ class FoliaNativePlugin : Plugin() {
             synchronized(updateDownloadLock) {
                 isUpdateDownloading = false
             }
+        }
+    }
+
+    /**
+     * 清掉某个域下的 Cookie。
+     *
+     * 网页登录（如 B 站扫码）把会话存进 CookieManager，而应用这边的登出只清自己的
+     * localStorage —— 于是「登出」之后原生那份登录态还在，下次启动又自动登录回去了。
+     * 按域名清，不动别的平台。
+     */
+    @PluginMethod
+    fun clearCookies(call: PluginCall) {
+        val domain = call.getString("domain", "")
+        if (domain.isNullOrEmpty()) {
+            call.reject("Missing cookie domain")
+            return
+        }
+        try {
+            val manager = CookieManager.getInstance()
+            val existing = manager.getCookie("https://$domain")
+            if (!existing.isNullOrEmpty()) {
+                // 把该域下每个 cookie 都置为过期并删除。
+                for (part in existing.split(';')) {
+                    val piece = part.trim()
+                    val eq = piece.indexOf('=')
+                    if (eq <= 0) continue
+                    val name = piece.substring(0, eq).trim()
+                    if (name.isEmpty()) continue
+                    manager.setCookie("https://$domain", "$name=; Max-Age=0; Path=/")
+                }
+            }
+            manager.flush()
+            val remaining = manager.getCookie("https://$domain")
+            val result = JSObject()
+            result.put("remaining", remaining ?: "")
+            call.resolve(result)
+        } catch (error: Exception) {
+            call.reject(error.message, error)
         }
     }
 

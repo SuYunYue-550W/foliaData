@@ -44,7 +44,7 @@ describe('B站 transport 走原生 HTTP（安卓 CORS 修复）', () => {
         ));
         const { requestBilibili } = await import('../../../src/services/onlineMusic/bilibili/bilibiliTransport');
 
-        const result = await requestBilibili('qr-generate');
+        const result = await requestBilibili<{ qrcode_key: string }>('qr-generate');
 
         expect(nativeFetch).toHaveBeenCalledTimes(2);
         expect(globalThis.fetch).not.toHaveBeenCalled();

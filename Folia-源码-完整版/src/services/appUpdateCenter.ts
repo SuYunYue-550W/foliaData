@@ -102,12 +102,19 @@ const ensureProgressWatcher = (): void => {
 };
 
 /** 当前清单里那个可安装的包；没有可用更新时为 null。 */
-const currentApkTarget = (): { downloadUrl: string; version: string; sizeBytes: number } | null => {
+const currentApkTarget = (): {
+    downloadUrl: string; version: string; sizeBytes: number; sha512Hex?: string;
+} | null => {
     const result = state.result;
     if (!result || result.status !== 'update-available') return null;
     const apk = result.release.apk;
     if (!apk) return null;
-    return { downloadUrl: apk.downloadUrl, version: result.release.version, sizeBytes: apk.sizeBytes };
+    return {
+        downloadUrl: apk.downloadUrl,
+        version: result.release.version,
+        sizeBytes: apk.sizeBytes,
+        sha512Hex: apk.sha512Hex,
+    };
 };
 
 // ---- 检查 ----
@@ -158,7 +165,7 @@ export const startUpdateDownload = async (): Promise<void> => {
         phase: { kind: 'downloading', receivedBytes: 0, totalBytes: target.sizeBytes, percent: 0 },
     });
     try {
-        const outcome = await downloadUpdateApk(target.downloadUrl, target.version);
+        const outcome = await downloadUpdateApk(target.downloadUrl, target.version, target.sha512Hex);
         setState({ phase: { kind: 'downloaded', path: outcome.path } });
     } catch (error) {
         setState({ phase: { kind: 'failed', message: error instanceof Error ? error.message : 'download-failed' } });

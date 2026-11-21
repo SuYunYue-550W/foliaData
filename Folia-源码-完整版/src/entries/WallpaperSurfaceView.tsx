@@ -281,6 +281,38 @@ const WallpaperSurface: React.FC = () => {
         return () => query.removeEventListener('change', apply);
     }, []);
 
+    /*
+     * 帧循环：推进播放位置、当前歌词行、四个主题色。
+     *
+     * 暂停时这一整圈是白算的：位置固定（positionMsNow 走的是静态那一份）、歌词行不变、
+     * 颜色收敛后 stepColorTowards 全部返回 undefined —— 一帧下来没有任何输出变化。
+     * 壁纸是常驻窗口（可能开一整天），白跑 rAF 就是白烧电。
+     *
+     * 所以：暂停且颜色已收敛就停下循环；收到新的 payload（歌词、主题、继续播放）时重启。
+     * 重启靠的是 payload 进依赖 —— useSyncExternalStore 会在 payload 变化时重渲染，
+     * 这个 effect 于是重跑，循环重新起来。过渡的最后那一帧照样画完（收敛前的那几帧
+     * 是在循环里推的，停下时颜色已经贴齐目标，不会停在半路）。
+     */
+    /*
+     * 帧循环要不要重来，看这个签名。
+     *
+     * 不能直接依赖 payload：每次推送都是**新对象**（reuseWallpaperContent 只复用 theme 与
+     * lines 两个字段的引用），原生推得勤时 effect 就会不停重跑 —— 每重跑一次都把 rAF
+     * 取消重来，等于自己把 60fps 降成了推送频率。
+     *
+     * 签名里只放真正会让画面变的那些：播放状态、歌词条数、四个颜色、以及位置（秒级 ——
+     * 暂停时拖动进度条要能跟上，播放中位置每秒变一次，重启一次 rAF 无所谓）。
+     */
+    const frameSignal = React.useMemo(() => [
+        payload.playing ? 1 : 0,
+        payload.lines?.length ?? 0,
+        payload.accent ?? '',
+        payload.backgroundColor ?? '',
+        payload.primaryColor ?? '',
+        payload.secondaryColor ?? '',
+        Math.floor((payload.positionMs ?? 0) / 1000),
+    ].join('|'), [payload]);
+
     React.useEffect(() => {
         let frame = 0;
         let lastTickAt = performance.now();
@@ -288,11 +320,12 @@ const WallpaperSurface: React.FC = () => {
             const now = performance.now();
             const dtMs = Math.max(0, now - lastTickAt);
             lastTickAt = now;
+            const snapshot = getWallpaperSnapshot();
             const positionMs = positionMsNow();
             currentTime.set(msToSec(positionMs));
             // 当前行：取最后一条 start <= 当前位置的行，和原生 indexAt 的规则一致。
             // 二分查找：每帧 forEach 扫全表在几百行的歌上是无谓的开销。
-            const list = getWallpaperSnapshot().lines ?? [];
+            const list = snapshot.lines ?? [];
             let low = 0;
             let high = list.length;
             while (low < high) {
@@ -307,31 +340,42 @@ const WallpaperSurface: React.FC = () => {
             setCurrentLineIndex(previous => (previous === index ? previous : index));
             // 主题色平滑逼近目标（latest 是原生推来的最新 payload）：
             // 过渡期间每帧推进一次，收敛后 stepColorTowards 返回 undefined，不再重渲染。
-            const nextAccent = stepColorTowards(accentRef.current, getWallpaperSnapshot().accent, dtMs);
+            const nextAccent = stepColorTowards(accentRef.current, snapshot.accent, dtMs);
             if (nextAccent !== undefined) {
                 accentRef.current = nextAccent;
                 setSmoothAccent(nextAccent);
             }
-            const nextBase = stepColorTowards(baseRef.current, getWallpaperSnapshot().backgroundColor, dtMs);
+            const nextBase = stepColorTowards(baseRef.current, snapshot.backgroundColor, dtMs);
             if (nextBase !== undefined) {
                 baseRef.current = nextBase;
                 setSmoothBase(nextBase);
             }
-            const nextPrimary = stepColorTowards(primaryRef.current, getWallpaperSnapshot().primaryColor, dtMs);
+            const nextPrimary = stepColorTowards(primaryRef.current, snapshot.primaryColor, dtMs);
             if (nextPrimary !== undefined) {
                 primaryRef.current = nextPrimary;
                 setSmoothPrimary(nextPrimary);
             }
-            const nextSecondary = stepColorTowards(secondaryRef.current, getWallpaperSnapshot().secondaryColor, dtMs);
+            const nextSecondary = stepColorTowards(secondaryRef.current, snapshot.secondaryColor, dtMs);
             if (nextSecondary !== undefined) {
                 secondaryRef.current = nextSecondary;
                 setSmoothSecondary(nextSecondary);
             }
+            // 暂停且颜色全部收敛：这一帧什么也没变，别再排下一帧了。
+            if (!snapshot.playing
+                && nextAccent === undefined
+                && nextBase === undefined
+                && nextPrimary === undefined
+                && nextSecondary === undefined) {
+                frame = 0;
+                return;
+            }
             frame = requestAnimationFrame(tick);
         };
         frame = requestAnimationFrame(tick);
-        return () => cancelAnimationFrame(frame);
-    }, [currentTime]);
+        return () => {
+            if (frame) cancelAnimationFrame(frame);
+        };
+    }, [currentTime, frameSignal]);
 
     /**
      * 播放设置里的排版 / 字幕开关。
