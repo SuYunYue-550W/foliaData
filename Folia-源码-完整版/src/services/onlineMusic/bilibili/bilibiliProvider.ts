@@ -14,6 +14,7 @@ import {
 import { getBilibiliModule } from './bilibiliModules';
 import { isCapacitorAndroid } from '../../../platform/runtime';
 import { proxyNativeRemoteAudioUrl } from '../../nativeRemoteAudio';
+import QRCode from 'qrcode';
 
 // src/services/onlineMusic/bilibili/bilibiliProvider.ts
 //
@@ -204,9 +205,20 @@ export const bilibiliProvider: any = {
             return key;
         },
         async createQr(key: string): Promise<string> {
-            // B站扫码地址是网页，二维码由 UI 从 URL 生成；这里返回可被二维码组件识别的 data URL 占位是不对的，
-            // 所以按项目 LoginHost 的约定回一个 https URL，让 UI 生成二维码图片。
-            return `https://account.bilibili.com/h5/account-h5/auth/scan-web?qrcode_key=${encodeURIComponent(key)}`;
+            // B站的扫码地址本身是**网页**（account.bilibili.com/.../scan-web），不是图片。
+            // 早先这里直接把那个 https URL 交回去，LoginTile 拿它当 <img src> 渲染，于是显示成破图。
+            // 现在本地生成二维码（项目已依赖 qrcode），交回 data URL —— 与其它平台（bodian/netease/
+            // kugou 都给真正的图片）一致，也省掉一次第三方二维码服务。
+            const scanUrl = `https://account.bilibili.com/h5/account-h5/auth/scan-web?qrcode_key=${encodeURIComponent(key)}`;
+            return QRCode.toDataURL(scanUrl, {
+                errorCorrectionLevel: 'M',
+                margin: 2,
+                width: 352,
+                color: {
+                    dark: '#000000',
+                    light: '#ffffff',
+                },
+            });
         },
         checkLogin,
         async cancelLogin(key: string): Promise<void> { qrStates.delete(key); },
