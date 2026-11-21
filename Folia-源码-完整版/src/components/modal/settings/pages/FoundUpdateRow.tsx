@@ -3,6 +3,7 @@ import { ChevronDown, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button, Menu, Progress, Reveal, Row } from '../kit';
 import { openOutsideLink } from '../../../../utils/system/outsideLink';
+import { RELEASES_PAGE_MIRRORS } from '../../../../services/releaseUrls';
 import { useSettingsPage } from './settingsPageContext';
 import { Button as UiButton } from '@/components/ui';
 
@@ -57,6 +58,12 @@ export const FoundUpdateRow: React.FC<FoundUpdateRowProps> = ({ sub }) => {
             label: t(autoUpdateSupported ? 'options.githubRelease' : 'options.fullInstallerGithub'),
             onSelect: () => void window.electron?.openUpdateReleasePage(version),
         },
+        // GitHub 直连不通时走加速域名；与 Android 面板共用同一组镜像地址与文案。
+        ...RELEASES_PAGE_MIRRORS.map(mirror => ({
+            id: `mirror-${mirror.label}`,
+            label: t('options.androidUpdateMirrorPage', { mirror: mirror.label }),
+            onSelect: () => void openOutsideLink(mirror.url),
+        })),
         ...(isLinuxBuild && isStableChannel ? [
             { id: 'aur', label: t('options.aurPackage'), onSelect: () => openOutsideLink(AUR_PACKAGE_URL) },
         ] : []),

@@ -22,31 +22,13 @@ import {
 // 版本号来源是编译期注入的 `__APP_VERSION__`（vite.config.ts 从 package.json 读），
 // 和清单里的 version 直接对齐。
 
-/** 版本清单地址（主源，保留导出供测试与「打开发布页」复用）。 */
-export const APP_UPDATE_MANIFEST_URL = 'https://github.com/SuYunYue-550W/foliaData/releases/latest/download/update.json';
+// 地址常量在 releaseUrls.ts 跨端共用；这里 re-export 保持既有引用不变。
+import { RELEASES_PAGE_MIRRORS, RELEASES_PAGE_URL, UPDATE_MANIFEST_URL, UPDATE_MANIFEST_URLS } from './releaseUrls';
 
-/**
- * 清单候选源，按顺序尝试。国内直连 github.com 常常不通，Release 附件域更是间歇性不可达；
- * gh-proxy.com 是本仓库模型下载镜像清单（shared/modelManifest.json）已在用的加速域名，
- * ghfast.top 作为第二备源。哪条通用哪条，取到清单就停。
- */
-export const APP_UPDATE_MANIFEST_URLS = [
-  APP_UPDATE_MANIFEST_URL,
-  `https://gh-proxy.com/${APP_UPDATE_MANIFEST_URL}`,
-  `https://ghfast.top/${APP_UPDATE_MANIFEST_URL}`,
-] as const;
-
-/** 打开发布页的兜底入口：清单里给了 page_url 就用清单的。 */
-export const APP_UPDATE_RELEASES_PAGE = `https://github.com/SuYunYue-550W/foliaData/releases`;
-
-/**
- * 打不开 GitHub 时的备用发布页（走加速域名）。只用于「打开发布页」这类浏览器跳转，
- * 不参与清单抓取——那边的候选源在 APP_UPDATE_MANIFEST_URLS。
- */
-export const APP_UPDATE_RELEASES_MIRRORS = [
-  { label: 'gh-proxy', url: `https://gh-proxy.com/${APP_UPDATE_RELEASES_PAGE}` },
-  { label: 'ghfast', url: `https://ghfast.top/${APP_UPDATE_RELEASES_PAGE}` },
-] as const;
+export const APP_UPDATE_MANIFEST_URL = UPDATE_MANIFEST_URL;
+export const APP_UPDATE_MANIFEST_URLS = UPDATE_MANIFEST_URLS;
+export const APP_UPDATE_RELEASES_PAGE = RELEASES_PAGE_URL;
+export const APP_UPDATE_RELEASES_MIRRORS = RELEASES_PAGE_MIRRORS;
 
 /**
  * 请求超时。检查更新是个后台动作，网络对不上时不该让用户对着转圈等，

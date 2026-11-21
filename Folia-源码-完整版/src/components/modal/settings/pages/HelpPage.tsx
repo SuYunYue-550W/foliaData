@@ -7,7 +7,8 @@ import { PRIMARY_MODIFIER_LABEL } from '../../../../utils/platform';
 import { HELP_TAB_PLAYER_CONTROLS, HELP_TAB_PRIMARY_SHORTCUTS } from '../../userGuideContent';
 import { Button, CopyButton, Group, Keys, Row, type SettingsGroupDef } from '../kit';
 import { openOutsideLink } from '../../../../utils/system/outsideLink';
-import { isCapacitorAndroid } from '../../../../platform/runtime';
+import { hasElectronBridge, isCapacitorAndroid } from '../../../../platform/runtime';
+import { RELEASES_PAGE_MIRRORS, RELEASES_PAGE_URL } from '../../../../services/releaseUrls';
 import AndroidUpdatePanel from '../AndroidUpdatePanel';
 import { FoundUpdateRow } from './FoundUpdateRow';
 import { iconLabel } from './iconLabel';
@@ -205,6 +206,29 @@ const HelpPage: React.FC<HelpPageProps> = ({ onOpenReleaseNotes, onOpenAiHelp, o
                     手机上没有静默安装这条路 —— 检查、下载进度、下载 / 安装全在这张卡片里。
                 */}
                 {isCapacitorAndroid() && <AndroidUpdatePanel />}
+                {/*
+                    Web / 鸿蒙壳没有自动更新（electron-updater 只在桌面、检查面板只在安卓），
+                    但用户仍需要一个拿到新安装包的入口。这里给直连 + 两个加速域名，
+                    与安卓面板和桌面「下载来源」用的是同一组地址。
+                */}
+                {!hasElectronBridge() && !isCapacitorAndroid() && (
+                    <Row label={t('options.androidUpdateOpenPage')}>
+                        <span className="flex flex-wrap items-center justify-end gap-1">
+                            <Button variant="quiet" onClick={() => void openOutsideLink(RELEASES_PAGE_URL)}>
+                                GitHub <ExternalLink size={12} />
+                            </Button>
+                            {RELEASES_PAGE_MIRRORS.map(mirror => (
+                                <Button
+                                    key={mirror.label}
+                                    variant="quiet"
+                                    onClick={() => void openOutsideLink(mirror.url)}
+                                >
+                                    {t('options.androidUpdateMirrorPage', { mirror: mirror.label })}
+                                </Button>
+                            ))}
+                        </span>
+                    </Row>
+                )}
                 <Row
                     label={(
                         // The settings window counts the clicks and shows the cat at the seventh.
