@@ -5,7 +5,8 @@
 //
 // 国内直连 github.com 常常不通，Release 附件域更是间歇性不可达。gh-proxy.com 是本仓库
 // 模型下载镜像清单（shared/modelManifest.json）已在用的加速域名，ghfast.top 是第二备源。
-// 这里的镜像只用于「打开发布页」这类浏览器跳转，不参与任何自动更新链路。
+// 镜像既用于「打开发布页」这类浏览器跳转，也用于清单与 APK 下载的回退
+// （见 apkDownloadUrls）—— 清单拿得到但附件域不通时，应用内更新才不至于卡住。
 
 const REPOSITORY = 'https://github.com/SuYunYue-550W/foliaData';
 
@@ -24,3 +25,17 @@ export const RELEASES_PAGE_MIRRORS = [
   { label: 'gh-proxy', url: `https://gh-proxy.com/${RELEASES_PAGE_URL}` },
   { label: 'ghfast', url: `https://ghfast.top/${RELEASES_PAGE_URL}` },
 ] as const;
+
+/**
+ * 从一个 Release 附件地址派生候选下载地址：直连、两个加速域名。
+ *
+ * 清单里写的是 github.com 的附件地址；国内很多时候清单能拿到（走镜像），但附件域不通。
+ * 逐个试，全部共用同一个 SHA-512 —— 换的是路，不是要装的东西。
+ * 非 github.com 的地址（第三方 CDN 之类）原样返回，不硬套前缀。
+ */
+export const apkDownloadUrls = (url: string): string[] => {
+  if (!/^https?:\/\/github\.com\//i.test(url)) return [url];
+  const path = url.replace(/^https?:\/\/github\.com/i, '');
+  return [url, `https://gh-proxy.com${path}`, `https://ghfast.top${path}`];
+};
+

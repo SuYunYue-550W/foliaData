@@ -5,6 +5,7 @@ import {
   type AppUpdateCheckResult,
 } from './appUpdate';
 import { watchUpdateDownloadProgress } from '../platform/foliaNative';
+import { apkDownloadUrls } from './releaseUrls';
 
 // src/services/appUpdateCenter.ts
 // 应用内更新的**唯一一份状态**：版本清单的检查结果 + 下载阶段，以及「忽略此版本」的记号。
@@ -164,12 +165,31 @@ export const startUpdateDownload = async (): Promise<void> => {
         installNotice: 'none',
         phase: { kind: 'downloading', receivedBytes: 0, totalBytes: target.sizeBytes, percent: 0 },
     });
-    try {
-        const outcome = await downloadUpdateApk(target.downloadUrl, target.version, target.sha512Hex);
-        setState({ phase: { kind: 'downloaded', path: outcome.path } });
-    } catch (error) {
-        setState({ phase: { kind: 'failed', message: error instanceof Error ? error.message : 'download-failed' } });
+    // 换的是路，不是要装的东西：三个候选地址共用一个 SHA-512。清单能拿到但附件域
+    // 不通时（国内很常见），直连失败后还能从加速域名拿到同一个包。
+    const urls = apkDownloadUrls(target.downloadUrl);
+    let lastError: unknown;
+    for (const [index, url] of urls.entries()) {
+        if (index > 0) {
+            // 重试前把进度归零，不然界面会留着上一次失败时的百分比。
+            setState({
+                installNotice: 'none',
+                phase: { kind: 'downloading', receivedBytes: 0, totalBytes: target.sizeBytes, percent: 0 },
+            });
+        }
+        try {
+            const outcome = await downloadUpdateApk(url, target.version, target.sha512Hex);
+            setState({ phase: { kind: 'downloaded', path: outcome.path } });
+            return;
+        } catch (error) {
+            lastError = error;
+            // 摘要不匹配是「拿到了错东西」，换源也改变不了，别白试。
+            if (error instanceof Error && /checksum/i.test(error.message)) break;
+        }
     }
+    setState({
+        phase: { kind: 'failed', message: lastError instanceof Error ? lastError.message : 'download-failed' },
+    });
 };
 
 export const installDownloadedUpdate = async (): Promise<void> => {
