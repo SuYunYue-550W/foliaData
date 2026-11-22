@@ -158,15 +158,33 @@ export const bilibiliProvider: any = {
                 url = String(first.url);
                 isLive = true;
             } else {
-                const cid = Number(ref.providerData?.cid);
-                if (!cid) return null;
+                /*
+                 * cid 不是 bvid：搜索接口（x/web-interface/search/type）只给 bvid，不给 cid，
+                 * 所以从搜索结果直接点播放的那首歌，providerData 里没有 cid。早先这里
+                 * Number(undefined) 得到 NaN 就静默 return null，playurl 请求根本没发出去，
+                 * 上层看到「没抛错但也没 url」就报「B站未返回音频」—— 三端一致，全都放不了。
+                 *
+                 * view 接口按 bvid 能拿到 cid（getSongDetail 上面就是这么做的），补一次即可。
+                 */
+                let cid = Number(ref.providerData?.cid);
+                if (!Number.isFinite(cid) || cid <= 0) {
+                    const { data: detail } = await requestBilibili<any>('view', { bvid: mediaId });
+                    cid = Number(detail?.cid);
+                    if (!Number.isFinite(cid) || cid <= 0) return null;
+                    // 回写，避免这首歌下次播放（或预取）再查一次 view。
+                    if (ref.providerData) ref.providerData.cid = cid;
+                }
                 const { data } = await requestBilibili<any>('playurl', { bvid: mediaId, cid });
                 const audio = audioQualityOf(data?.dash, quality);
-                if (!audio?.baseUrl) return null;
-                url = String(audio.baseUrl);
+                // B站常同时给 baseUrl 与 backupUrl；baseUrl 缺失时备用地址一样能播。
+                const audioUrl = audio?.baseUrl || (Array.isArray(audio?.backupUrl) ? audio.backupUrl[0] : null);
+                if (!audioUrl) return null;
+                url = String(audioUrl);
                 // 画面是另一条流：同一个 DASH 回答里的 video[]。
                 const video = videoStreamOf(data?.dash);
-                videoUrl = video?.baseUrl ? String(video.baseUrl) : null;
+                videoUrl = video?.baseUrl
+                    ? String(video.baseUrl)
+                    : (Array.isArray(video?.backupUrl) ? String(video.backupUrl[0]) : null);
             }
             // Electron 里把流地址登记到主进程策略：它会给这个域名的请求注入 Referer/CORS。
             // Web 侧浏览器自己带 Referer，不需要额外处理。
