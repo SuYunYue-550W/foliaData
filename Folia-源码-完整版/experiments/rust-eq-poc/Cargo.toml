@@ -1,0 +1,15 @@
+[package]
+name = "folia-eq-poc"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+
+[profile.release]
+lto = true
+opt-level = 3
+# 与 Kotlin/JS 的 f32 逐位对齐：禁止把 a*b+c 融合成一次 FMA（融合会改变舍入时机）。
+codegen-units = 1
