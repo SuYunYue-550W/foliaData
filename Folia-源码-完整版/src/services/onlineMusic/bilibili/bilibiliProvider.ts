@@ -218,8 +218,8 @@ export const bilibiliProvider: any = {
         async createQr(key: string): Promise<string> {
             // B站的扫码地址本身是**网页**（account.bilibili.com/.../scan-web），不是图片。
             // 早先这里直接把那个 https URL 交回去，LoginTile 拿它当 <img src> 渲染，于是显示成破图。
-            // 现在本地生成二维码（项目已依赖 qrcode），交回 data URL —— 与其它平台（bodian/netease/
-            // kugou 都给真正的图片）一致，也省掉一次第三方二维码服务。
+            // 现在本地生成二维码（项目已依赖 qrcode），交回 data URL —— 与项目里其它扫码
+            // 登录平台交回真图片的做法一致，也省掉一次第三方二维码服务。
             const scanUrl = `https://account.bilibili.com/h5/account-h5/auth/scan-web?qrcode_key=${encodeURIComponent(key)}`;
             return QRCode.toDataURL(scanUrl, {
                 errorCorrectionLevel: 'M',

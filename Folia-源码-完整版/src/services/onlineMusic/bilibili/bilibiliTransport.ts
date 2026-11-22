@@ -14,7 +14,7 @@ import { createNativeFetch } from '../../nativeHttpFetch';
 // B站接口不给 `https://localhost` 回 CORS 头，安卓 WebView 里裸 fetch 会直接
 // `TypeError: Failed to fetch`（扫码登录 qr-generate 实测 176ms 就失败）。
 // createNativeFetch 在安卓上走 FoliaNative.httpRequest（OkHttp，不受 CORS 且自动带
-// WebView cookie），其它平台回落全局 fetch。与 Spotify 的页内请求同一条路。
+// WebView cookie），其它平台回落全局 fetch。与项目里其它页内 API 请求走的是同一条路。
 const biliFetch = createNativeFetch();
 
 export type BilibiliModule =
