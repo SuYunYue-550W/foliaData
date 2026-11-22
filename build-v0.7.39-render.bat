@@ -21,6 +21,16 @@ set "UV_THREADPOOL_SIZE=1"
 set "ELECTRON_RUN_AS_NODE="
 set "CODEBUDDY_SAFE_DELETE_ENABLED="
 
+REM Double-clicking a .bat may not inherit the node PATH from an interactive shell.
+REM Add both known node locations; %USERPROFILE% avoids non-ASCII literals in this file.
+set "PATH=%USERPROFILE%\.workbuddy\binaries\node\versions\22.22.2-6;C:\Program Files\nodejs;%PATH%"
+where node >nul 2>nul
+if errorlevel 1 (
+    echo ERROR: node not found in PATH
+    pause
+    exit /b 1
+)
+
 cd /d "%SRCDIR%"
 
 echo ===== [1/2] Capacitor (Android) renderer =====
