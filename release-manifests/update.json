@@ -1,19 +1,19 @@
 {
-  "version": "0.7.39",
-  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.39/Folia-Android-0.7.39.apk",
-  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.39",
-  "notes": "## v0.7.39 · 修复 B站播放与更新下载\n\n本版修掉「B站搜索有结果但点播放报未返回音频」—— 这是三端一致的真实故障，根因是搜索接口只给 bvid、播放却必须有 cid。\n\n- **B站播放修复（重点）**：B站搜索接口 `search/type` 返回 bvid 但不返回 cid，而取流的 `playurl` 必须要有 cid。此前播放器直接 `Number(undefined)` 得到 NaN 就静默返回 null，playurl 请求根本没发出去；上层看到「没抛错但也没地址」就报「B站未返回音频」。现在缺 cid 时按 bvid 调 `view` 接口补齐，并回写避免重复查询；DASH 流的 baseUrl 缺失时回退到 backupUrl。新增回归测试覆盖这条真实路径 —— 旧测试的 fixture 手工塞了 cid，正好掩盖了这个 bug。\n- **应用内更新多源回退**：此前清单与发布页都有 GitHub 镜像回退，但应用内下载只传一个附件地址，附件域不通时更新仍然失败。现在同一 APK 派生直连 + 两个加速域名，逐个尝试且共用同一个 SHA-512 —— 换的是路，不是要装的东西；摘要不匹配立即停止。\n- **发布质量**：修掉架构边界测试的一个失败（新增注释点名其它平台触发了计数），全量单测 1125 文件 / 13450 用例全绿。\n- **Rust EQ 试点**（仅实验，不进生产构建）：一份 Rust 10 段 EQ 与 Android Kotlin DSP 数值等价（误差约 2 个 f32 ulp），cdylib 与 wasm32 两种目标均可构建。是否铺开三端统一 DSP 待真机基准确认。\n- 版本号 0.7.39，安卓 versionCode 7031900（高于 0.7.38 的 7031800，覆盖安装不会判为降级）。\n\n逐项记录见仓库 CHANGELOG.md、release-manifests/构建与发布.md 与 experiments/rust-eq-poc/README.md。",
-  "published_at": "2026-11-22T13:46:58.183Z",
-  "size": 124045650,
-  "sha512": "n1+rJE+Wi08UiX6XypwyI1WyVkkcXdbjKYo7D1A5/zrWgg3H02EH5iKPFcyeRqp7npkxRC5Gm02Dtnoi1BdCRA==",
-  "sha512_hex": "9f5fab244f968b4f14897e97ca9c322355b256491c5dd6e3298a3b0f5039ff3ad6820dc7d36107e6228f15cc9e46aa7b9e9931442e469b4d83b67a22d4174244",
+  "version": "0.7.40",
+  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.40/Folia-Android-0.7.40.apk",
+  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.40",
+  "notes": "## v0.7.40 · B站融入首页 + 修复覆盖安装\n\n- **B站重设计（重点）**：B站以前是整个项目里唯一特殊的平台 —— 除 provider 外还自带播放面板页签、独立内容面板、独立状态层和独占画面层，跟「歌单 / 电台 / 专辑」那一套首页页签互不相通，看起来就像跟播放器不是一家的。现在 B站成为**首页的一级页签**，点进去是一个全屏页面：顶部有返回键和原生页签条，中间是推荐 / 热门 / 动画 / 影视 / 直播 / 收藏 / 历史七个模块，下面是视频网格。播放仍保持嵌入在歌词背后的画面层，声音由主引擎出。播放面板里的那个 B站入口现在只是跳转按钮，不再是一个关不干净的内容区；原来那个只会切回封面页签、名不副实的「关闭」按钮已删除。Esc 可以返回。\n- **Windows 覆盖安装修复**：双击新 EXE 覆盖安装一直报「Folia 无法关闭」/「uninstallFailed: 2」。根因是自定义进程清理只杀 Folia 主进程、只等 400ms，把 electron-builder 自带的轮询重试整个替换掉了，而 Apple Music companion / ffmpeg 这些后台程序仍锁着 app.asar。现在按「可执行文件位于安装目录下」杀所有相关进程并轮询确认退出；全新安装默认装到 D://Folia（已有安装保持原路径，确保覆盖仍可用）。\n- 三语 i18n 与界面门禁全过。B站页签与页面结构已在本机 dev server 真机截图确认。\n\n逐项记录见仓库 CHANGELOG.md 与 release-manifests/构建与发布.md 第 12 节。",
+  "published_at": "2026-11-23T14:58:27.191Z",
+  "size": 124048686,
+  "sha512": "BJL3OY+mMeurHE5l2mNPJnj8/vlSnnXl+iL43RcS5etAkAbN8g+wPN6EdF3nNgx0bbpg67dgrl4Dxo1YTTymaQ==",
+  "sha512_hex": "0492f7398fa631ebab1c4e65da634f2678fcfef9529e75e5fa22f8dd1712e5eb409006cdf20fb03cde84745de7360c746dba60ebb760ae5e03c68d584d3ca669",
   "assets": [
     {
-      "name": "Folia-Android-0.7.39.apk",
-      "browser_download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.39/Folia-Android-0.7.39.apk",
-      "size": 124045650,
-      "sha512": "n1+rJE+Wi08UiX6XypwyI1WyVkkcXdbjKYo7D1A5/zrWgg3H02EH5iKPFcyeRqp7npkxRC5Gm02Dtnoi1BdCRA==",
-      "sha512_hex": "9f5fab244f968b4f14897e97ca9c322355b256491c5dd6e3298a3b0f5039ff3ad6820dc7d36107e6228f15cc9e46aa7b9e9931442e469b4d83b67a22d4174244"
+      "name": "Folia-Android-0.7.40.apk",
+      "browser_download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.40/Folia-Android-0.7.40.apk",
+      "size": 124048686,
+      "sha512": "BJL3OY+mMeurHE5l2mNPJnj8/vlSnnXl+iL43RcS5etAkAbN8g+wPN6EdF3nNgx0bbpg67dgrl4Dxo1YTTymaQ==",
+      "sha512_hex": "0492f7398fa631ebab1c4e65da634f2678fcfef9529e75e5fa22f8dd1712e5eb409006cdf20fb03cde84745de7360c746dba60ebb760ae5e03c68d584d3ca669"
     }
   ]
 }
