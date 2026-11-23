@@ -277,6 +277,8 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
     const navPillBg = isDaylight ? 'bg-black/5' : 'bg-white/10';
     const navPillInactiveText = isDaylight ? 'text-black/60 hover:text-black' : 'text-white/60 hover:text-white';
     const activeTabBg = isDaylight ? 'text-black font-bold' : 'text-black';
+    // 有扩展页签开着时，原生页签不算选中。
+    const anyExtraTabActive = (props.extraTabs ?? []).some(tab => tab.active);
 
     const bottomPadding = currentTrack ? 'pb-28 md:pb-32' : '';
 
@@ -401,7 +403,9 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                         <div className={`relative ${navPillBg} backdrop-blur-md p-1 rounded-full scale-90 md:scale-100 origin-center`}>
                             <div className="inline-flex items-center gap-0">
                                 {homeTabs.map((tab) => {
-                                    const isActive = homeViewTab === tab.key;
+                                    // 有一个扩展页签开着（B站页、模组页）时，原生页签都不算选中 ——
+                                    // 否则两排高亮同时在，用户不知道自己在哪一页。
+                                    const isActive = homeViewTab === tab.key && !anyExtraTabActive;
                                     return (
                                         <span
                                             key={tab.key}
@@ -430,9 +434,16 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                                     );
                                 })}
                                 {props.extraTabs?.map(tab => (
-                                    <Button key={tab.id} type="button" onClick={tab.select}
-                                        className={`relative inline-flex items-center justify-center px-4 py-1.5 rounded-full text-xs md:text-sm font-medium whitespace-nowrap ${navPillInactiveText}`}>
-                                        {tab.label}
+                                    <Button key={tab.id} type="button" onClick={tab.select} aria-pressed={tab.active}
+                                        className={`relative inline-flex items-center justify-center px-4 py-1.5 rounded-full text-xs md:text-sm font-medium whitespace-nowrap ${tab.active ? activeTabBg : navPillInactiveText}`}>
+                                        {tab.active && (
+                                            <motion.span
+                                                layoutId="home-active-tab-pill-desktop"
+                                                className="absolute inset-0 rounded-full bg-white shadow-sm"
+                                                transition={{ type: 'spring', stiffness: 460, damping: 36, mass: 0.9 }}
+                                            />
+                                        )}
+                                        <span className="relative z-10">{tab.label}</span>
                                     </Button>
                                 ))}
                                 {stageEnabled && (

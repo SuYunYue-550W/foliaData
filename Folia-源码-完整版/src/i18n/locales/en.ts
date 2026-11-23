@@ -1819,6 +1819,7 @@ export default {
     "loginTitleBodian": "Scan with Bodian Music",
     "loginTitleBilibili": "Scan with the Bilibili app",
     "biliPanelTitle": "Bilibili",
+    "biliBack": "Back to home",
     "biliNowPlaying": "Playing: {bvid}",
     "biliClose": "Close",
     "biliLoading": "Loading...",

@@ -1819,6 +1819,7 @@ export default {
     "loginTitleBodian": "Pindai dengan Bodian Music",
     "loginTitleBilibili": "Pindai dengan aplikasi Bilibili",
     "biliPanelTitle": "Bilibili",
+    "biliBack": "Kembali ke beranda",
     "biliNowPlaying": "Sedang diputar: {bvid}",
     "biliClose": "Tutup",
     "biliLoading": "Memuat...",

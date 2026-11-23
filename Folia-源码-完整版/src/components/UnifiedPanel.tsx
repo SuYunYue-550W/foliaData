@@ -13,8 +13,8 @@ import LocalTab from './panelTab/LocalTab';
 import FmTab from './panelTab/FmTab';
 import NaviTab from './panelTab/NaviTab';
 import OnlineLyricsTab from './panelTab/OnlineLyricsTab';
-import BilibiliModulePanel from './bilibili/BilibiliModulePanel';
 import { useBilibiliVideoStore } from '../stores/useBilibiliVideoStore';
+import { openBilibiliHome } from './app/home/useBilibiliHomeNavigation';
 import { EmptyState } from './panelTab/shell/EmptyState';
 import PanelHandle from './panelTab/shell/PanelHandle';
 import PanelShell from './panelTab/shell/PanelShell';
@@ -279,7 +279,9 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
         tabs.splice(1, 0, { id: 'onlineLyrics' as PanelTab, label: t('localMusic.lyrics'), icon: FileText });
     }
 
-    // B站的面板是刷 B站的入口，恒在这里：不在正放 B 站内容时也能进去逛。
+    // B站的入口在**首页**那一级页签里（与「歌单 / 电台 / 专辑」并列），不再在这里
+    // 塞一个自成一体的内容面板 —— 两套体系并行时，用户看到的就是「B站跟播放器不是
+    // 一家的」。这里只留一个入口按钮：点它跳到首页的 B站页（见下方 dock 的 onTabChange）。
     tabs.splice(1, 0, {
         id: 'bilibili' as PanelTab,
         label: isBilibili && bilibiliCurrentBvid ? t('home.biliNowPlaying', { bvid: bilibiliCurrentBvid }) : t('home.biliPanelTitle'),
@@ -376,7 +378,18 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                     />
                 </SongHeader>
             )}
-            dock={<TabDock tabs={tabs} currentTab={currentTab} onTabChange={onTabChange} vertical={isWideShort} />}
+            dock={<TabDock tabs={tabs} currentTab={currentTab} vertical={isWideShort}
+                onTabChange={tab => {
+                    // B站这一格是**入口**，不是页面：内容浏览在首页那一级页签里。
+                    // 点它就跳过去，播放面板自己回到封面页签 —— 面板里不再留一个
+                    // 与首页重复、且关不干净的内容区。
+                    if (tab === 'bilibili') {
+                        openBilibiliHome();
+                        onTabChange('cover');
+                        return;
+                    }
+                    onTabChange(tab);
+                }} />}
             handle={(
                 <PanelHandle
                     isOpen={isOpen}
@@ -511,13 +524,6 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                 />
             )}
             <FoliumPanelTabBody tab={currentTab} theme={theme} isDaylight={isDaylight} />
-            {currentTab === 'bilibili' && (
-                <BilibiliModulePanel
-                    onClose={() => onTabChange('cover')}
-                    onPlay={(song) => onPlaySong(song, [song])}
-                    currentBvid={bilibiliCurrentBvid}
-                />
-            )}
             {currentTab === 'onlineLyrics' && isOnline && currentSong && (
                 <OnlineLyricsTab
                     song={currentSong}

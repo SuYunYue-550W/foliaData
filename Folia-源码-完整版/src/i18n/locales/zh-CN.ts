@@ -1820,6 +1820,7 @@ export default {
     "loginTitleBodian": "使用波点音乐 App 扫码",
     "loginTitleBilibili": "使用哔哩哔哩 App 扫码",
     "biliPanelTitle": "哔哩哔哩",
+    "biliBack": "返回首页",
     "biliNowPlaying": "正在播放：{bvid}",
     "biliClose": "关闭",
     "biliLoading": "加载中...",

@@ -643,3 +643,62 @@ export async function openApp(page: Page) {
     `,
   });
 }
+
+/**
+ * B站的假世界：推荐 / 热门 / 分区各给一条视频，其余接口给空。
+ *
+ * B站请求走 api.bilibili.com 与 api.live.bilibili.com（见 bilibiliTransport 的 API 表），
+ * 页面里的取流与扫码接口不在这一页的路径上，不拦。
+ */
+export async function mockBilibiliApi(page: Page) {
+  const cover = svgDataUrl('BILI', '#fb7299', '#ffffff');
+  const video = (title: string, bvid: string, cid: number) => ({
+    bvid,
+    aid: 1000 + cid,
+    cid,
+    title,
+    pic: cover,
+    owner: { mid: 1, name: '测试UP主' },
+    duration: 213,
+    stat: { view: 12345, danmaku: 678 },
+  });
+
+  await page.route('**/api.bilibili.com/**', async route => {
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+    const body = (data: unknown) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 0, data }),
+    });
+    if (path.includes('/wbi/index/top/feed/rcmd')) {
+      await body({ item: [video('测试视频一', 'BV1TEST0001', 111)] });
+      return;
+    }
+    if (path.includes('/x/web-interface/popular')) {
+      await body({ list: [video('热门视频', 'BV1TEST0002', 222)], no_more: true });
+      return;
+    }
+    if (path.includes('/x/web-interface/newlist')) {
+      await body({ archives: [video('分区视频', 'BV1TEST0003', 333)] });
+      return;
+    }
+    if (path.includes('/x/web-interface/history/cursor')) {
+      await body({ list: [] });
+      return;
+    }
+    if (path.includes('/x/v3/fav/folder/created/list-all')) {
+      await body({ count: 0, list: [] });
+      return;
+    }
+    await body({});
+  });
+
+  await page.route('**/api.live.bilibili.com/**', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 0, data: { list: [] } }),
+    });
+  });
+}

@@ -13,14 +13,14 @@ export interface BilibiliVideoState {
     videoUrl: string | null;
     /** 用户是否强制走 iframe（A 失败时自动切）。 */
     preferIframe: boolean;
-    /** 七模块面板是否打开。 */
-    panelOpen: boolean;
+    /** 首页里的 B站页面是否打开（一级页签对应的整屏页面）。 */
+    homeOpen: boolean;
     /** 当前选中的模块。 */
     module: 'recommend' | 'popular' | 'anime' | 'film' | 'live' | 'favorites' | 'history';
     play: (bvid: string, videoUrl?: string | null) => void;
     stop: () => void;
     setMode: (preferIframe: boolean) => void;
-    setPanelOpen: (open: boolean) => void;
+    setHomeOpen: (open: boolean) => void;
     setModule: (module: BilibiliVideoState['module']) => void;
 }
 
@@ -28,16 +28,13 @@ export const useBilibiliVideoStore = create<BilibiliVideoState>(set => ({
     bvid: null,
     videoUrl: null,
     preferIframe: false,
-    panelOpen: false,
+    homeOpen: false,
     module: 'recommend',
-    play: (bvid, videoUrl = null) => set({
-        bvid,
-        videoUrl,
-        panelOpen: false,
-    }),
+    play: (bvid, videoUrl = null) => set({ bvid, videoUrl }),
+    // 关画面只收掉画面与声音（音频也来自 B站的那条流）；首页页面是否开着是另一回事，不动。
     stop: () => set({ bvid: null, videoUrl: null }),
     setMode: preferIframe => set({ preferIframe }),
-    setPanelOpen: panelOpen => set({ panelOpen }),
+    setHomeOpen: homeOpen => set({ homeOpen }),
     setModule: module => set({ module }),
 }));
 
