@@ -6,7 +6,7 @@ vi.mock('../../../src/services/nativeHttpFetch', () => ({
     createNativeFetch: () => nativeFetch,
 }));
 
-import { __setWbiKeysForTest, signWbi } from '../../../src/services/onlineMusic/bilibili/bilibiliWbi';
+import { __setWbiKeysForTest, encodeWbiQuery, signWbi } from '../../../src/services/onlineMusic/bilibili/bilibiliWbi';
 
 // test/unit/bilibili/bilibiliWbi.test.ts
 //
@@ -56,6 +56,14 @@ describe('bilibili wbi signing', () => {
         expect('missing' in signed).toBe(false);
         expect('blank' in signed).toBe(false);
         expect(signed.keep).toBe(1);
+    });
+
+    it('serializes with %20 and filters specials, unlike URLSearchParams', () => {
+        // 请求必须用和签名一样的序列化：URLSearchParams 会用 + 表示空格且不过滤 !'()*，
+        // 参数一旦含空格，服务端算出的 w_rid 就对不上。
+        const query = encodeWbiQuery({ a: 'a b+c', b: "x!'()*y" });
+        expect(query).toBe('a=a%20b%2Bc&b=xy');
+        expect(query).not.toBe(new URLSearchParams({ a: 'a b+c' }).toString());
     });
 
     it('fails clearly when nav cannot provide keys', async () => {

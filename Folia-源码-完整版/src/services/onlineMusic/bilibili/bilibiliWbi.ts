@@ -94,6 +94,21 @@ export const __setWbiKeysForTest = (keys: WbiKeys | null): void => {
     pending = null;
 };
 
+/**
+ * 序列化参数：签名和实际请求必须用**同一个** query 字符串。
+ *
+ * 这里刻意不用 URLSearchParams —— 它把空格编成 '+' 且不过滤 !'()*，而 wbi 签名
+ * 用的是 encodeURIComponent（空格 %20）。两者不一致时，只要参数里出现空格或
+ * 特殊字符，服务端算出的 w_rid 就对不上。当前 recommend 参数都是简单值，
+ * 但把序列化统一到一处，将来加参数就不会踩坑。
+ */
+export const encodeWbiQuery = (params: Record<string, string | number>): string => (
+    Object.keys(params).sort().map(key => {
+        const value = String(params[key]).replace(/[!'()*]/g, '');
+        return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+    }).join('&')
+);
+
 /** 给参数加上 wts 与 w_rid。返回的是新对象，不改入参。 */
 export const signWbi = async (
     params: Record<string, string | number | undefined>,
@@ -105,12 +120,11 @@ export const signWbi = async (
     }
     signed.wts = Math.round(Date.now() / 1000);
 
-    // 按 key 排序，过滤 value 里的 !'()*，再 urlencode —— 顺序和编码必须和官方一致，
+    // 按 key 排序、过滤 !'()*、urlencode —— 顺序和编码必须和官方一致，
     // 否则 md5 出来的 w_rid 服务端不认。
-    const query = Object.keys(signed).sort().map(key => {
-        const value = String(signed[key]).replace(/[!'()*]/g, '');
-        return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
-    }).join('&');
-
+    const query = encodeWbiQuery(signed);
     return { ...signed, w_rid: md5(query + mixinKeyOf(keys)) };
+
+    // 注意：返回值里的原始 value 可能仍带 !'()*（比如搜索关键词），
+    // 调用方必须用 encodeWbiQuery 序列化请求，而不是 URLSearchParams。
 };

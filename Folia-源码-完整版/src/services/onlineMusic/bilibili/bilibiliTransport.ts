@@ -10,7 +10,7 @@
 import { OnlineProviderError } from '../../../types/onlineMusic';
 import { getProviderSessionKey } from '../providerStorage';
 import { createNativeFetch } from '../../nativeHttpFetch';
-import { signWbi } from './bilibiliWbi';
+import { encodeWbiQuery, signWbi } from './bilibiliWbi';
 
 // B站接口不给 `https://localhost` 回 CORS 头，安卓 WebView 里裸 fetch 会直接
 // `TypeError: Failed to fetch`（扫码登录 qr-generate 实测 176ms 就失败）。
@@ -128,11 +128,15 @@ const send = async <T>(
     // wbi 端点（目前只有 recommend）必须先签名：wts + w_rid 要参与 query 的
     // md5 计算，不能在拼完 URL 之后再加。签名需要额外取一次 nav，key 缓存 1 小时。
     const finalParams = options.signed ? await signWbi(params) : params;
-    const query = new URLSearchParams();
-    Object.entries(finalParams).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') query.set(key, String(value));
-    });
-    const target = query.size > 0 ? `${url}?${query.toString()}` : url;
+    // 签名请求必须用与 w_rid 计算完全相同的序列化（%20 而非 +、过滤 !'()*）。
+    // 非签名端点沿用 URLSearchParams，行为不变。
+    const queryString = options.signed
+        ? encodeWbiQuery(finalParams as Record<string, string | number>)
+        : new URLSearchParams(
+            Object.entries(finalParams).filter(([, value]) => value !== undefined && value !== null && value !== '')
+                .map(([key, value]) => [key, String(value)]),
+        ).toString();
+    const target = queryString ? `${url}?${queryString}` : url;
     const buvid = await ensureBuvid();
     const headers: Record<string, string> = {
         'User-Agent': UA,
