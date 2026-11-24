@@ -177,6 +177,7 @@ contextBridge.exposeInMainWorld('electron', {
     qishuiRequest: (operation, params) => ipcRenderer.invoke('qishui-api-request', operation, params),
     bodianRequest: (operation, params) => ipcRenderer.invoke('bodian-api-request', operation, params),
     bilibiliRegisterMedia: (url) => ipcRenderer.invoke('bilibili-register-media', url),
+    bilibiliRequest: (operation, params) => ipcRenderer.invoke('bilibili-api-request', operation, params),
     ytmRequest: (operation, params) => ipcRenderer.invoke('ytm-api-request', operation, params),
     spotifyRequest: (operation, params) => ipcRenderer.invoke('spotify-api-request', operation, params),
     getQqPort: () => ipcRenderer.invoke('get-qq-port'),

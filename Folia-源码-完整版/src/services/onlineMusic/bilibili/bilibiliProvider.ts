@@ -66,6 +66,26 @@ const qrStates = new Map<string, string>();
 
 const checkLogin = async (key: string): Promise<LoginState> => {
     try {
+        // Electron 桌面端：渲染层读不到 poll 响应里的 Set-Cookie，SESSDATA 由主进程
+        // 取回并加密保存（见 electron/bilibili/bilibiliApiBridge.cjs）。扫码的业务码
+        // 仍由同一个 poll 接口给出，这里只需要替换调用通道。
+        const bridge = typeof window !== 'undefined' ? window.electron?.bilibiliRequest : undefined;
+        if (bridge) {
+            const reply = await bridge('qr-poll', { qrcode_key: key });
+            if (!reply.ok) return { state: 'error', message: reply.error?.message || 'bridge failed' };
+            const code = Number(reply.data?.code);
+            if (code === 0) {
+                // 主进程从 Set-Cookie 取到了 SESSDATA：同步到渲染层的现有路径，
+                // 后续 API 的 Cookie 头还是由 transport 拼（Android 桥也吃这一份）。
+                const sessdata = String(reply.data?.sessdata || '');
+                if (sessdata) writeBilibiliSessdata(sessdata);
+                return { state: 'confirmed' };
+            }
+            if (code === 86090) return { state: 'scanned' };
+            if (code === 86101) return { state: 'waiting' };
+            if (code === 86038) return { state: 'expired' };
+            return { state: 'error', message: String(reply.data?.message || `code ${code}`) };
+        }
         const { data } = await requestBilibili<any>('qr-poll', { qrcode_key: key });
         const code = Number(data?.code);
         if (code === 0) {
@@ -215,6 +235,11 @@ export const bilibiliProvider: any = {
         async logout(): Promise<void> {
             writeBilibiliSessdata('');
             qrStates.clear();
+            // Electron 桌面端还要清掉主进程里加密保存的那份，不然下次启动又同步回来。
+            const bridge = typeof window !== 'undefined' ? window.electron?.bilibiliRequest : undefined;
+            if (bridge) {
+                try { await bridge('logout'); } catch { /* 清不掉本地这份也够本次退出用 */ }
+            }
             // 扫码登录把会话存进了原生 CookieManager，只清 localStorage 的话那份登录态还在，
             // 下次启动 nav 请求又带着它 —— 表现为「登出后重启又自动登录回去了」。
             // 只清 B 站这个域，别家平台的会话不动。
@@ -287,6 +312,22 @@ export const bilibiliProvider: any = {
         return null;
     },
 };
+
+// Electron 桌面端：SESSDATA 加密存在主进程（safeStorage），重启后 localStorage 那份
+// 可能还没写入（或用户清过站点数据）。启动时异步取回一次并同步到渲染层现有路径，
+// 让 transport 拼 Cookie 头时能拿到。纯 Web / Android 没有这个桥，直接跳过。
+const restoreBridgeSession = async (): Promise<void> => {
+    const bridge = typeof window !== 'undefined' ? window.electron?.bilibiliRequest : undefined;
+    if (!bridge) return;
+    try {
+        const reply = await bridge('get-session');
+        const sessdata = String(reply.data?.sessdata || '');
+        if (reply.ok && sessdata && !readBilibiliSessdata()) writeBilibiliSessdata(sessdata);
+    } catch {
+        // 桥暂时不可用不影响游客浏览；下次登录流会再取一次。
+    }
+};
+void restoreBridgeSession();
 
 export const bilibiliIsLive = isBilibiliLiveSong;
 export const bilibiliHasLogin = hasBilibiliLogin;

@@ -963,6 +963,23 @@ declare global {
         params?: import('./services/onlineMusic/bodian/bodianTransport').BodianParams,
       ) => Promise<import('./services/onlineMusic/bodian/bodianTransport').BodianBridgeResult>;
       bilibiliRegisterMedia: (url: string) => Promise<boolean>;
+      bilibiliRequest: (
+        operation: 'qr-poll' | 'get-session' | 'logout' | 'status',
+        params?: { qrcode_key?: string },
+      ) => Promise<{
+        ok: boolean;
+        data?: {
+          code?: number;
+          url?: string;
+          message?: string;
+          sessdataStored?: boolean;
+          sessdata?: string;
+          buvid3?: string;
+          biliJct?: string;
+          hasSession?: boolean;
+        } | null;
+        error?: { code: string; message: string };
+      }>;
       ytmRequest: (
         operation: import('./services/onlineMusic/ytm/ytmTransport').YtmOperation,
         params?: import('./services/onlineMusic/ytm/ytmTransport').YtmParams,

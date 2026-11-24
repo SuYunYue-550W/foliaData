@@ -72,6 +72,7 @@ const { createQishuiMediaPolicy } = require('./qishui/mediaCors.cjs');
 const { createBodianApiBridge } = require('./bodian/bodianApiBridge.cjs');
 const { createBodianMediaPolicy } = require('./bodian/mediaCors.cjs');
 const { createBilibiliMediaPolicy } = require('./bilibili/mediaPolicy.cjs');
+const { createBilibiliApiBridge } = require('./bilibili/bilibiliApiBridge.cjs');
 const { createYtmApiBridge } = require('./ytm/ytmApiBridge.cjs');
 const { createYtmSandbox } = require('./ytm/sandbox.cjs');
 const { YTM_AUDIO_PRIVILEGED_SCHEME, YTM_AUDIO_SCHEME } = require('./ytm/audio.cjs');
@@ -282,6 +283,8 @@ const kugouApiBridge = createKugouApiBridge({ store, safeStorage });
 const qishuiMediaPolicy = createQishuiMediaPolicy();
 const bodianMediaPolicy = createBodianMediaPolicy();
 const bilibiliMediaPolicy = createBilibiliMediaPolicy();
+// B站 SESSDATA 由 poll 的 Set-Cookie 下发，渲染层读不到；主进程取回后用 safeStorage 加密。
+const bilibiliApiBridge = createBilibiliApiBridge({ store, safeStorage });
 const bodianApiBridge = createBodianApiBridge({ store, safeStorage,
   onAudioSource: url => bodianMediaPolicy.register(url),
   requestFactory: (options, onResponse) => {
@@ -6920,6 +6923,11 @@ ipcMain.handle('kugou-api-request', createSenderGuardedHandler({
   channel: 'kugou-api-request',
   isTrusted: isFirstPartyWindowContents,
   handler: (_event, operation, params) => kugouApiBridge.request(operation, params),
+}));
+ipcMain.handle('bilibili-api-request', createSenderGuardedHandler({
+  channel: 'bilibili-api-request',
+  isTrusted: isFirstPartyWindowContents,
+  handler: (_event, operation, params) => bilibiliApiBridge.request(operation, params),
 }));
 ipcMain.handle('bilibili-register-media', (event, url) => {
   if (!isTrustedMainWindowContents(event.sender)) return false;
