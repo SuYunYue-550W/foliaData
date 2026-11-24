@@ -8,6 +8,7 @@ import { getBilibiliModule, type BilibiliModuleId } from '../../../services/onli
 import { useLibraryHomeSources } from '../../../library/core/home/useLibraryHomeSources';
 import { useLibraryHomeSurfaceStore } from '../../../library/core/home/useLibraryHomeSurfaceStore';
 import { useThemeSettingsStore } from '../../../stores/useThemeSettingsStore';
+import { useEscapeClose } from '../../../hooks/useEscapeClose';
 import type { LibraryHomeData } from '../../../library/core/home/home.contract';
 import type { LibraryAccountController } from '../../../library/core/account/account.contract';
 import { isCommandPaletteShortcut, isTextEntryTarget } from '../../../utils/keyboardTargets';
@@ -42,6 +43,13 @@ const resolveHomePageCycleKey = (event: KeyboardEvent): 1 | -1 | null => {
     return event.shiftKey ? -1 : 1;
 };
 
+/** 直播的媒体 id 带 room: 前缀，取流只认后面的房间号。两处比较都要用同一个归一化。 */
+const bvidOf = (sourceRef: UnifiedSong['sourceRef']): string => {
+    const mediaId = sourceRef?.mediaId;
+    if (!mediaId) return '';
+    return mediaId.startsWith('room:') ? mediaId.slice(5) : mediaId;
+};
+
 type BilibiliHomePageProps = {
     /** 关掉这一页，回到原生首页页签。 */
     onClose: () => void;
@@ -68,18 +76,27 @@ export function BilibiliHomePage({ onClose, onPlay, account, surfaceProps }: Bil
     const [error, setError] = useState<string | null>(null);
     const sectionRef = useRef<HTMLElement>(null);
     const openerRef = useRef<HTMLElement | null>(null);
+    // 请求序号：连点模块时，只有最后一次请求的结果算数。早先那个慢响应回来后
+    // 若照写 setSongs，界面显示的就是推荐内容却停在「热门」这一格 —— 列表与
+    // 选中项对不上。同一套序号模式在 useSearchNavigationStore 里也在用。
+    const requestIdRef = useRef(0);
 
     const load = useCallback(async () => {
+        const requestId = requestIdRef.current + 1;
+        requestIdRef.current = requestId;
         setLoading(true);
         setError(null);
         try {
             const page = await getBilibiliModule(module, {});
+            if (requestId !== requestIdRef.current) return;
             setSongs(page.items as UnifiedSong[]);
         } catch (err) {
+            if (requestId !== requestIdRef.current) return;
             setError(err instanceof Error ? err.message : String(err));
             setSongs([]);
         } finally {
-            setLoading(false);
+            // 已经被更新的请求取代时不动 loading：新的那一轮自己会收尾。
+            if (requestId === requestIdRef.current) setLoading(false);
         }
     }, [module]);
 
@@ -87,28 +104,32 @@ export function BilibiliHomePage({ onClose, onPlay, account, surfaceProps }: Bil
         void load();
     }, [load]);
 
-    // Esc 离开这一页；打开时记住来处，关掉还给它。
+    // Esc 离开这一页。
+    //
+    // 用项目统一的 useEscapeClose，而不是自己挂 window 监听：
+    //   - 它维护一个「后注册的压在上面」的栈，一次 Esc 只关最上面那一个。这里原来
+    //     自己挂的是 **捕获阶段**（addEventListener 的第三个参数 true）+ stopPropagation，
+    //     于是命令面板、设置、登录 Sheet 这些冒泡阶段监听 ESC 的层全部收不到事件 ——
+    //     按 Esc 关掉的是 B站页，弹窗留在原地。
+    //   - 它在原生返回键（安卓返回/边缘手势派发的 Escape）时会 preventDefault，
+    //     让 App 知道自己处理了这次返回；原来那版没调，App 会以为没人接管，直接退到后台。
+    useEscapeClose(onClose);
+
+    // 打开时记住来处，关掉还给它。
     useEffect(() => {
         openerRef.current = document.activeElement as HTMLElement | null;
-        const onKey = (event: KeyboardEvent) => {
-            if (event.key === 'Escape' && !event.defaultPrevented) {
-                event.stopPropagation();
-                onClose();
-            }
-        };
-        window.addEventListener('keydown', onKey, true);
         return () => {
-            window.removeEventListener('keydown', onKey, true);
             openerRef.current?.focus?.();
         };
-    }, [onClose]);
+    }, []);
 
     const select = useCallback((song: UnifiedSong) => {
         const ref = song.sourceRef;
         if (!ref || ref.kind !== 'online') return;
         // 先起画面（画面层等取流回来的 videoUrl），再走标准播放：音频走主播放引擎。
         // 声音不重复：画面层只放画面，声音始终由主播放引擎出。
-        const bvid = ref.mediaId.startsWith('room:') ? ref.mediaId.slice(5) : ref.mediaId;
+        const bvid = bvidOf(ref);
+        if (!bvid) return;
         playVideo(bvid);
         onPlay(song);
     }, [onPlay, playVideo]);
@@ -119,6 +140,9 @@ export function BilibiliHomePage({ onClose, onPlay, account, surfaceProps }: Bil
         <section
             ref={sectionRef}
             aria-label={activeLabel}
+            // 与 FoliumHomePage 一致：这一层接管键盘，全局热键与悬停探针让它先处理。
+            // 少了这个标记，页内的空格/方向键会被全局播放控制抢走。
+            data-folia-keyboard-window="true"
             className="absolute inset-0 z-[60] flex min-h-0 flex-col overflow-hidden pt-8 pointer-events-auto"
             style={{ backgroundColor: theme.backgroundColor, color: theme.primaryColor }}
             onKeyDown={event => {
@@ -176,8 +200,11 @@ export function BilibiliHomePage({ onClose, onPlay, account, surfaceProps }: Bil
                 {loading && <div className="text-sm opacity-60">{t('home.biliLoading')}</div>}
                 {error && <div className="text-sm text-red-400">{error}</div>}
                 <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-3 overflow-y-auto md:grid-cols-3 lg:grid-cols-4">
-                    {songs.map(song => {
-                        const isCurrent = currentBvid !== null && song.sourceRef?.mediaId === currentBvid;
+                {songs.map(song => {
+                    // 用与 select 相同的归一化：直播的 mediaId 是 "room:<id>"，而 store 里
+                    // 存的是剥掉前缀的 bvid。直接拿原始 mediaId 去比，两边永不相等，
+                    // 正在播的直播间就不会亮起来。
+                    const isCurrent = currentBvid !== null && bvidOf(song.sourceRef) === currentBvid;
                         return (
                             <Button
                                 key={song.id}
