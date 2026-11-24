@@ -12,7 +12,7 @@ import {
     isBilibiliLiveSong, normalizeBilibiliLive, normalizeBilibiliSong,
 } from './bilibiliNormalize';
 import { getBilibiliModule } from './bilibiliModules';
-import { isCapacitorAndroid } from '../../../platform/runtime';
+import { hasElectronBridge, isCapacitorAndroid, isCapacitorHarmony } from '../../../platform/runtime';
 import { proxyNativeRemoteAudioUrl } from '../../nativeRemoteAudio';
 import QRCode from 'qrcode';
 import { clearCookies, isNativeCookieClearAvailable } from '../../../platform/foliaNative';
@@ -138,7 +138,17 @@ export const bilibiliProvider: any = {
     mark: BILIBILI_MARK,
     capabilities,
     normalizeSong: normalizeBilibiliSong,
-    getAvailability: () => ({ configured: true, reason: null }),
+    getAvailability: () => {
+        // 纯 Web 构建里 B站接口不给 localhost 回 CORS 头，扫码登录拿不到 Set-Cookie，
+        // SESSDATA 无法落地 —— 与其让用户点了登录再失败，不如按项目通用约定把这个
+        // provider 标成 runtime-unavailable（与 Apple Music 的纯 Web 处理一致）。
+        // 通用 UI 会因此隐藏首页连接按钮、置灰登录窗口里的一行并说明原因；
+        // 搜索/播放能力不受影响（那走 capabilities.playback）。
+        if (hasElectronBridge() || isCapacitorAndroid() || isCapacitorHarmony()) {
+            return { configured: true, reason: null };
+        }
+        return { configured: false, reason: 'runtime-unavailable' as const };
+    },
 
     search: {
         async searchSongs(query: string, limit: number, offset: number): Promise<any> {
