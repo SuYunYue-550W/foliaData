@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, Play } from 'lucide-react';
 import type { UnifiedSong } from '../../../types';
@@ -80,6 +80,8 @@ export function BilibiliHomePage({ onClose, onPlay, account, surfaceProps }: Bil
     // 若照写 setSongs，界面显示的就是推荐内容却停在「热门」这一格 —— 列表与
     // 选中项对不上。同一套序号模式在 useSearchNavigationStore 里也在用。
     const requestIdRef = useRef(0);
+    // tab / tabpanel 双向关联 —— 多开几个页面时 ID 也不能撞。
+    const modulesId = useId();
 
     const load = useCallback(async () => {
         const requestId = requestIdRef.current + 1;
@@ -186,6 +188,8 @@ export function BilibiliHomePage({ onClose, onPlay, account, surfaceProps }: Bil
                     <Button
                         key={item.id}
                         role="tab"
+                        id={`${modulesId}-tab-${item.id}`}
+                        aria-controls={`${modulesId}-panel`}
                         aria-selected={module === item.id}
                         variant={module === item.id ? 'primary' : 'quiet'}
                         size="sm"
@@ -196,7 +200,8 @@ export function BilibiliHomePage({ onClose, onPlay, account, surfaceProps }: Bil
                 ))}
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col px-4 pb-6 md:px-8">
+            <div id={`${modulesId}-panel`} role="tabpanel" aria-labelledby={`${modulesId}-tab-${module}`}
+                className="flex min-h-0 flex-1 flex-col px-4 pb-6 md:px-8">
                 {loading && <div className="text-sm opacity-60">{t('home.biliLoading')}</div>}
                 {error && <div className="text-sm text-red-400">{error}</div>}
                 <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-3 overflow-y-auto md:grid-cols-3 lg:grid-cols-4">

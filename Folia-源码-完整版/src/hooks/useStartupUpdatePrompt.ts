@@ -46,7 +46,13 @@ export const useStartupUpdatePrompt = () => {
             try {
                 const snapshot = getUpdateCenterState();
                 // 用户在设置页已经手点过检查了（在延迟窗口内），就别再拉一遍清单。
-                const result = snapshot.result ?? await requestUpdateCheck();
+                // 但只有**成功**的结果才算数：failed 也是写进 state.result 的，若照单全收，
+                // 那次失败后的网络恢复在本进程内就永远不会再提示了。
+                const cached = snapshot.result;
+                const reusable = cached && (cached.status === 'update-available' || cached.status === 'up-to-date')
+                    ? cached
+                    : null;
+                const result = reusable ?? await requestUpdateCheck();
                 if (disposed) return;
                 if (result.status !== 'update-available') return;
                 evaluate(result.release.version);

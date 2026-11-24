@@ -121,12 +121,6 @@ export const useLibraryHomeSources = ({
         recommendations, t, user, userAlbums, userLibrary,
     ]);
 
-    // The explore tab is gone after a switch to a provider without one, and a stored choice of it
-    // may be older than the switch.
-    useEffect(() => {
-        if (tab === 'explore' && !online.canUseExplore) setTab('playlist');
-    }, [online.canUseExplore, setTab, tab]);
-
     const localAvailability = getLocalLibraryAvailability();
     const tabs = useMemo(() => translateHomeTabs(resolveHomeTabs({
         visibility,
@@ -134,6 +128,15 @@ export const useLibraryHomeSources = ({
         online,
         localAvailability: { supported: localAvailability.supported, reason: localAvailability.reason },
     }), t), [localAvailability.reason, localAvailability.supported, navidromeEnabled, online, t, visibility]);
+
+    // 当前页签不可用了（切到没有探索页的平台，或上次退出后用户把某个页签关掉了）就回退。
+    // 回退目标必须从**已经按 visibility 过滤过的** tabs 里挑：硬编码 'playlist' 会在
+    // 用户关掉「歌单」显示时回退到一个根本不在页签条上的页签 —— 内容还在，但没有任何高亮。
+    useEffect(() => {
+        if (tabs.some(candidate => candidate.key === tab && !candidate.disabledReason)) return;
+        const first = tabs.find(candidate => !candidate.disabledReason);
+        if (first) setTab(first.key);
+    }, [setTab, tab, tabs]);
 
     const personalFmModeLabel = online.hasPersonalFmModes
         ? getPersonalFmSelectionLabel(personalFmSelection, (key, fallback) => t(key, fallback ?? ''), catalog)

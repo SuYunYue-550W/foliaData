@@ -30,9 +30,12 @@ export const useBilibiliVideoStore = create<BilibiliVideoState>(set => ({
     preferIframe: false,
     homeOpen: false,
     module: 'recommend',
-    play: (bvid, videoUrl = null) => set({ bvid, videoUrl }),
+    // 模态选择是「本次播放」状态，不是全局配置：某一个视频的 DASH 失败后
+    // handleDashError 会 setMode(true)，若这里不重置，之后每个视频（哪怕取流正常）
+    // 都永久走 iframe，还会连带触发 iframe 自带音频与主引擎双份出声。
+    play: (bvid, videoUrl = null) => set({ bvid, videoUrl, preferIframe: false }),
     // 关画面只收掉画面与声音（音频也来自 B站的那条流）；首页页面是否开着是另一回事，不动。
-    stop: () => set({ bvid: null, videoUrl: null }),
+    stop: () => set({ bvid: null, videoUrl: null, preferIframe: false }),
     setMode: preferIframe => set({ preferIframe }),
     setHomeOpen: homeOpen => set({ homeOpen }),
     setModule: module => set({ module }),

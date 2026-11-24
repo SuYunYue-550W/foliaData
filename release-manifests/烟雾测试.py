@@ -80,6 +80,29 @@ def main() -> int:
     for label, url, size in urls:
         ok = check(url, size, label) and ok
 
+    # Android 清单只覆盖了一半：桌面端的 latest.yml 指向的是另一个附件。
+    # --tag 之前解析了却从没用过，这里拿它拼出 latest.yml 的地址，
+    # 逐个探测 files[] 里的 EXE —— v0.7.37 那次事故正是 EXE 附件名与清单不符。
+    latest_url = f'{args.releases}/download/{args.tag}/latest.yml'
+    try:
+        with urllib.request.urlopen(urllib.request.Request(latest_url, headers={'User-Agent': 'folia-smoke'}), timeout=30) as response:
+            latest_text = response.read().decode('utf-8')
+        print(f'桌面清单: {latest_url}')
+        # electron-builder 的 latest.yml 格式固定：每个 file 的 url / size 缩进一致。
+        current_url = None
+        for line in latest_text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith('- url: '):
+                current_url = stripped[len('- url: '):].strip()
+            elif stripped.startswith('size: ') and current_url:
+                expected = int(stripped[len('size: '):].strip() or 0)
+                exe_url = f'{args.releases}/download/{args.tag}/{current_url}'
+                ok = check(exe_url, expected, f'latest.yml:{current_url}') and ok
+                current_url = None
+    except Exception as error:  # noqa: BLE001 - 烟雾测试的失败要一直往下报，不让一条断链中断其余检查
+        print(f'  ✗ 桌面清单不可达: {error}')
+        ok = False
+
     if not urls:
         print('  ✗ 清单里没有任何下载地址')
         return 1

@@ -49,9 +49,12 @@ const toHex = (bytes: Uint8Array): string => Array.from(bytes)
     .map(value => value.toString(16).padStart(2, '0'))
     .join('');
 
-async function hashCoverBytes(bytes: BufferSource): Promise<string | undefined> {
+// TS 5.7 之后 Uint8Array 带 ArrayBufferLike 泛型，直接当 BufferSource 传会被拒。
+// 这里收窄成明确的字节来源：crypto.subtle.digest 只区分 ArrayBuffer 与视图，
+// 不需要真的复制 —— 复制整张封面正是这里要避免的开销。
+async function hashCoverBytes(bytes: Uint8Array<ArrayBufferLike> | ArrayBuffer): Promise<string | undefined> {
     if (!crypto?.subtle) return undefined;
-    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const digest = await crypto.subtle.digest('SHA-256', bytes as BufferSource);
     return `sha256:${toHex(new Uint8Array(digest))}`;
 }
 
@@ -224,9 +227,11 @@ async function extractEmbeddedMetadata(file: File, includeCover = false): Promis
 
     const picture = includeCover ? parsed.common.picture?.[0] : undefined;
     const cover = picture
-        ? new Blob([picture.data as any], { type: picture.format })
+        ? new Blob([picture.data as BlobPart], { type: picture.format })
         : undefined;
-    const coverAssetId = picture ? await hashCoverBytes(Uint8Array.from(picture.data)) : undefined;
+    // picture.data 本身已是 Uint8Array —— 不要再 Uint8Array.from() 复制一份整张封面，
+    // 大尺寸内嵌封面（FLAC/MP3）在 worker 里会直接翻倍峰值内存，多文件并发时可能 OOM。
+    const coverAssetId = picture ? await hashCoverBytes(picture.data) : undefined;
 
     const repairTagText = hasLegacyId3Tags(parsed.format.tagTypes)
         ? (text: string | undefined) => (text ? repairLatin1DecodedGbkText(text) : text)

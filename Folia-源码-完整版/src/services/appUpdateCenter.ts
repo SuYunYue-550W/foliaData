@@ -158,7 +158,14 @@ export const refreshUpdateCheck = async (): Promise<AppUpdateCheckResult> => {
 
 // ---- 下载 / 安装 ----
 
+// 启动弹窗与设置页卡片是两个宿主，都能点「下载」。原生下载带进度事件、与应用
+// 里哪个界面开着无关，所以同一时刻只允许有一笔在途：后来者直接复用同一个 Promise，
+// 两边看到的进度自然一致。下载 Promise 的寿命跟着原生任务，不跟着 resetDownloadState。
+let inFlightDownload: Promise<void> | null = null;
+
 export const startUpdateDownload = async (): Promise<void> => {
+    if (inFlightDownload) return inFlightDownload;
+    const run = async (): Promise<void> => {
     const target = currentApkTarget();
     if (!target) return;
     setState({
@@ -190,6 +197,11 @@ export const startUpdateDownload = async (): Promise<void> => {
     setState({
         phase: { kind: 'failed', message: lastError instanceof Error ? lastError.message : 'download-failed' },
     });
+    };
+    inFlightDownload = run().finally(() => {
+        inFlightDownload = null;
+    });
+    return inFlightDownload;
 };
 
 export const installDownloadedUpdate = async (): Promise<void> => {

@@ -14,6 +14,7 @@ import { closeFoliumHomeTab } from '../../../mods/folium/registries/homeTabs';
 import { useFoliumPanelContext } from '../../../mods/folium/registries/useFoliumPanelContext';
 import { resolveFoliumLabel } from '../../../mods/params/params';
 import { isCommandPaletteShortcut, isTextEntryTarget } from '../../../utils/keyboardTargets';
+import { useEscapeClose } from '../../../hooks/useEscapeClose';
 import { Button } from '@/components/ui';
 import { useLibraryHomeSurfaceStore } from '../../../library/core/home/useLibraryHomeSurfaceStore';
 import { selectNativeHomeTabFromPage } from './useFoliumHomeNavigation';
@@ -64,6 +65,11 @@ export function FoliumHomePage({ entry, extraTabs, account, surfaceProps }: Foli
     // 打开页面的那个元素。在渲染时取：提交之后原生首页变成 inert，浏览器会把焦点从它上面挪走。
     // 页面在几个模组页之间切换时不卸载，这个元素一直是最初打开页面的那一个。
     const [opener] = useState(deepActiveElement);
+
+    // Esc / 安卓返回键退出整屏页。走项目统一的栈：模组页里也能开设置、命令面板、
+    // 元数据对话框，只有最上面那个该响应 Esc；同时 useEscapeClose 会在原生返回时
+    // preventDefault，避免 Android 上关页的同时把整个 App 退到后台。
+    useEscapeClose(closeFoliumHomeTab);
 
     // 打开时把焦点交给当前页签，但不从设置、命令面板这些窗口里抢（页面那时开在它们下面）：等它们关掉、焦点空出来再交。
     useEffect(() => {
