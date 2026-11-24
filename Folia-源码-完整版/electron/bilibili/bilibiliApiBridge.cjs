@@ -86,6 +86,39 @@ function createBilibiliApiBridge({ store, safeStorage, platform = process.platfo
         store.delete(SESSION_KEY);
     };
 
+    /** poll 答复的处理：业务码原样带回，SESSDATA 从 Set-Cookie 取并加密存。 */
+    const finishPoll = async (response, key) => {
+        let json;
+        try {
+            json = await response.json();
+        } catch {
+            return { ok: false, error: { code: 'invalid-response', message: 'poll answer was not JSON' } };
+        }
+        const code = Number(json?.code);
+        if (code !== 0) {
+            return { ok: true, data: { code, message: String(json?.message || '') } };
+        }
+        // poll 成功响应体里没有 SESSDATA，它在 Set-Cookie 里。
+        const sessdata = cookieValue(response.headers, 'SESSDATA');
+        const previous = read();
+        if (sessdata) {
+            write({
+                sessdata,
+                buvid3: cookieValue(response.headers, 'buvid3') || previous?.buvid3 || '',
+                biliJct: cookieValue(response.headers, 'bili_jct') || previous?.biliJct || '',
+                savedAt: Date.now(),
+            });
+        }
+        return { ok: true, data: {
+            code,
+            url: String(json?.url || ''),
+            sessdataStored: Boolean(sessdata),
+            // 渲染层要拼 Cookie 头，回传一份供它同步到现有 localStorage 路径。
+            sessdata: sessdata || previous?.sessdata || '',
+            buvid3: cookieValue(response.headers, 'buvid3') || previous?.buvid3 || '',
+        } };
+    };
+
     return {
         async request(operation, params = {}) {
             try {
@@ -101,34 +134,22 @@ function createBilibiliApiBridge({ store, safeStorage, platform = process.platfo
                         // 带凭据的请求绝不跟随跨站重定向。
                         if (response.status >= 300 && response.status < 400) {
                             const location = response.headers?.get?.('location');
-                            if (!location || !safeRedirect(new URL(location, url).toString())) {
+                            const target = location ? new URL(location, url).toString() : '';
+                            if (!target || !safeRedirect(target)) {
                                 return { ok: false, error: { code: 'unsafe-redirect', message: 'unsafe redirect' } };
                             }
-                        }
-                        const json = await response.json();
-                        const code = Number(json?.code);
-                        if (code === 0) {
-                            // poll 成功响应体里没有 SESSDATA，它在 Set-Cookie 里。
-                            const sessdata = cookieValue(response.headers, 'SESSDATA');
-                            const previous = read();
-                            if (sessdata) {
-                                write({
-                                    sessdata,
-                                    buvid3: cookieValue(response.headers, 'buvid3') || previous?.buvid3 || '',
-                                    biliJct: cookieValue(response.headers, 'bili_jct') || previous?.bili_jct || '',
-                                    savedAt: Date.now(),
-                                });
+                            // 同域重定向是正常的（B站的接口偶尔换路径）：跟着走一次。
+                            // 跨域已在上面挡掉，所以这里再跳不会把凭据带出去。
+                            const followed = await fetchImpl(target, {
+                                headers: { 'User-Agent': UA, Referer: REFERER, Accept: 'application/json' },
+                                redirect: 'manual',
+                            });
+                            if (followed.status >= 300 && followed.status < 400) {
+                                return { ok: false, error: { code: 'unsafe-redirect', message: 'redirect loop' } };
                             }
-                            return { ok: true, data: {
-                                code,
-                                url: String(json?.url || ''),
-                                sessdataStored: Boolean(sessdata),
-                                // 渲染层要拼 Cookie 头，回传一份供它同步到现有 localStorage 路径。
-                                sessdata: sessdata || previous?.sessdata || '',
-                                buvid3: cookieValue(response.headers, 'buvid3') || previous?.buvid3 || '',
-                            } };
+                            return finishPoll(followed, key);
                         }
-                        return { ok: true, data: { code, message: String(json?.message || '') } };
+                        return finishPoll(response, key);
                     }
                     case 'get-session': {
                         const current = read();

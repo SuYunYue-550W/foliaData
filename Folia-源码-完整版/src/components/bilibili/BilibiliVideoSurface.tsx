@@ -35,10 +35,27 @@ const BilibiliVideoSurface: React.FC<BilibiliVideoSurfaceProps> = ({ paused }) =
     }, [bvid, videoUrl]);
 
     // 路线 A 出错时自动回退 B：这是 A+B 混合的关键——B站接口一变，用户仍能看到视频。
-    const handleDashError = () => {
+    //
+    // 带上出错时的 bvid：切视频后旧视频的 play() 拒绝可能迟到（AbortError 等），
+    // 那时 failedRef 已经被新视频重置成 false，不带 bvid 判断就会把**新**视频
+    // 误切成 iframe。
+    const handleDashError = (failedBvid: string) => {
+        if (failedBvid !== bvid) return;
         if (failedRef.current) return;
         failedRef.current = true;
         setMode(true);
+    };
+
+    // 只有「媒体真的加载不出来」才回退 iframe：
+    //   - AbortError：切 src / 卸载打断的，不是失败；
+    //   - NotAllowedError：自动播放被浏览器策略拦了，切 iframe 也没用（iframe 同样会被拦），
+    //     反而让画面变成两个都不出声。
+    const onMediaError = () => handleDashError(bvid);
+
+    const onPlayRejected = (error: unknown) => {
+        const name = error instanceof Error ? error.name : '';
+        if (name === 'AbortError' || name === 'NotAllowedError') return;
+        handleDashError(bvid);
     };
 
     // 画面与主引擎的音频同时开始：主引擎给 audioUrl，画面给 videoUrl，两边各自播自己的流。
@@ -46,7 +63,7 @@ const BilibiliVideoSurface: React.FC<BilibiliVideoSurfaceProps> = ({ paused }) =
         if (paused) {
             videoRef.current?.pause();
         } else {
-            void videoRef.current?.play().catch(handleDashError);
+            void videoRef.current?.play().catch(onPlayRejected);
         }
     }, [paused, mode, videoUrl]);
 
@@ -83,7 +100,7 @@ const BilibiliVideoSurface: React.FC<BilibiliVideoSurfaceProps> = ({ paused }) =
                 muted
                 playsInline
                 preload="auto"
-                onError={handleDashError}
+                onError={onMediaError}
             />
                 <Button
                     variant="quiet"

@@ -104,6 +104,35 @@ describe('B站 API bridge', () => {
         expect((await bridge.request('get-session')).data).toBeNull();
     });
 
+    it('follows a same-host redirect but refuses a cross-host one', async () => {
+        const store = makeStore();
+        const fetchImpl = vi.fn()
+            .mockResolvedValueOnce({
+                status: 302,
+                headers: { get: (name: string) => (name.toLowerCase() === 'location' ? 'https://passport.bilibili.com/x/poll2' : null) },
+                json: async () => ({}),
+            })
+            .mockResolvedValueOnce(pollResponse(0, ['SESSDATA=s3cr3t; Path=/']));
+        const bridge = createBilibiliApiBridge({ store, safeStorage: fakeSafeStorage(), fetchImpl, warn: vi.fn() });
+
+        const reply = await bridge.request('qr-poll', { qrcode_key: 'KEY' });
+        expect(reply.ok).toBe(true);
+        expect(reply.data).toMatchObject({ code: 0, sessdata: 's3cr3t' });
+        expect(fetchImpl).toHaveBeenCalledTimes(2);
+
+        // 跨域重定向：拒绝，且不把凭据带出去。
+        const evil = vi.fn().mockResolvedValue({
+            status: 302,
+            headers: { get: (name: string) => (name.toLowerCase() === 'location' ? 'https://evil.example.com/x' : null) },
+            json: async () => ({}),
+        });
+        const blocked = createBilibiliApiBridge({ store: makeStore(), safeStorage: fakeSafeStorage(), fetchImpl: evil, warn: vi.fn() });
+        const denied = await blocked.request('qr-poll', { qrcode_key: 'KEY' });
+        expect(denied.ok).toBe(false);
+        expect(denied.error?.code).toBe('unsafe-redirect');
+        expect(evil).toHaveBeenCalledTimes(1);
+    });
+
     it('keeps waiting/scanned codes as data, not errors', async () => {
         const bridge = createBilibiliApiBridge({
             store: makeStore(), safeStorage: fakeSafeStorage(),
