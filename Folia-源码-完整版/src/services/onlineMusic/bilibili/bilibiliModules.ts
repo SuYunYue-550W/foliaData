@@ -27,7 +27,9 @@ export const getBilibiliRecommend = async (options: BilibiliPageOptions = {}): P
     const freshIdx = Math.max(1, options.page ?? 1);
     const { data } = await requestBilibili<any>('recommend', { fresh_idx: freshIdx, ps: options.pageSize ?? 12 });
     const items = (Array.isArray(data?.item) ? data.item : []).map(normalizeBilibiliSong);
-    return asPage(items, 0, items.length > 0);
+    // 推荐是 fresh_idx 游标式翻页：下一页的游标是 idx+1，不是条目数。
+    // 之前恒传 0，上层按 nextOffset 续拉会一直拿回第一页。
+    return asPage(items, freshIdx + 1, items.length > 0);
 };
 
 /** 热门：页码式。 */

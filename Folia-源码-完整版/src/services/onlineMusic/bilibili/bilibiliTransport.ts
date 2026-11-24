@@ -10,6 +10,7 @@
 import { OnlineProviderError } from '../../../types/onlineMusic';
 import { getProviderSessionKey } from '../providerStorage';
 import { createNativeFetch } from '../../nativeHttpFetch';
+import { signWbi } from './bilibiliWbi';
 
 // B站接口不给 `https://localhost` 回 CORS 头，安卓 WebView 里裸 fetch 会直接
 // `TypeError: Failed to fetch`（扫码登录 qr-generate 实测 176ms 就失败）。
@@ -118,9 +119,17 @@ export interface BilibiliResult<T> {
     message: string;
 }
 
-const send = async <T>(url: string, params: Record<string, string | number | undefined>, module: BilibiliModule): Promise<BilibiliResult<T>> => {
+const send = async <T>(
+    url: string,
+    params: Record<string, string | number | undefined>,
+    module: BilibiliModule,
+    options: { signed?: boolean } = {},
+): Promise<BilibiliResult<T>> => {
+    // wbi 端点（目前只有 recommend）必须先签名：wts + w_rid 要参与 query 的
+    // md5 计算，不能在拼完 URL 之后再加。签名需要额外取一次 nav，key 缓存 1 小时。
+    const finalParams = options.signed ? await signWbi(params) : params;
     const query = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
+    Object.entries(finalParams).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') query.set(key, String(value));
     });
     const target = query.size > 0 ? `${url}?${query.toString()}` : url;
@@ -165,7 +174,7 @@ export const requestBilibili = async <T>(module: BilibiliModule, params: Record<
         case 'login-status': return send<T>('https://api.bilibili.com/x/web-interface/nav', {}, module);
         case 'logout': return send<T>('https://api.bilibili.com/x/web-interface/nav', {}, module);
         case 'search': return send<T>(SEARCH_URL, { search_type: 'video', ...params }, module);
-        case 'recommend': return send<T>(API.recommend, { fresh_type: 4, feed_version: 'V8', fresh_idx: 1, fresh_idx_1h: 1, fetch_row: 1, ps: 12, ...params }, module);
+        case 'recommend': return send<T>(API.recommend, { fresh_type: 4, feed_version: 'V8', fresh_idx: 1, fresh_idx_1h: 1, fetch_row: 1, ps: 12, ...params }, module, { signed: true });
         case 'popular': return send<T>(API.popular, { ps: 20, pn: 1, ...params }, module);
         case 'ranking': return send<T>(API.ranking, { rid: 0, type: 'all', ...params }, module);
         case 'video-newlist': return send<T>(API['video-newlist'], { rid: 1, pn: 1, ps: 20, ...params }, module);
