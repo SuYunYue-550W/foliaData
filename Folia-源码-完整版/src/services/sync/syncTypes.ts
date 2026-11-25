@@ -71,7 +71,8 @@ export type SyncedVisualSettings = {
     lumiereTuning?: unknown;
     urlBackgroundList?: unknown[];
     urlBackgroundSelectedId?: string | null;
-    homeLayoutStyle?: 'carousel' | 'grid';
+    /** 只剩 grid 一档；carousel 在同步 schema 里本来就被归一成 grid（见 syncSchema.ts）。 */
+    homeLayoutStyle?: 'grid';
     grid3dCardStyle?: 'image' | 'card';
 };
 

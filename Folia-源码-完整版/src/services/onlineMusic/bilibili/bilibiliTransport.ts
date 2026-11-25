@@ -178,10 +178,10 @@ const send = async <T>(
         }
         // B站的风控码不像 HTTP 429 那样带 Retry-After，但它们是「稍后再试」而不是永久失败：
         // -509 请求过快、-403 风控拦截、-352 风险验证。带上退避时长让上层走现有的
-        // retry-later 通道，而不是把所有错误都当成 service-unavailable（不重试）。
-        const backoff = BILIBILI_RETRY_CODES.has(json.code) ? 3000 : undefined;
+        // rate-limited 通道，而不是把所有错误都当成 service-unavailable（不重试）。
+        const backoff = typeof json.code === 'number' && BILIBILI_RETRY_CODES.has(json.code) ? 3000 : undefined;
         throw new OnlineProviderError(
-            backoff ? 'retry-later' : 'service-unavailable',
+            backoff ? 'rate-limited' : 'service-unavailable',
             `bilibili ${module}: ${json.code} ${json.message || ''}`,
             undefined,
             undefined,
