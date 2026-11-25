@@ -36,6 +36,19 @@ const makeStore = () => {
     };
 };
 
+// bridge 的 reply 是按 operation 分支推断的联合类型；测试里断言成这个形状，
+// 不去把生产返回类型收窄到每个 operation（那是桥的接口该做的事，不是测试的重点）。
+type Reply = {
+    ok: boolean;
+    data?: {
+        code?: number;
+        sessdata?: string;
+        buvid3?: string;
+    } | null;
+    error?: { code?: string; message?: string };
+};
+const asReply = (value: unknown): Reply => value as Reply;
+
 const pollResponse = (code: number, cookies: string[] = []) => ({
     status: 200,
     headers: headersOf(cookies),
@@ -86,7 +99,7 @@ describe('B站 API bridge', () => {
         expect(reply.ok).toBe(true);
         // 本次会话内存里还有，但不落盘 —— 敏感凭据不能以明文持久化。
         expect(store._data.has('BILIBILI_SESSION_V2')).toBe(false);
-        expect((await bridge.request('get-session')).data.sessdata).toBe('s3cr3t');
+        expect(asReply(await bridge.request('get-session')).data?.sessdata).toBe('s3cr3t');
         expect(warn).toHaveBeenCalled();
     });
 
@@ -127,7 +140,7 @@ describe('B站 API bridge', () => {
             json: async () => ({}),
         });
         const blocked = createBilibiliApiBridge({ store: makeStore(), safeStorage: fakeSafeStorage(), fetchImpl: evil, warn: vi.fn() });
-        const denied = await blocked.request('qr-poll', { qrcode_key: 'KEY' });
+        const denied = asReply(await blocked.request('qr-poll', { qrcode_key: 'KEY' }));
         expect(denied.ok).toBe(false);
         expect(denied.error?.code).toBe('unsafe-redirect');
         expect(evil).toHaveBeenCalledTimes(1);
@@ -139,8 +152,8 @@ describe('B站 API bridge', () => {
             fetchImpl: vi.fn().mockResolvedValue(pollResponse(86101)),
             warn: vi.fn(),
         });
-        const reply = await bridge.request('qr-poll', { qrcode_key: 'KEY' });
+        const reply = asReply(await bridge.request('qr-poll', { qrcode_key: 'KEY' }));
         expect(reply.ok).toBe(true);
-        expect(reply.data.code).toBe(86101);
+        expect(reply.data?.code).toBe(86101);
     });
 });

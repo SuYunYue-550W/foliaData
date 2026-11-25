@@ -63,6 +63,7 @@ describe('更新清单生成', () => {
             '--apk', path.join(work, 'app-release.apk'),
             '--out', path.join(work, 'out'),
             '--version', '9.9.9',
+            '--tag', 'v9.9.9',
         ], { encoding: 'utf8' });
         const manifest = JSON.parse(readFileSync(path.join(work, 'out', 'update.json'), 'utf8'));
         expect(manifest.download_url).toContain('app-release.apk');
@@ -94,5 +95,30 @@ describe('更新清单生成', () => {
         const crypto = require('node:crypto');
         const expected = crypto.createHash('sha512').update('x'.repeat(1000)).digest('hex');
         expect(manifest.sha512_hex).toBe(expected);
+    });
+
+    it('--tag / --version 必填：不再生成 0.7.33 的清单配 v0.7.40 的说明', () => {
+        expect(() => execFileSync(PYTHON, [
+            stageScript(work),
+            '--exe', path.join(work, 'setup.exe'),
+            '--apk', path.join(work, 'app-release.apk'),
+            '--version', '9.9.9',
+        ], { encoding: 'utf8', stdio: 'pipe' })).toThrow();
+    });
+
+    it('beta / alpha 模板不复用 stable 包的地址与摘要', () => {
+        run(['--apk-name', 'app.apk']);
+        for (const channel of ['beta', 'alpha']) {
+            const text = readFileSync(path.join(work, 'out', `${channel}.yml.example`), 'utf8');
+            expect(text).toContain(`REPLACE_WITH_${channel.toUpperCase()}_SHA512`);
+            expect(text).not.toMatch(/sha512: wGmsk|sha512: [A-Za-z0-9+/]{60,}/);
+        }
+    });
+
+    it('--exe-name 决定 latest.yml 里的附件名', () => {
+        run(['--apk-name', 'app.apk', '--exe-name', 'Folia-Setup-9.9.9.exe']);
+        const latest = readFileSync(path.join(work, 'out', 'latest.yml'), 'utf8');
+        expect(latest).toContain('url: Folia-Setup-9.9.9.exe');
+        expect(latest).toContain('path: Folia-Setup-9.9.9.exe');
     });
 });

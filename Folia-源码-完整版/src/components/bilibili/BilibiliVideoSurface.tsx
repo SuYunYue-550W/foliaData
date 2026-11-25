@@ -50,12 +50,12 @@ const BilibiliVideoSurface: React.FC<BilibiliVideoSurfaceProps> = ({ paused }) =
     //   - AbortError：切 src / 卸载打断的，不是失败；
     //   - NotAllowedError：自动播放被浏览器策略拦了，切 iframe 也没用（iframe 同样会被拦），
     //     反而让画面变成两个都不出声。
-    const onMediaError = () => handleDashError(bvid);
+    const onMediaError = () => { if (bvid) handleDashError(bvid); };
 
     const onPlayRejected = (error: unknown) => {
         const name = error instanceof Error ? error.name : '';
         if (name === 'AbortError' || name === 'NotAllowedError') return;
-        handleDashError(bvid);
+        if (bvid) handleDashError(bvid);
     };
 
     // 画面与主引擎的音频同时开始：主引擎给 audioUrl，画面给 videoUrl，两边各自播自己的流。

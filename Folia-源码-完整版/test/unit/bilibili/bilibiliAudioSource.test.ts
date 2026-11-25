@@ -73,7 +73,7 @@ describe('B站取流（搜索结果无 cid）', () => {
         // 第一次：view + playurl；第二次：只有 playurl（cid 已被记住）。
         expect(requestBilibili).toHaveBeenCalledTimes(3);
         expect(requestBilibili.mock.calls.filter(call => call[0] === 'view')).toHaveLength(1);
-        expect((input as { sourceRef: { providerData: { cid: number } } }).sourceRef.providerData.cid).toBe(123456);
+        expect((input as unknown as { sourceRef: { providerData: { cid: number } } }).sourceRef.providerData.cid).toBe(123456);
     });
 
     it('已有 cid 时直接取 playurl，不查 view', async () => {
