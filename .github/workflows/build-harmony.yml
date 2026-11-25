@@ -112,7 +112,13 @@ jobs:
           shopt -s nullglob
           files=(harmony-out/*.hap)
           [ ${#files[@]} -gt 0 ] || { echo "没有 HAP 产物" >&2; exit 1; }
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Folia $TAG" --generate-notes
+          gh release view "$TAG" >/dev/null 2>&1 || {
+            # x64/arm64/Harmony 并发跑时可能同时判定「不存在」：create 失败的一方
+            # 再 view 一次确认对方已经建好了，不把整个 job 弄红。
+            gh release create "$TAG" --title "Folia $TAG" --generate-notes 2>/dev/null \
+              || gh release view "$TAG" >/dev/null 2>&1 \
+              || { echo "无法创建或找到 Release $TAG" >&2; exit 1; }
+          }
           for f in "${files[@]}"; do gh release upload "$TAG" "$f" --clobber; done
 
   # 模式 B：runner 上已构建好 HAP，只做上传。
@@ -134,5 +140,11 @@ jobs:
           fi
           files=(harmony-out/*.hap)
           [ ${#files[@]} -gt 0 ] || { echo "没有 HAP 产物（检查 inputs.hap_path）" >&2; exit 1; }
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Folia $TAG" --generate-notes
+          gh release view "$TAG" >/dev/null 2>&1 || {
+            # x64/arm64/Harmony 并发跑时可能同时判定「不存在」：create 失败的一方
+            # 再 view 一次确认对方已经建好了，不把整个 job 弄红。
+            gh release create "$TAG" --title "Folia $TAG" --generate-notes 2>/dev/null \
+              || gh release view "$TAG" >/dev/null 2>&1 \
+              || { echo "无法创建或找到 Release $TAG" >&2; exit 1; }
+          }
           for f in "${files[@]}"; do gh release upload "$TAG" "$f" --clobber; done

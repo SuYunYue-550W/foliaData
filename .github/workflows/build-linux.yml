@@ -78,7 +78,13 @@ jobs:
           shopt -s nullglob
           files=(release-linux-*/*.tar.gz release-linux-*/*.deb release-linux-*/*.rpm release-linux-*/*.AppImage)
           if [ ${#files[@]} -eq 0 ]; then echo "没有找到 x64 安装包" >&2; exit 1; fi
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Folia $TAG" --generate-notes
+          gh release view "$TAG" >/dev/null 2>&1 || {
+            # x64/arm64/Harmony 并发跑时可能同时判定「不存在」：create 失败的一方
+            # 再 view 一次确认对方已经建好了，不把整个 job 弄红。
+            gh release create "$TAG" --title "Folia $TAG" --generate-notes 2>/dev/null \
+              || gh release view "$TAG" >/dev/null 2>&1 \
+              || { echo "无法创建或找到 Release $TAG" >&2; exit 1; }
+          }
           for file in "${files[@]}"; do
             echo "上传 $file ($(stat -c%s "$file") B)"
             gh release upload "$TAG" "$file" --clobber
@@ -128,7 +134,13 @@ jobs:
           shopt -s nullglob
           files=(release-linux-*/*.tar.gz release-linux-*/*.deb release-linux-*/*.rpm release-linux-*/*.AppImage)
           if [ ${#files[@]} -eq 0 ]; then echo "没有找到 arm64 安装包" >&2; exit 1; fi
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Folia $TAG" --generate-notes
+          gh release view "$TAG" >/dev/null 2>&1 || {
+            # x64/arm64/Harmony 并发跑时可能同时判定「不存在」：create 失败的一方
+            # 再 view 一次确认对方已经建好了，不把整个 job 弄红。
+            gh release create "$TAG" --title "Folia $TAG" --generate-notes 2>/dev/null \
+              || gh release view "$TAG" >/dev/null 2>&1 \
+              || { echo "无法创建或找到 Release $TAG" >&2; exit 1; }
+          }
           for file in "${files[@]}"; do
             echo "上传 $file ($(stat -c%s "$file") B)"
             gh release upload "$TAG" "$file" --clobber

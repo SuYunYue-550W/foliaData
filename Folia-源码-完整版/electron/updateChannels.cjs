@@ -156,7 +156,11 @@ function compareVersions(leftValue, rightValue) {
 
 function parseUpdateMetadataVersion(text) {
   if (typeof text !== 'string') return '';
-  const match = /^version:\s*['"]?([^'"\s]+)['"]?\s*$/m.exec(text);
+  // electron-builder 的 latest.yml 目前是行首无缩进的 version:，但带 BOM、缩进
+  // 或行尾注释的合法 YAML 也会让旧正则解析失败，进而报「清单没有版本号」。
+  // 这里只取 version 这一个标量字段：剥 BOM、允许前导空白、允许行尾注释。
+  const clean = text.replace(/^\uFEFF/, '');
+  const match = /^[ \t]*version[ \t]*:[ \t]*['"]?([^'"\s#]+)['"]?[ \t]*(?:#.*)?$/m.exec(clean);
   return normalizeVersion(match?.[1]);
 }
 

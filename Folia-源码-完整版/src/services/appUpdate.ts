@@ -236,6 +236,19 @@ const nonEmptyString = (value: unknown): string | null => (
   typeof value === 'string' && value.trim() !== '' ? value.trim() : null
 );
 
+/** 安装包的下载地址只认 GitHub 官方域：镜像只用来取清单，不该被换成一个假 APK。 */
+const isOfficialReleaseUrl = (url: string): boolean => {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === 'github.com'
+        || host.endsWith('.github.com')
+        || host === 'githubusercontent.com'
+        || host.endsWith('.githubusercontent.com');
+  } catch {
+    return false;
+  }
+};
+
 const toReleaseInfo = (payload: UpdateManifestPayload): AppReleaseInfo | null => {
   const rawVersion = nonEmptyString(payload.version);
   if (!rawVersion) return null;
@@ -245,7 +258,7 @@ const toReleaseInfo = (payload: UpdateManifestPayload): AppReleaseInfo | null =>
   const assets = Array.isArray(payload.assets) ? payload.assets : [];
   // 清单给了 assets 就按后缀挑；否则把 download_url 当安装包，但只认 .apk ——
   // .aab 装不上，宁可报「没有可用安装包」也别让人白下一遍。
-  const apk = pickReleaseAsset(assets, 'apk')
+  const picked = pickReleaseAsset(assets, 'apk')
     ?? (assetExtensionOf(downloadUrl) === 'apk'
       ? {
         name: fileNameOf(downloadUrl),
@@ -255,6 +268,9 @@ const toReleaseInfo = (payload: UpdateManifestPayload): AppReleaseInfo | null =>
         sha512Hex: nonEmptyString(payload.sha512_hex) ?? undefined,
       }
       : null);
+  // 镜像源拿到的清单也可能是假的：里面的 sha512 和 APK 同源，自证不了真实性。
+  // 至少挡住「把下载地址换成第三方域」这一条 —— 正常清单始终指向 GitHub Release。
+  const apk = picked && isOfficialReleaseUrl(picked.downloadUrl) ? picked : null;
 
   return {
     version,

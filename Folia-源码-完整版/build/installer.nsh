@@ -71,9 +71,11 @@ LangString foliaUserDataPrompt 1057 "Hapus data pengguna?"
   folia_per_user_other_mode:
   ; per-machine 那套装过吗？装过就别再往 D 盘写一份。
   IfFileExists "$PROGRAMFILES\${APP_FILENAME}\Folia.exe" 0 folia_per_user_other_mode64
+  DetailPrint "An existing all-users installation was found; keeping this install path."
   Goto folia_init_done
   folia_per_user_other_mode64:
   IfFileExists "$PROGRAMFILES64\${APP_FILENAME}\Folia.exe" 0 folia_use_dDrive
+  DetailPrint "An existing all-users installation was found; keeping this install path."
   Goto folia_init_done
 
   ; ---- $INSTDIR 是 per-machine 默认位置 ----
@@ -84,6 +86,7 @@ LangString foliaUserDataPrompt 1057 "Hapus data pengguna?"
   folia_per_machine_other_mode:
   ; per-user 那套装过吗？
   IfFileExists "$LOCALAPPDATA\Programs\${APP_FILENAME}\Folia.exe" 0 folia_use_dDrive
+  DetailPrint "An existing per-user installation was found; keeping this install path."
   Goto folia_init_done
 
   ; ---- 真是全新安装 → D 盘 ----

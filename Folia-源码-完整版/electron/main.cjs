@@ -4097,8 +4097,18 @@ async function downloadAvailableUpdate() {
   }
 
   try {
+    // electron-updater 内部缓存 downloadPromise：如果它已经因另一次 checkForUpdates
+    // 完成了下载，这里再调 downloadUpdate() 会直接返回缓存 Promise，**不会再派发
+    // update-downloaded 事件**。那样我们把状态覆盖成 downloading 后就没人推进了 ——
+    // 「重启安装」按钮永远不出现。先看状态，已经是 downloaded 就直接返回。
+    if (updateState.status === 'downloaded') return getUpdateStatus();
     setUpdateState({ status: 'downloading', error: null, downloadProgress: null });
     await updater.downloadUpdate();
+    // 同样地，事件若在这次调用之前就派发过（被内部去重吃掉），状态会停在 downloading。
+    // 下载 Promise 已 resolve 就说明包在手上了，补一次状态推进。
+    if (updateState.status === 'downloading') {
+      setUpdateState({ status: 'downloaded', error: null, downloadProgress: null });
+    }
   } catch (error) {
     setUpdateState({
       status: 'error',

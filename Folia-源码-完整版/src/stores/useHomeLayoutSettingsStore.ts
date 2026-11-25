@@ -9,7 +9,7 @@ import { getStoredBoolean, setStoredBoolean } from './storagePrimitives';
 import { useHomeCardPositionStore } from './useHomeCardPositionStore';
 import { setStatusMessage } from './useStatusMessageStore';
 
-const readStoredHomeLayoutStyle = (): 'carousel' | 'grid' => {
+const readStoredHomeLayoutStyle = (): 'grid' => {
     if (typeof window === 'undefined') {
         return 'grid';
     }
@@ -35,7 +35,7 @@ export type HomeLayoutSettingsState = {
     handleToggleRememberHomeCardPosition: (remember: boolean) => void;
     grid3dCardStyle: 'image' | 'card';
     handleSetGrid3dCardStyle: (style: 'image' | 'card') => void;
-    homeLayoutStyle: 'carousel' | 'grid';
+    homeLayoutStyle: 'grid';
     showHomeTabPlaylist: boolean;
     showHomeTabRadio: boolean;
     showHomeTabAlbums: boolean;
@@ -44,7 +44,8 @@ export type HomeLayoutSettingsState = {
     showHomeTabExplore: boolean;
     /** 「AI 主题」：云端缓存里做过主题的歌，不是某个平台的歌单。 */
     showHomeTabCloud: boolean;
-    handleSetHomeLayoutStyle: (style: 'carousel' | 'grid') => void;
+    /** 只保留 grid 一档；参数留作兼容旧调用，传 carousel/desktop 一律按 grid 处理。 */
+    handleSetHomeLayoutStyle: (style: 'grid') => void;
     handleToggleHomeTabPlaylist: (show: boolean) => void;
     handleToggleHomeTabRadio: (show: boolean) => void;
     handleToggleHomeTabAlbums: (show: boolean) => void;
