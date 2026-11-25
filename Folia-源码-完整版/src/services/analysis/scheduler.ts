@@ -391,10 +391,13 @@ export const watchFrames = (): FrameWatch | null => {
         handle = window.requestAnimationFrame(step);
     };
     // A page hidden mid-unit has no frames; the gap across it is not a dropped frame.
-    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { last = 0; });
+    // 命名后才能在 end() 时摘掉：匿名监听器挂上去就再也拿不掉了，模块被重复求值
+    // （热重载）时会一层层累积。
+    const onVisibility = () => { last = 0; };
     return {
         begin() {
             if (typeof document !== 'undefined' && document.hidden) return;
+            document?.addEventListener('visibilitychange', onVisibility);
             watching = true;
             last = 0;
             worst = 0;
@@ -404,6 +407,7 @@ export const watchFrames = (): FrameWatch | null => {
         end() {
             if (!watching) return null;
             watching = false;
+            document?.removeEventListener('visibilitychange', onVisibility);
             window.cancelAnimationFrame(handle);
             const shortest = refresh();
             return Number.isFinite(shortest) && worst > 0 ? { worst, refresh: shortest, over } : null;

@@ -124,6 +124,10 @@ export const createDeckAnalyser = (
         peakDb = Math.max(level, peakDb - PEAK_DECAY_DB_PER_SEC * elapsed);
         if (elapsed > CONTINUITY_GAP_SEC) continuous = false;
         levels.push(level);
+        // levels 约 20Hz 一直 push，1 小时就是 7.2 万个 double（≈576KB/卡）。
+        // 调用方只用尾部窗口做 edge 统计，留一个定长窗口就够了。
+        // envelope 早就有同样的上限，这里补上，reset() 仍整条清空。
+        if (levels.length > ENVELOPE_SIZE) levels.shift();
 
         if (frames) {
             envelope.push(spectralFlux(spectrum, previous, fluxBins));

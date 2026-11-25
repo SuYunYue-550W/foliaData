@@ -17,7 +17,11 @@ export const buildLocalLibraryIndex = (
   entities.forEach(entity => {
     entity.normalizedAliases.forEach(alias => {
       const key = `${entity.kind}:${alias}`;
-      entityIdsByAlias.set(key, [...(entityIdsByAlias.get(key) || []), entity.id]);
+      // 不要 [...] 重建数组：大量实体共享同一个归一化别名时（同名艺人/专辑），
+      // 每次都复制已有数组会退化成 O(k²) 分配和 GC。直接往原数组里 push。
+      const ids = entityIdsByAlias.get(key);
+      if (ids) ids.push(entity.id);
+      else entityIdsByAlias.set(key, [entity.id]);
     });
   });
   return {

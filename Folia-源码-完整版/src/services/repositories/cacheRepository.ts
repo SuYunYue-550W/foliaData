@@ -176,14 +176,25 @@ const countCacheUsageOffThread = (): Promise<CacheUsage> | null => {
     return null;
   }
   return new Promise((resolve, reject) => {
-    worker.onmessage = (event: MessageEvent<{ usage?: CacheUsage; error?: string }>) => {
+    // module worker 加载失败或消息丢失时没有 onerror 也没有 onmessage，Promise 会永久挂着，
+    // 设置页的缓存统计就一直转圈。超时按失败结算，调用方本就有主线程兜底计数。
+    const timer = setTimeout(() => {
       worker.terminate();
-      if (event.data.usage) resolve(event.data.usage);
-      else reject(new Error(event.data.error));
+      reject(new Error('cache usage worker timed out'));
+    }, 4000);
+    const finish = (action: () => void) => {
+      clearTimeout(timer);
+      worker.terminate();
+      action();
+    };
+    worker.onmessage = (event: MessageEvent<{ usage?: CacheUsage; error?: string }>) => {
+      finish(() => {
+        if (event.data.usage) resolve(event.data.usage);
+        else reject(new Error(event.data.error));
+      });
     };
     worker.onerror = (event) => {
-      worker.terminate();
-      reject(new Error(event.message || 'worker error'));
+      finish(() => reject(new Error(event.message || 'worker error')));
     };
     worker.postMessage({ databaseName: appDatabase.name, tableNames: CACHE_TABLE_NAMES });
   });

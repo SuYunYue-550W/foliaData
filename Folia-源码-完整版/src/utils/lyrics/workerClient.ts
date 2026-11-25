@@ -1,10 +1,50 @@
 import { LyricData } from '../../types';
-import type { LyricParseFormat } from './parserCore';
+import { parseLyricsByFormat, type LyricParseFormat } from './parserCore';
 import type { LyricProcessingOptions } from './types';
 
 let lyricsWorker: Worker | null = null;
 let workerRequestId = 0;
-const workerCallbacks = new Map<string, (data: LyricData | null) => void>();
+type PendingLyric = {
+    resolve: (data: LyricData | null) => void;
+    timer: ReturnType<typeof setTimeout>;
+    /** worker 没回应时在主线程重算这一笔的资料，不让歌词白白消失。 */
+    fallback: () => LyricData | null;
+};
+const workerCallbacks = new Map<string, PendingLyric>();
+
+// Worker 创建成功但脚本加载失败/消息丢失时，onmessage 永远不来 —— Promise 就永久挂起，
+// 回调表里的那一项也永远留着。项目里 worker 相关超时统一参考 spectrumTap 的 4s。
+const WORKER_TIMEOUT_MS = 4000;
+
+/** 正常结算一笔：清定时器、出表、回调。 */
+const settle = (requestId: string, data: LyricData | null): void => {
+    const pending = workerCallbacks.get(requestId);
+    if (!pending) return;
+    workerCallbacks.delete(requestId);
+    clearTimeout(pending.timer);
+    pending.resolve(data);
+};
+
+/** worker 没干活（超时/出错）时：在主线程重算这笔资料，再结算。 */
+const settleWithFallback = (requestId: string, reason: string): void => {
+    const pending = workerCallbacks.get(requestId);
+    if (!pending) return;
+    console.warn(`[LyricsWorker] ${reason}, parsing on the main thread`);
+    workerCallbacks.delete(requestId);
+    clearTimeout(pending.timer);
+    let parsed: LyricData | null = null;
+    try {
+        parsed = pending.fallback();
+    } catch (error) {
+        console.warn('[LyricsWorker] main-thread fallback failed', error);
+    }
+    pending.resolve(parsed);
+};
+
+/** 出错时把所有在途请求一次性结算掉，不留悬空回调。 */
+const settleAll = (reason: string): void => {
+    for (const requestId of [...workerCallbacks.keys()]) settleWithFallback(requestId, reason);
+};
 
 type WorkerLyricProcessingOptions = Pick<LyricProcessingOptions, 'includeInterludes' | 'filterPattern'>;
 
@@ -28,16 +68,20 @@ export const initLyricsWorker = (): Worker => {
         );
         lyricsWorker.onmessage = (e) => {
             const { type, data, requestId, message } = e.data;
-            const callback = workerCallbacks.get(requestId);
-            if (callback) {
-                workerCallbacks.delete(requestId);
-                if (type === 'result') {
-                    callback(data);
-                } else {
-                    console.warn('[LyricsWorker] parsing error:', message);
-                    callback(null);
-                }
+            if (type === 'result') {
+                settle(requestId, data);
+            } else {
+                console.warn('[LyricsWorker] parsing error:', message);
+                settle(requestId, null);
             }
+        };
+        // Worker 脚本加载失败（Android WebView / file:// 下 module worker 常见）也要结算。
+        lyricsWorker.onerror = (event) => {
+            console.warn('[LyricsWorker] worker error:', event.message);
+            settleAll('worker error');
+            // 这个实例已经坏了，下次请求重建一个。
+            lyricsWorker?.terminate();
+            lyricsWorker = null;
         };
     }
     return lyricsWorker;
@@ -53,14 +97,24 @@ export const parseLyricsAsync = (
     return new Promise((resolve) => {
         const worker = initLyricsWorker();
         const requestId = `req_${++workerRequestId}`;
-        workerCallbacks.set(requestId, resolve);
+        const workerOptions = toWorkerLyricProcessingOptions(options);
+        const timer = setTimeout(
+            () => settleWithFallback(requestId, `no answer in ${WORKER_TIMEOUT_MS}ms`),
+            WORKER_TIMEOUT_MS,
+        );
+        workerCallbacks.set(requestId, {
+            resolve,
+            timer,
+            // 纯解析函数在 parserCore 里，主线程直接调即可（歌词通常几十 KB，可接受）。
+            fallback: () => parseLyricsByFormat(format, content, translation, options, romanization),
+        });
         worker.postMessage({
             type: 'parse',
             format,
             content,
             translation,
             romanization,
-            options: toWorkerLyricProcessingOptions(options),
+            options: workerOptions,
             requestId,
         });
     });

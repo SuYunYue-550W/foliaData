@@ -45,4 +45,27 @@ describe('lyrics worker client', () => {
         expect(messages[0]?.romanization).toBe('[00:00.00]Roma');
         expect(fetchChorusRanges).not.toHaveBeenCalled();
     });
+
+    it('settles and falls back to the main thread when the worker never answers', async () => {
+        vi.useFakeTimers();
+        try {
+            // 这个 worker 收到消息后什么都不做 —— 旧实现里 Promise 会永远挂着。
+            class SilentWorker {
+                onmessage: ((event: MessageEvent) => void) | null = null;
+                onerror: ((event: ErrorEvent) => void) | null = null;
+                terminate() {}
+                postMessage() {}
+            }
+            vi.stubGlobal('Worker', SilentWorker);
+            const { parseLyricsAsync } = await import('@/utils/lyrics/workerClient');
+
+            const pending = parseLyricsAsync('lrc', '[00:00.00]Hello');
+            await vi.advanceTimersByTimeAsync(4001);
+            const result = await pending;
+            // 超时后走主线程纯函数兜底，歌词不会凭空消失。
+            expect(result?.lines?.length).toBe(1);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
 });
