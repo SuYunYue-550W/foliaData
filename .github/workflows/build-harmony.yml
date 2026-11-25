@@ -9,15 +9,15 @@ name: Build HarmonyOS HAP
 #
 # 两种用法：
 #   1. 自托管 runner（标签 harmony-sdk，runner 机器上已装 Command Line Tools）——推荐；
-#   2. 本地已构建好 HAP 时，用 workflow_dispatch 的 hap_path 走 upload-only 直接上传。
+#   2. 自托管 runner 上已构建好 HAP 时，用 workflow_dispatch 的 hap_path 走 upload-only 直接上传
+#      （hap_path 是 runner 本机路径，托管 runner 上取不到）。
 
 on:
   push:
     tags: ['v*']
-    paths:
-      - 'harmony/**'
-      - 'Folia-源码-完整版/src/**'
-      - '.github/workflows/build-harmony.yml'
+    # GitHub 要求 tags 与 paths 同时满足才触发。以前列了 paths，结果发版 tag 指向的
+    # commit 没碰到 harmony/**/src/** 时整条 workflow 不跑，Release 里就少了 HAP。
+    # 发版 tag 一律构建，不要 paths 限制。
   workflow_dispatch:
     inputs:
       tag:
@@ -115,19 +115,13 @@ jobs:
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Folia $TAG" --generate-notes
           for f in "${files[@]}"; do gh release upload "$TAG" "$f" --clobber; done
 
-  # 模式 B：本地已构建好 HAP，只做上传（任何 runner 都能跑）
+  # 模式 B：runner 上已构建好 HAP，只做上传。
+  # hap_path 是**runner 本机路径**，所以必须跑在装了 SDK 的自托管 runner 上 ——
+  # 托管 runner 上这个文件永远不存在，原来的 download-artifact pattern:none 也取不到它。
   upload-only:
     if: github.event_name == 'workflow_dispatch' && inputs.hap_path != ''
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, harmony-sdk]
     steps:
-      - name: Download local HAP
-        id: fetch
-        uses: actions/download-artifact@v4
-        with:
-          path: harmony-out
-          pattern: none
-        continue-on-error: true
-
       - name: Upload HAP to Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

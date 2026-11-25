@@ -198,3 +198,9 @@ jobs:
 
       - name: File size policy
         run: npm run check:size
+
+      # AGENTS.md 规定 stores/utils/services 不值导入 components/hooks。
+      # typecheck 查不出来（值导入在 TS 层完全合法），只有 codemap 的边界规则能查。
+      # 文档只是先重新生成过一次；新加的违规会让 check 立刻红。
+      - name: Module boundary policy
+        run: npm run codemap:check

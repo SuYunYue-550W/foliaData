@@ -24,6 +24,10 @@ from pathlib import Path
 OWNER, REPO = 'SuYunYue-550W', 'foliaData'
 RELEASES = f'https://github.com/{OWNER}/{REPO}/releases'
 
+# 发布说明默认从 release-manifests/发布说明.md 读。以前硬编码在这里，
+# 结果生成 0.7.41 清单时不改脚本就带着 0.7.40 的说明发出去。
+DEFAULT_NOTES_FILE = Path(__file__).with_name('发布说明.md')
+
 NOTES = """## v0.7.40 · B站融入首页 + 修复覆盖安装
 
 - **B站重设计（重点）**：B站以前是整个项目里唯一特殊的平台 —— 除 provider 外还自带播放面板页签、独立内容面板、独立状态层和独占画面层，跟「歌单 / 电台 / 专辑」那一套首页页签互不相通，看起来就像跟播放器不是一家的。现在 B站成为**首页的一级页签**，点进去是一个全屏页面：顶部有返回键和原生页签条，中间是推荐 / 热门 / 动画 / 影视 / 直播 / 收藏 / 历史七个模块，下面是视频网格。播放仍保持嵌入在歌词背后的画面层，声音由主引擎出。播放面板里的那个 B站入口现在只是跳转按钮，不再是一个关不干净的内容区；原来那个只会切回封面页签、名不副实的「关闭」按钮已删除。Esc 可以返回。
@@ -48,7 +52,9 @@ def yaml_notes(text: str, indent: str = '  ') -> str:
     return '\n'.join(indent + line for line in text.strip().splitlines())
 
 
-def desktop_manifest(version: str, exe_name: str, sha512_b64: str, size: int, stamp: str) -> str:
+def desktop_manifest(version: str, exe_name: str, sha512_b64: str, size: int, stamp: str,
+                     notes: str | None = None) -> str:
+    notes = notes if notes is not None else NOTES
     return (
         f"version: {version}\n"
         f"files:\n"
@@ -59,7 +65,7 @@ def desktop_manifest(version: str, exe_name: str, sha512_b64: str, size: int, st
         f"sha512: {sha512_b64}\n"
         f"releaseDate: '{stamp}'\n"
         f"releaseNotes: |\n"
-        f"{yaml_notes(NOTES)}\n"
+        f"{yaml_notes(notes)}\n"
     )
 
 
@@ -72,8 +78,14 @@ def main():
         default=None,
         help='上传到 Release 时用的附件名。默认取本地文件名，但本地通常是 app-release.apk，'
              '与真正上传的附件名不一致 —— 清单里的地址会 404，必须显式给出上传时用的名字。')
-    parser.add_argument('--tag', default='v0.7.33')
-    parser.add_argument('--version', default='0.7.33')
+    # 默认值不给版本号：以前不带参数直接跑会生成 0.7.33 的清单，配着 v0.7.40 的说明发出去。
+    parser.add_argument('--tag', required=True, help='Release 标签，例如 v0.7.41')
+    parser.add_argument('--version', required=True, help='版本号，例如 0.7.41')
+    parser.add_argument('--exe-name', default=None,
+                        help='上传到 Release 时用的 Windows 附件名。默认取本地文件名，'
+                             '但本地文件名与上传名不一致时，latest.yml 的下载地址会 404。')
+    parser.add_argument('--notes', default=None, type=Path,
+                        help=f'发布说明文件；默认读 {DEFAULT_NOTES_FILE.name}，没有则用脚本内置的兜底文本。')
     parser.add_argument('--out', default='release-manifests', type=Path)
     args = parser.parse_args()
 
@@ -85,19 +97,37 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
 
-    exe_name = args.exe.name
+    exe_name = args.exe_name or args.exe.name
     apk_name = args.apk_name or args.apk.name
+    if args.exe_name is None:
+        print(f'提示：未指定 --exe-name，latest.yml 将使用本地文件名 {exe_name}；'
+              '若上传 Release 时改了名，客户端更新会 404。')
+    notes_file = args.notes or DEFAULT_NOTES_FILE
+    notes = notes_file.read_text(encoding='utf-8') if notes_file.is_file() else NOTES
     exe_sha, exe_md5 = sha512_pair(args.exe)
     apk_sha, apk_md5 = sha512_pair(args.apk)
     apk_sha_hex = hashlib.sha512(args.apk.read_bytes()).hexdigest()
     exe_size, apk_size = args.exe.stat().st_size, args.apk.stat().st_size
 
     (out / 'latest.yml').write_text(
-        desktop_manifest(args.version, exe_name, exe_sha, exe_size, stamp), encoding='utf-8')
+        desktop_manifest(args.version, exe_name, exe_sha, exe_size, stamp, notes), encoding='utf-8')
 
     # 滚动通道只是模板：需要 tag=limo / tag=cielo 的 Release 与对应版本号构建才生效。
+    # 模板里不写 stable 包的 url/sha512/size —— 以前照抄 stable 的三个字段，
+    # 用户以为装的是 beta 实际拿到 stable（摘要还对得上，毫无破绽）。
     for channel, suffix in (('beta', 'beta.1'), ('alpha', 'alpha.1')):
-        text = desktop_manifest(f'{args.version}-{suffix}', exe_name, exe_sha, exe_size, stamp)
+        text = (
+            f'version: {args.version}-{suffix}\n'
+            f'files:\n'
+            f'  - url: REPLACE_WITH_{channel.upper()}_EXE_NAME\n'
+            f'    sha512: REPLACE_WITH_{channel.upper()}_SHA512\n'
+            f'    size: 0\n'
+            f'path: REPLACE_WITH_{channel.upper()}_EXE_NAME\n'
+            f'sha512: REPLACE_WITH_{channel.upper()}_SHA512\n'
+            f"releaseDate: '{stamp}'\n"
+            f'releaseNotes: |\n'
+            f'{yaml_notes(notes)}\n'
+        )
         header = (
             f'# 模板文件，未启用。\n'
             f'# 启用条件：构建 {args.version}-{suffix} 版本，创建 tag='

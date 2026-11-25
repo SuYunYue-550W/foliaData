@@ -20,8 +20,8 @@
 | backend/electron | 128+ |
 | src (其他) | 128+ |
 | utils | 128+ |
+| 其他 | 128+ |
 | hooks | 64+ |
-| 其他 | 64+ |
 | stores | 32+ |
 | types | 16+ |
 | i18n | 4+ |
@@ -35,23 +35,30 @@
 | --- | --- |
 | 1024+ | `src/types.ts` |
 | 256+ | `src/types/onlineMusic.ts` |
+| 128+ | `src/components/modal/settings/kit/index.ts` |
 | 128+ | `src/components/ui/index.ts` |
 | 128+ | `src/stores/usePlaybackStore.ts` |
 | 128+ | `src/types/ponder.ts` |
 | 128+ | `src/utils/appPlaybackGuards.ts` |
 | 64+ | `src/components/command-palette/types.ts` |
-| 64+ | `src/components/modal/settings/kit/index.ts` |
+| 64+ | `src/components/visualizer/definition.ts` |
 | 64+ | `src/i18n/config.ts` |
 | 64+ | `src/library/core/suite/suite.contract.ts` |
 | 64+ | `src/mods/folium/contract.ts` |
 | 64+ | `src/services/db.ts` |
 | 64+ | `src/services/onlineMusic/omni.ts` |
+| 64+ | `src/services/onlineMusic/providerRegistry.ts` |
 | 64+ | `src/stores/useAppViewStore.ts` |
+| 64+ | `src/stores/useAudioSettingsStore.ts` |
 | 64+ | `src/stores/useStatusMessageStore.ts` |
+| 64+ | `src/utils/lyrics/renderHints.ts` |
 | 32+ | `dev/probes/definition.ts` |
+| 32+ | `src/components/modal/settings/kit/kitTheme.ts` |
 | 32+ | `src/components/modal/settings/kit/motion.ts` |
-| 32+ | `src/components/visualizer/definition.ts` |
 | 32+ | `src/components/visualizer/hanabi/types.ts` |
+| 32+ | `src/components/visualizer/machi/engine/materials.ts` |
+| 32+ | `src/components/visualizer/tuningDefinition.ts` |
+| 32+ | `src/components/visualizer/wordColoring.ts` |
 | 32+ | `src/components/wall/layout.ts` |
 | 32+ | `src/components/wall/wallSlots.ts` |
 | 32+ | `src/library/core/account/account.contract.ts` |
@@ -62,10 +69,9 @@
 | 32+ | `src/mods/types.ts` |
 | 32+ | `src/platform/runtime.ts` |
 | 32+ | `src/services/baseThemes.ts` |
-| 32+ | `src/services/onlineMusic/providerRegistry.ts` |
 | 32+ | `src/services/onlineMusic/songMetadata.ts` |
 | 32+ | `src/stores/motionSignals.ts` |
-| 32+ | `src/stores/useAudioSettingsStore.ts` |
+| 32+ | `src/stores/storagePrimitives.ts` |
 | 32+ | `src/stores/useCollectionNavigationStore.ts` |
 | 32+ | `src/stores/useOnlineProviderAccountStore.ts` |
 | 32+ | `src/stores/usePlayerChromeSettingsStore.ts` |
@@ -80,7 +86,6 @@
 | 32+ | `src/utils/keyboardTargets.ts` |
 | 32+ | `src/utils/lyrics/graphemeTiming.ts` |
 | 32+ | `src/utils/lyrics/parserCore.ts` |
-| 32+ | `src/utils/lyrics/renderHints.ts` |
 | 32+ | `src/utils/visualizer/colorMix.ts` |
 | 32+ | `test/component/fixtures.ts` |
 
@@ -94,7 +99,7 @@
 - `dev/probes/accountBehavior.probe.tsx`
 - `dev/probes/activeGridMarker.probe.tsx`
 - `dev/probes/artistEntrance.probe.tsx`
-- `dev/probes/audioEffectGrid.probe.tsx`
+- `dev/probes/audioConsole.probe.tsx`
 - `dev/probes/automixTransitionSwitches.probe.tsx`
 - `dev/probes/bravaisKinds.probe.tsx`
 - `dev/probes/bravaisPerf.probe.tsx`
@@ -115,6 +120,7 @@
 - `dev/probes/latticeTitle.probe.tsx`
 - `dev/probes/latticeTitleExpansion.probe.tsx`
 - `dev/probes/libraryBehavior.probe.tsx`
+- `dev/probes/listeningArchive.probe.tsx`
 - `dev/probes/localFolderIgnore.probe.tsx`
 - `dev/probes/loginAccountTab.probe.tsx`
 - `dev/probes/loginHome.probe.tsx`
@@ -129,6 +135,7 @@
 - `dev/probes/nativeDragGuard.probe.tsx`
 - `dev/probes/nowPlayingToastTransitionBorder.probe.tsx`
 - `dev/probes/pagePonder.probe.tsx`
+- `dev/probes/panelOutsideClick.probe.tsx`
 - `dev/probes/pendoloSubtitleDualRow.probe.tsx`
 - `dev/probes/platformColumn.probe.tsx`
 - `dev/probes/playbackLyricsSettings.probe.tsx`
@@ -258,7 +265,9 @@
 - `src/components/visualizer/fume/entry.tsx`
 - `src/components/visualizer/hanabi/entry.tsx`
 - `src/components/visualizer/lumiere/entry.tsx`
+- `src/components/visualizer/machi/entry.tsx`
 - `src/components/visualizer/monet/entry.tsx`
+- `src/components/visualizer/nebbia/entry.tsx`
 - `src/components/visualizer/partita/entry.tsx`
 - `src/components/visualizer/pendolo/entry.tsx`
 - `src/components/visualizer/prompt/entry.tsx`
@@ -282,7 +291,9 @@
 - `src/components/visualizer/fume/tuning.ts`
 - `src/components/visualizer/hanabi/tuning.ts`
 - `src/components/visualizer/lumiere/tuning.ts`
+- `src/components/visualizer/machi/tuning.ts`
 - `src/components/visualizer/monet/tuning.ts`
+- `src/components/visualizer/nebbia/tuning.ts`
 - `src/components/visualizer/partita/tuning.ts`
 - `src/components/visualizer/pendolo/tuning.ts`
 - `src/components/visualizer/sonnet/tuning.ts`
@@ -305,7 +316,9 @@
 - `src/components/visualizer/fume/tuning.ts`
 - `src/components/visualizer/hanabi/tuning.ts`
 - `src/components/visualizer/lumiere/tuning.ts`
+- `src/components/visualizer/machi/tuning.ts`
 - `src/components/visualizer/monet/tuning.ts`
+- `src/components/visualizer/nebbia/tuning.ts`
 - `src/components/visualizer/partita/tuning.ts`
 - `src/components/visualizer/pendolo/tuning.ts`
 - `src/components/visualizer/sonnet/tuning.ts`
@@ -317,9 +330,7 @@
 规则是人定的（见 `codemap.mjs` 的 `BOUNDARY_RULES`），拿真实的值导入图去比对。
 `import type` 不算——它在运行时不存在。
 
-下面这些边的依赖方向本身就是错的：
-
-- `src/hooks/useCapacitorPlaybackBridge.ts` → `src/services/onlineMusic/feiniuTransport.ts`  —— 普通调用应经过 omni，不应直连 provider adapter/transport
+当前没有违规。
 
 ### 目录归属存疑
 
