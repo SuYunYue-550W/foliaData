@@ -617,7 +617,13 @@ export const compressConfig = (config: any): string => {
 
     const jsonStr = JSON.stringify(minified);
     const bytes = new TextEncoder().encode(jsonStr);
-    const binaryString = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
+    // 分块展开：Array.from(...).join('') 会为每一个字节产生一个临时字符串，
+    // 长配置时 GC 压力大；一次展开 8KB 把中间对象数量降三个数量级。
+    const CHUNK = 8192;
+    let binaryString = '';
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+        binaryString += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+    }
     const base64 = btoa(binaryString);
     return `folia-theme://${base64}`;
 };
