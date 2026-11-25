@@ -1,5 +1,5 @@
 import { LyricData } from '../../types';
-import { parseLyricsByFormat, type LyricParseFormat } from './parserCore';
+import type { LyricParseFormat } from './parserCore';
 import type { LyricProcessingOptions } from './types';
 
 let lyricsWorker: Worker | null = null;
@@ -8,7 +8,7 @@ type PendingLyric = {
     resolve: (data: LyricData | null) => void;
     timer: ReturnType<typeof setTimeout>;
     /** worker 没回应时在主线程重算这一笔的资料，不让歌词白白消失。 */
-    fallback: () => LyricData | null;
+    fallback: () => Promise<LyricData | null>;
 };
 const workerCallbacks = new Map<string, PendingLyric>();
 
@@ -26,7 +26,7 @@ const settle = (requestId: string, data: LyricData | null): void => {
 };
 
 /** worker 没干活（超时/出错）时：在主线程重算这笔资料，再结算。 */
-const settleWithFallback = (requestId: string, reason: string): void => {
+const settleWithFallback = async (requestId: string, reason: string): Promise<void> => {
     const pending = workerCallbacks.get(requestId);
     if (!pending) return;
     console.warn(`[LyricsWorker] ${reason}, parsing on the main thread`);
@@ -34,7 +34,7 @@ const settleWithFallback = (requestId: string, reason: string): void => {
     clearTimeout(pending.timer);
     let parsed: LyricData | null = null;
     try {
-        parsed = pending.fallback();
+        parsed = await pending.fallback();
     } catch (error) {
         console.warn('[LyricsWorker] main-thread fallback failed', error);
     }
@@ -106,7 +106,13 @@ export const parseLyricsAsync = (
             resolve,
             timer,
             // 纯解析函数在 parserCore 里，主线程直接调即可（歌词通常几十 KB，可接受）。
-            fallback: () => parseLyricsByFormat(format, content, translation, options, romanization),
+            // **动态 import**：静态引入会把 parserCore 拉进模块加载链，改变依赖它的
+            // 那些测试的 mock 行为（歌词导演的预取测试就是这么坏的）。只在真的需要
+            // 兜底时才加载，模块图与改动前一致。
+            fallback: async () => {
+                const { parseLyricsByFormat } = await import('./parserCore');
+                return parseLyricsByFormat(format, content, translation, options, romanization);
+            },
         });
         worker.postMessage({
             type: 'parse',
