@@ -297,7 +297,11 @@ export const useAppPlaybackBridges = (model: Input) => {
                     const native = await readNativeQueueState();
                     const entry = native?.entries.find((item) => item.songKey === songKey);
                     if (!entry) {
+                        // 两份队列都丢了（store 被 Stage/切平台清空、原生队列又被覆盖），
+                        // 没有第三条路能还原这首歌。只打日志的话界面停在「名字换了、
+                        // 声音还是上一首」，用户无从得知发生了什么。至少给个明确提示。
                         console.warn('[NativePlayer] 原生解析失败且队列里找不到这首歌，无法回退', songKey);
+                        setStatusMsg({ type: 'error', text: t('status.playbackError') });
                         return;
                     }
                     const restored = songFromMirrorEntry(entry);
