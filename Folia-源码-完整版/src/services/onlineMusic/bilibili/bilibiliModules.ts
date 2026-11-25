@@ -16,6 +16,23 @@ export interface BilibiliPageOptions {
     mediaId?: string;
 }
 
+/**
+ * 一条脏数据不该让整个模块加载失败：B站偶尔会返回缺 bvid 的条目（广告、已删稿件），
+ * normalizeBilibiliSong 遇到它会抛 invalid-response。逐条跳过，其余照常显示。
+ */
+const normalizeEach = (records: unknown): any[] => {
+    if (!Array.isArray(records)) return [];
+    const out: any[] = [];
+    for (const record of records) {
+        try {
+            out.push(normalizeBilibiliSong(record));
+        } catch {
+            // 跳过这一条，不影响同页其它条目。
+        }
+    }
+    return out;
+};
+
 const asPage = (items: ReturnType<typeof normalizeBilibiliSong>[], offset: number, hasMore: boolean): ProviderPage<any> => ({
     items,
     hasMore,
@@ -26,7 +43,7 @@ const asPage = (items: ReturnType<typeof normalizeBilibiliSong>[], offset: numbe
 export const getBilibiliRecommend = async (options: BilibiliPageOptions = {}): Promise<ProviderPage<any>> => {
     const freshIdx = Math.max(1, options.page ?? 1);
     const { data } = await requestBilibili<any>('recommend', { fresh_idx: freshIdx, ps: options.pageSize ?? 12 });
-    const items = (Array.isArray(data?.item) ? data.item : []).map(normalizeBilibiliSong);
+    const items = normalizeEach(data?.item);
     // 推荐是 fresh_idx 游标式翻页：下一页的游标是 idx+1，不是条目数。
     // 之前恒传 0，上层按 nextOffset 续拉会一直拿回第一页。
     return asPage(items, freshIdx + 1, items.length > 0);
@@ -36,7 +53,7 @@ export const getBilibiliRecommend = async (options: BilibiliPageOptions = {}): P
 export const getBilibiliPopular = async (options: BilibiliPageOptions = {}): Promise<ProviderPage<any>> => {
     const pn = Math.max(1, options.page ?? 1);
     const { data } = await requestBilibili<any>('popular', { pn, ps: options.pageSize ?? 20 });
-    const items = (Array.isArray(data?.list) ? data.list : []).map(normalizeBilibiliSong);
+    const items = normalizeEach(data?.list);
     return asPage(items, (pn - 1) * (options.pageSize ?? 20), !data?.no_more && items.length > 0);
 };
 
@@ -44,7 +61,7 @@ export const getBilibiliPopular = async (options: BilibiliPageOptions = {}): Pro
 export const getBilibiliRegion = async (rid: number, options: BilibiliPageOptions = {}): Promise<ProviderPage<any>> => {
     const pn = Math.max(1, options.page ?? 1);
     const { data } = await requestBilibili<any>('video-newlist', { rid, pn, ps: options.pageSize ?? 20 });
-    const items = (Array.isArray(data?.archives) ? data.archives : []).map(normalizeBilibiliSong);
+    const items = normalizeEach(data?.archives);
     const pageInfo = biliRecord(data?.page);
     return asPage(items, (pn - 1) * (options.pageSize ?? 20), items.length > 0 && (pageInfo.count == null || pn * (options.pageSize ?? 20) < Number(pageInfo.count)));
 };
@@ -77,7 +94,7 @@ export const getBilibiliFavorites = async (options: BilibiliPageOptions = {}): P
     if (options.mediaId) {
         const pn = Math.max(1, options.page ?? 1);
         const { data } = await requestBilibili<any>('fav-resources', { media_id: options.mediaId, pn, ps: options.pageSize ?? 20 });
-        const items = (Array.isArray(data?.medias) ? data.medias : []).map(normalizeBilibiliSong);
+        const items = normalizeEach(data?.medias);
         return asPage(items, (pn - 1) * (options.pageSize ?? 20), Boolean(data?.has_more));
     }
     const { data } = await requestBilibili<any>('fav-folders', { up_mid: mid });

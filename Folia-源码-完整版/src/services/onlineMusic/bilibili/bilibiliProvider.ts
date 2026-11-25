@@ -61,9 +61,9 @@ const navUser = async (): Promise<ProviderUser | null> => {
     }
 };
 
-/** 扫码状态机：与 QQ 一致（waiting / scanned / confirmed / expired / error）。 */
-const qrStates = new Map<string, string>();
-
+// B站扫码没有这套状态机：业务码直接由 qr-poll 接口给出（86101 等待 / 86090 已扫 /
+// 86038 过期 / 0 成功）。之前这里有个只写不读的 qrStates Map，取消登录只是删掉它，
+// 与真正的登录流程毫无关系 —— 删掉，免得后来的人以为它有作用。
 const checkLogin = async (key: string): Promise<LoginState> => {
     try {
         // Electron 桌面端：渲染层读不到 poll 响应里的 Set-Cookie，SESSDATA 由主进程
@@ -244,7 +244,6 @@ export const bilibiliProvider: any = {
         async getLoginStatus(): Promise<ProviderUser | null> { return navUser(); },
         async logout(): Promise<void> {
             writeBilibiliSessdata('');
-            qrStates.clear();
             // Electron 桌面端还要清掉主进程里加密保存的那份，不然下次启动又同步回来。
             const bridge = typeof window !== 'undefined' ? window.electron?.bilibiliRequest : undefined;
             if (bridge) {
@@ -265,7 +264,6 @@ export const bilibiliProvider: any = {
             const { data } = await requestBilibili<any>('qr-generate');
             const key = String(data?.qrcode_key || '');
             if (!key) throw new OnlineProviderError('invalid-response', 'bilibili qr has no key', 'bilibili');
-            qrStates.set(key, 'waiting');
             return key;
         },
         async createQr(key: string): Promise<string> {
@@ -285,7 +283,8 @@ export const bilibiliProvider: any = {
             });
         },
         checkLogin,
-        async cancelLogin(key: string): Promise<void> { qrStates.delete(key); },
+        // B站二维码没有服务端取消接口：前端停掉轮询后，二维码靠自身 TTL 过期。
+        async cancelLogin(_key: string): Promise<void> {},
         getLoginTexts: () => ({ title: 'home.loginTitleBilibili', note: 'home.loginNoteBilibili' }),
         getLoginMethods: () => [{ id: 'bilibili', labelKey: 'home.bilibiliLoginMethodScan', iconKey: 'bilibili' }],
         getLoginTtlMs: () => 180_000,
@@ -310,8 +309,15 @@ export const bilibiliProvider: any = {
         },
         async getSectionItems(cursor: string): Promise<any> {
             const id = cursor as any;
-            const page = await getBilibiliModule(id, {});
-            return { items: page.items, hasMore: page.hasMore, nextCursor: cursor };
+            // 第一次进来 cursor 是模块 id；之后带的是下一页的页码（编码在 moreCursor 里）。
+            const pageNumber = cursor.includes(':') ? Number(cursor.split(':')[1]) : 1;
+            const page = await getBilibiliModule(id, { page: Number.isFinite(pageNumber) ? pageNumber : 1 });
+            // 契约字段是 moreCursor（不是 nextCursor），且必须随着翻页前进 ——
+            // 原来恒等入参，上层按它续拉会一直拿回第一页。
+            const next = page.hasMore && Number.isFinite(page.nextOffset)
+                ? `${id}:${page.nextOffset}`
+                : undefined;
+            return { items: page.items, moreCursor: next };
         },
     },
 

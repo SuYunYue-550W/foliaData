@@ -10,6 +10,7 @@
 import { OnlineProviderError } from '../../../types/onlineMusic';
 import { getProviderSessionKey } from '../providerStorage';
 import { createNativeFetch } from '../../nativeHttpFetch';
+import { readRawSetCookies } from '../../../nativeBridge/api/setCookieHeaders.js';
 import { encodeWbiQuery, signWbi } from './bilibiliWbi';
 
 // B站接口不给 `https://localhost` 回 CORS 头，安卓 WebView 里裸 fetch 会直接
@@ -42,6 +43,9 @@ const API = {
     history: 'https://api.bilibili.com/x/web-interface/history/cursor',
 } as const;
 
+/** B站的「稍后再试」业务码：请求过快 / 风控 / 风险验证。 */
+const BILIBILI_RETRY_CODES = new Set([-509, -403, -352]);
+
 const SEARCH_URL = 'https://api.bilibili.com/x/web-interface/search/type';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const REFERER = 'https://www.bilibili.com/';
@@ -71,10 +75,16 @@ export const hasBilibiliLogin = (): boolean => Boolean(readBilibiliSessdata());
 let buvid3: string | null = null;
 let buvidPromise: Promise<string | null> | null = null;
 
-const parseBuvid = (headers: Headers): string | null => {
-    const cookie = headers.get('set-cookie') || '';
-    const found = /(?:^|;\s*)buvid3=([^;]+)/.exec(cookie);
-    return found ? found[1] : null;
+const parseBuvid = (response: Response): string | null => {
+    // 浏览器把 Set-Cookie 列为 forbidden response header，headers.get() 恒为 null；
+    // Android 原生桥会把它镜像到 x-folia-set-cookie。复用项目统一的读取函数，
+    // 覆盖 getSetCookie() / Set-Cookie / 镜像头三种来源。
+    const cookies = readRawSetCookies(response);
+    for (const cookie of cookies) {
+        const found = /(?:^|;\s*)buvid3=([^;]+)/.exec(cookie);
+        if (found) return found[1];
+    }
+    return null;
 };
 
 const ensureBuvid = async (): Promise<string | null> => {
@@ -86,7 +96,7 @@ const ensureBuvid = async (): Promise<string | null> => {
                 headers: { 'User-Agent': UA },
                 credentials: 'include',
             });
-            buvid3 = parseBuvid(response.headers) || readBilibiliCookieFromDocument();
+            buvid3 = parseBuvid(response) || readBilibiliCookieFromDocument();
         } catch {
             buvid3 = readBilibiliCookieFromDocument();
         }
@@ -166,7 +176,18 @@ const send = async <T>(
         if (json.code === -101) {
             throw new OnlineProviderError('auth-required', `bilibili ${module}: ${json.message || '账号未登录'}`);
         }
-        throw new OnlineProviderError('service-unavailable', `bilibili ${module}: ${json.code} ${json.message || ''}`);
+        // B站的风控码不像 HTTP 429 那样带 Retry-After，但它们是「稍后再试」而不是永久失败：
+        // -509 请求过快、-403 风控拦截、-352 风险验证。带上退避时长让上层走现有的
+        // retry-later 通道，而不是把所有错误都当成 service-unavailable（不重试）。
+        const backoff = BILIBILI_RETRY_CODES.has(json.code) ? 3000 : undefined;
+        throw new OnlineProviderError(
+            backoff ? 'retry-later' : 'service-unavailable',
+            `bilibili ${module}: ${json.code} ${json.message || ''}`,
+            undefined,
+            undefined,
+            undefined,
+            backoff,
+        );
     }
     return { data: json.data as T, code: json.code, message: json.message || 'OK' };
 };
