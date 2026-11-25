@@ -26,9 +26,12 @@ const LibraryAccountHost: React.FC<LibraryAccountHostProps> = ({ account, theme,
     const suiteId = useLibrarySuiteStore(state => state.suite);
     const isDaylight = useThemeSettingsStore(state => state.isDaylight);
 
-    // 宿主卸载：停掉登录会话（keyed 取消）、待确认切换按取消结算。controller 本身属于 App，不在这里 dispose。
+    // 这个宿主会随首页隐藏/显示反复卸载挂载（进播放页、打开模组整屏页等），
+    // 而登录窗口挂在 App 根部、不随它卸载。原来这里无条件 closeLogin()，
+    // 于是首页一藏就把正在扫码的会话停掉了，用户看着窗口却怎么扫都没反应。
+    // 登录会话的寿命交给 LoginHost（用户关窗口/取消时才清）；这里只处理
+    // 属于「资料库这一层」的待确认账号切换。
     useEffect(() => () => {
-        account.closeLogin();
         const pending = account.getSnapshot().pendingSwitch;
         if (pending) account.cancelSwitch(pending.id);
     }, [account]);

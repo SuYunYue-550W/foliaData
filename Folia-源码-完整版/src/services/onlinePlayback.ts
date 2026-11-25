@@ -173,6 +173,15 @@ export async function loadOnlineSongAudioSource(
         }
         const url = thrown === undefined ? toPlayableAudioUrl(source?.url) : null;
         if (url) {
+            // 取流期间用户可能已切歌/切平台。重试分支有 isCurrent 守卫，成功分支原来没有：
+            // 迟到的答复会把旧歌的地址写进 prefetch 缓存、把旧 B站画面盖到新歌歌词上。
+            // 用同一个判据挡住这些副作用（调用方已有 retry.isCurrent，不必另加契约）。
+            // 这里仍把地址交回去：调用方在消费结果时还有一层判据，不能凭这里的一次
+            // 判定就把一次成功取流变成「播放失败」弹给用户。
+            const superseded = Boolean(options.retry && !options.retry.isCurrent());
+            if (superseded) {
+                return { kind: 'ok', audioSrc: url, replayGain: undefined, preview: omni.isPreviewAudioSource(url) };
+            }
             const replayGain = applyOnlineAudioSourceMetadata(song, source?.replayGain).replayGain;
             updatePrefetchedAudioUrl(song, url, audioQuality, replayGain);
             // 平台把画面和声音分开给时（B站 DASH），画面另起一个静音元素跟音频一起放：

@@ -1030,7 +1030,9 @@ export function usePlaybackQueueController({
 
         try {
             await loadOnlineSongLyrics(song, prefetched, userId, {
-                isCurrent: () => askedSongKeyRef.current === songKey,
+                // 同一个歌连播两次时 askedSongKey 一样、askedStart 不同。只比 songKey
+                // 的话，第一次那趟迟到的歌词加载会把第二次的歌词/状态改回去。
+                isCurrent: () => askedSongKeyRef.current === songKey && startOfAskedSong() === askedStart,
                 onLyrics: resolvedLyrics => setLyrics(resolvedLyrics),
                 onPureMusicChange: isPureMusic => {
                     setCurrentSong(prev => {

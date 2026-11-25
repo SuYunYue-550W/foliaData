@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useLayoutEffect } from 'react';
 import GridViewOverlayHost from '../../library/app/GridViewOverlayHost';
 import LibraryAccountHost from '../../library/app/LibraryAccountHost';
 import { resolveLibrarySurface } from '../../library/registry';
@@ -32,10 +32,13 @@ const Home: React.FC<AppHomeProps> = ({ model, isHomeFullyHidden, isInteractive 
     const homeExtraTabs = [...extraTabs, bilibiliTab];
     // 两个整屏页面（B站页、模组页）不叠着：开一个关另一个。互斥放在组装层做 ——
     // mods 目录不依赖 components，反过来也一样，扯不清谁该管谁。
-    useEffect(() => {
+    // 用 useLayoutEffect 而不是 useEffect：useEffect 在浏览器画完那一帧后才跑，
+    // 两个 z-[60] 的整屏页会同时露出一帧再关掉一个（切页时闪一下）。
+    // layout effect 在 DOM 提交后、绘制前同步跑完，那一帧用户根本看不到。
+    useLayoutEffect(() => {
         if (bilibiliOpen) closeFoliumHomeTab();
     }, [bilibiliOpen]);
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (activeEntry) closeBilibiliHome();
     }, [activeEntry]);
     // 只在切换 suite 时变（开发版浮层）；同一个回退结果是同一个组件，首页不会因此重新挂载。
