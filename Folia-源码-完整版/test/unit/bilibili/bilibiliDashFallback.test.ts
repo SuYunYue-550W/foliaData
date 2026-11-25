@@ -33,4 +33,21 @@ describe('B站 DASH 失败回退 iframe 的边界', () => {
         expect(source).toContain('failedRef.current = false;');
         expect(source).toContain('if (failedRef.current) return;');
     });
+
+    it('mutes the iframe so the two audio paths never overlap', () => {
+        // 官方外链播放器支持 muted 参数。iframe 自己出声就会和主引擎的 DASH 音频叠在一起。
+        expect(source).toContain('muted=1');
+    });
+});
+
+describe('B站画面层的激活条件', () => {
+    it('only counts as active when there is something to draw', () => {
+        // 只有 bvid 没有 videoUrl 时（取流还没回来或失败了），挂上去是空白 <video>，
+        // 还会把内置视频层错误地抑制掉。iframe 路线不需要 videoUrl。
+        const store = readFileSync(
+            fileURLToPath(new URL('../../../src/stores/useBilibiliVideoStore.ts', import.meta.url)),
+            'utf8',
+        );
+        expect(store).toContain('state.preferIframe || Boolean(state.videoUrl)');
+    });
 });

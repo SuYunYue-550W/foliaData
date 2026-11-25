@@ -17,11 +17,14 @@ export interface BilibiliVideoState {
     homeOpen: boolean;
     /** 当前选中的模块。 */
     module: 'recommend' | 'popular' | 'anime' | 'film' | 'live' | 'favorites' | 'history';
+    /** 收藏模块里正在看的那个收藏夹 id；空表示还在收藏夹目录那一层。 */
+    mediaId: string | null;
     play: (bvid: string, videoUrl?: string | null) => void;
     stop: () => void;
     setMode: (preferIframe: boolean) => void;
     setHomeOpen: (open: boolean) => void;
     setModule: (module: BilibiliVideoState['module']) => void;
+    setMediaId: (mediaId: string | null) => void;
 }
 
 export const useBilibiliVideoStore = create<BilibiliVideoState>(set => ({
@@ -30,6 +33,7 @@ export const useBilibiliVideoStore = create<BilibiliVideoState>(set => ({
     preferIframe: false,
     homeOpen: false,
     module: 'recommend',
+    mediaId: null,
     // 模态选择是「本次播放」状态，不是全局配置：某一个视频的 DASH 失败后
     // handleDashError 会 setMode(true)，若这里不重置，之后每个视频（哪怕取流正常）
     // 都永久走 iframe，还会连带触发 iframe 自带音频与主引擎双份出声。
@@ -38,11 +42,20 @@ export const useBilibiliVideoStore = create<BilibiliVideoState>(set => ({
     stop: () => set({ bvid: null, videoUrl: null, preferIframe: false }),
     setMode: preferIframe => set({ preferIframe }),
     setHomeOpen: homeOpen => set({ homeOpen }),
-    setModule: module => set({ module }),
+    setModule: module => set({ module, mediaId: null }),
+    setMediaId: mediaId => set({ mediaId }),
 }));
 
-/** 当前有没有 B站视频在播：UI 据此把画面放进播放页。 */
-export const selectBilibiliVideoActive = (state: BilibiliVideoState): boolean => Boolean(state.bvid);
+/**
+ * 当前有没有 B站视频在播：UI 据此把画面放进播放页。
+ *
+ * 要有**真正能画的东西**才算：只有 bvid 而没有 videoUrl 时（取流还没回来、或
+ * 取流失败了），挂上去的是一层空白 <video>，还会把内置的视频层错误地抑制掉。
+ * iframe 路线不需要 videoUrl —— 它自己按 bvid 拉流。
+ */
+export const selectBilibiliVideoActive = (state: BilibiliVideoState): boolean => (
+    Boolean(state.bvid) && (state.preferIframe || Boolean(state.videoUrl))
+);
 
 /**
  * 走哪条内核：用户强制 iframe 时用官方播放器，否则用自研 DASH。

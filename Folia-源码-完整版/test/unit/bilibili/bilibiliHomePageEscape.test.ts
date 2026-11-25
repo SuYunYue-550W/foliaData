@@ -43,4 +43,14 @@ describe('BilibiliHomePage Escape handling', () => {
         expect(pageSource).toContain('requestIdRef');
         expect(pageSource).toContain('if (requestId !== requestIdRef.current) return;');
     });
+
+    it('renders the collection directory and lets the user enter a folder', () => {
+        // 收藏有两层：collections 里是目录，mediaId 指定后才是夹里的视频。
+        // 原来只读 items，所以「收藏」模块永远显示「这里还没有内容」。
+        expect(pageSource).toContain('collections.length > 0');
+        expect(pageSource).toContain('setMediaId(folder.id)');
+        expect(pageSource).toContain('getBilibiliModule(module, mediaId ? { mediaId } : {})');
+        expect(pageSource).toContain("t('home.biliFavoritesNeedLogin')");
+        expect(pageSource).toContain("openLoginWindow('bilibili'");
+    });
 });

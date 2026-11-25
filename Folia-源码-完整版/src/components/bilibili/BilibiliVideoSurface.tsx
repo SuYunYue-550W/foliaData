@@ -72,10 +72,15 @@ const BilibiliVideoSurface: React.FC<BilibiliVideoSurfaceProps> = ({ paused }) =
     if (mode === 'iframe') {
         return (
             <div className="absolute inset-0 overflow-hidden" data-bilibili-surface="iframe">
+                {/* muted=1：官方外链播放器的静音参数。
+                    声音永远由主播放引擎出（这条 DASH 音频已经交给它了）。iframe 自己再出声
+                    就是两份声音叠在一起 —— 用户在 iframe 里点一下播放就能听到回声。
+                    静音掉它，画面照旧，声音不分叉。
+                    autoplay=0：不自动播，用户在应用里点了播放才动画面。 */}
                 <iframe
                     title="Bilibili player"
                     className="h-full w-full border-0"
-                    src={`https://player.bilibili.com/player.html?bvid=${encodeURIComponent(bvid)}&autoplay=0&danmaku=0&high_quality=1`}
+                    src={`https://player.bilibili.com/player.html?bvid=${encodeURIComponent(bvid)}&autoplay=0&muted=1&danmaku=0&high_quality=1`}
                     allow="autoplay; fullscreen; encrypted-media"
                     referrerPolicy="no-referrer"
                 />

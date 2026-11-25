@@ -7,6 +7,7 @@ import { useBilibiliVideoStore } from '../../../stores/useBilibiliVideoStore';
 import { getBilibiliModule, type BilibiliModuleId } from '../../../services/onlineMusic/bilibili/bilibiliModules';
 import { useLibraryHomeSources } from '../../../library/core/home/useLibraryHomeSources';
 import { useLibraryHomeSurfaceStore } from '../../../library/core/home/useLibraryHomeSurfaceStore';
+import { openLoginWindow } from '../../login/loginWindowStore';
 import { useThemeSettingsStore } from '../../../stores/useThemeSettingsStore';
 import { useEscapeClose } from '../../../hooks/useEscapeClose';
 import type { LibraryHomeData } from '../../../library/core/home/home.contract';
@@ -50,6 +51,9 @@ const bvidOf = (sourceRef: UnifiedSong['sourceRef']): string => {
     return mediaId.startsWith('room:') ? mediaId.slice(5) : mediaId;
 };
 
+/** 收藏夹目录的一行；bilibiliModules 的 getBilibiliFavorites 在 collections 里返回它。 */
+type BiliCollection = { id: string; title: string; count: number };
+
 type BilibiliHomePageProps = {
     /** 关掉这一页，回到原生首页页签。 */
     onClose: () => void;
@@ -70,10 +74,15 @@ export function BilibiliHomePage({ onClose, onPlay, account, surfaceProps }: Bil
     const setModule = useBilibiliVideoStore(state => state.setModule);
     const playVideo = useBilibiliVideoStore(state => state.play);
     const currentBvid = useBilibiliVideoStore(state => state.bvid);
+    // 收藏模块有两层：先是收藏夹目录（collections），点进去才是夹里的视频。
+    const mediaId = useBilibiliVideoStore(state => state.mediaId);
+    const setMediaId = useBilibiliVideoStore(state => state.setMediaId);
 
     const [songs, setSongs] = useState<UnifiedSong[]>([]);
+    const [collections, setCollections] = useState<BiliCollection[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [needsLogin, setNeedsLogin] = useState(false);
     const sectionRef = useRef<HTMLElement>(null);
     const openerRef = useRef<HTMLElement | null>(null);
     // 请求序号：连点模块时，只有最后一次请求的结果算数。早先那个慢响应回来后
@@ -88,19 +97,32 @@ export function BilibiliHomePage({ onClose, onPlay, account, surfaceProps }: Bil
         requestIdRef.current = requestId;
         setLoading(true);
         setError(null);
+        setNeedsLogin(false);
         try {
-            const page = await getBilibiliModule(module, {});
+            const page = await getBilibiliModule(module, mediaId ? { mediaId } : {});
             if (requestId !== requestIdRef.current) return;
             setSongs(page.items as UnifiedSong[]);
+            // 收藏夹目录不是歌曲页，它在 collections 里（见 bilibiliModules 的注释）。
+            setCollections((page as { collections?: unknown }).collections as BiliCollection[] ?? []);
         } catch (err) {
             if (requestId !== requestIdRef.current) return;
-            setError(err instanceof Error ? err.message : String(err));
-            setSongs([]);
+            // 收藏/历史要登录：给一句人话和一个登录入口，别把平台的原文抛给用户。
+            const message = err instanceof Error ? err.message : String(err);
+            if (/需要登录|not logged in|auth/i.test(message)) {
+                setNeedsLogin(true);
+                setError(null);
+                setSongs([]);
+                setCollections([]);
+            } else {
+                setError(message);
+                setSongs([]);
+                setCollections([]);
+            }
         } finally {
             // 已经被更新的请求取代时不动 loading：新的那一轮自己会收尾。
             if (requestId === requestIdRef.current) setLoading(false);
         }
-    }, [module]);
+    }, [mediaId, module]);
 
     useEffect(() => {
         void load();
@@ -204,7 +226,39 @@ export function BilibiliHomePage({ onClose, onPlay, account, surfaceProps }: Bil
                 className="flex min-h-0 flex-1 flex-col px-4 pb-6 md:px-8">
                 {loading && <div className="text-sm opacity-60">{t('home.biliLoading')}</div>}
                 {error && <div className="text-sm text-red-400">{error}</div>}
-                <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-3 overflow-y-auto md:grid-cols-3 lg:grid-cols-4">
+                {needsLogin && (
+                    <div className="flex items-center gap-3 rounded-lg border border-current/15 px-3 py-2 text-sm">
+                        <span>{t('home.biliFavoritesNeedLogin')}</span>
+                        <Button size="sm" variant="primary"
+                            onClick={event => openLoginWindow('bilibili', event.currentTarget)}>
+                            {t('home.biliFavoritesOpenLogin')}
+                        </Button>
+                    </div>
+                )}
+                {/* 收藏有两层：目录（collections）→ 夹里的视频。原来只取 items，
+                    目录被丢掉，七个模块里的「收藏」永远显示「这里还没有内容」。 */}
+                {module === 'favorites' && !mediaId && collections.length > 0 && (
+                    <>
+                        <div className="pb-2 text-sm opacity-70">{t('home.biliFavoritesFolders')}</div>
+                        <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-3 overflow-y-auto md:grid-cols-3 lg:grid-cols-4">
+                            {collections.map(folder => (
+                                <Button key={folder.id} variant="bare"
+                                    className="flex h-auto flex-col items-start gap-1 rounded-xl border border-current/10 p-3 text-left hover:border-current/30"
+                                    onClick={() => setMediaId(folder.id)}>
+                                    <span className="line-clamp-2 text-[13px]">{folder.title}</span>
+                                    <span className="text-xs opacity-60">{t('home.biliFavoritesFolderCount', { count: folder.count })}</span>
+                                </Button>
+                            ))}
+                        </div>
+                    </>
+                )}
+                <div className={`grid min-h-0 flex-1 grid-cols-2 content-start gap-3 overflow-y-auto md:grid-cols-3 lg:grid-cols-4 ${module === 'favorites' && !mediaId && collections.length > 0 ? 'hidden' : ''}`}>
+                {module === 'favorites' && mediaId && (
+                    <Button variant="quiet" size="sm" className="col-span-full justify-self-start"
+                        onClick={() => setMediaId(null)}>
+                        {t('home.biliBack')}
+                    </Button>
+                )}
                 {songs.map(song => {
                     // 用与 select 相同的归一化：直播的 mediaId 是 "room:<id>"，而 store 里
                     // 存的是剥掉前缀的 bvid。直接拿原始 mediaId 去比，两边永不相等，
@@ -238,7 +292,8 @@ export function BilibiliHomePage({ onClose, onPlay, account, surfaceProps }: Bil
                         );
                     })}
                 </div>
-                {!loading && songs.length === 0 && !error && (
+                {!loading && songs.length === 0 && !error && !needsLogin
+                    && !(module === 'favorites' && !mediaId && collections.length > 0) && (
                     <div className="text-sm opacity-60">{t('home.biliEmpty')}</div>
                 )}
             </div>
