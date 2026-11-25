@@ -38,7 +38,6 @@ export const PLATFORM_NAME_PLACES: Record<string, PlatformNamePlace> = {
     'src/services/onlinePlayback.ts': { n: { bilibili: 10 }, kind: 'file', why: 'starts the picture surface when the provider hands out a video URL; the check is the provider id of that platform' },
     'src/stores/useBilibiliVideoStore.ts': { n: { bilibili: 13 }, kind: 'file', why: 'the state of the picture surface, named after the platform it shows' },
     // B站：扫码状态机照 QQ 那套描述；注册点在平台清单里（list）。
-    'src/services/onlineMusic/bilibili/bilibiliProvider.ts': { n: { qq: 1 }, kind: 'doc' },
     'src/services/listeningArchive/archiveRpc.ts': { n: { netease: 2 }, kind: 'stored', why: 'the mod protocol\'s own rpc names: the platform\'s rows are composed into the mod\'s table here (the rules and the state live in src/services/onlineMusic/netease/neteaseArchiveRpc.ts)' },
     // 模组自己的简介是第三方作者写的话，随包照抄进清单，不是我们这边按平台写的规则。
     'src/mods/builtin/builtinMods.ts': { n: { netease: 2, qq: 1 }, kind: 'text', why: 'the bundled mods\' own descriptions, copied from their mod.json' },

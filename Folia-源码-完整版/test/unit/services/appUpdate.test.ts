@@ -136,7 +136,7 @@ describe('checkForAppUpdate（update.json 版本清单）', () => {
     it('认 version + download_url 的最小清单', async () => {
         stubManifest({
             version: '0.7.19',
-            download_url: 'https://cdn.example.com/folia-sonnet-0.7.19-release.apk',
+            download_url: 'https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.19/folia-sonnet-0.7.19-release.apk',
         });
 
         const result = await checkForAppUpdate();
@@ -146,11 +146,11 @@ describe('checkForAppUpdate（update.json 版本清单）', () => {
         if (result.status !== 'update-available') return;
         expect(result.release.version).toBe('0.7.19');
         expect(result.release.apk?.downloadUrl)
-            .toBe('https://cdn.example.com/folia-sonnet-0.7.19-release.apk');
+            .toBe('https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.19/folia-sonnet-0.7.19-release.apk');
     });
 
     it('version 带 v 前缀时比较前先去掉', async () => {
-        stubManifest({ version: 'v0.7.19', download_url: 'https://cdn.example.com/a.apk' });
+        stubManifest({ version: 'v0.7.19', download_url: 'https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.19/a.apk' });
 
         const result = await checkForAppUpdate();
         if (result.status === 'failed') throw new Error(result.message);
@@ -159,13 +159,13 @@ describe('checkForAppUpdate（update.json 版本清单）', () => {
     });
 
     it('清单版本不比当前新时是 up-to-date', async () => {
-        stubManifest({ version: '0.0.0', download_url: 'https://cdn.example.com/a.apk' });
+        stubManifest({ version: '0.0.0', download_url: 'https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.19/a.apk' });
 
         expect((await checkForAppUpdate()).status).toBe('up-to-date');
     });
 
     it('download_url 不是 apk 时报 no-apk，不给下载入口', async () => {
-        stubManifest({ version: '0.7.19', download_url: 'https://cdn.example.com/a.aab' });
+        stubManifest({ version: '0.7.19', download_url: 'https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.19/a.aab' });
 
         const result = await checkForAppUpdate();
         expect(result.status).toBe('failed');
@@ -173,7 +173,7 @@ describe('checkForAppUpdate（update.json 版本清单）', () => {
     });
 
     it('缺 version 时报 empty-manifest', async () => {
-        stubManifest({ download_url: 'https://cdn.example.com/a.apk' });
+        stubManifest({ download_url: 'https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.19/a.apk' });
 
         const result = await checkForAppUpdate();
         expect(result.status).toBe('failed');
@@ -183,23 +183,23 @@ describe('checkForAppUpdate（update.json 版本清单）', () => {
     it('清单给了 assets 就按后缀挑 apk', async () => {
         stubManifest({
             version: '0.7.19',
-            download_url: 'https://cdn.example.com/ignore.apk',
+            download_url: 'https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.19/ignore.apk',
             assets: [
-                { name: 'folia-sonnet-0.7.19-release.aab', browser_download_url: 'https://cdn.example.com/x.aab', size: 10 },
-                { name: 'folia-sonnet-0.7.19-release.apk', browser_download_url: 'https://cdn.example.com/x.apk', size: 42 },
+                { name: 'folia-sonnet-0.7.19-release.aab', browser_download_url: 'https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.19/x.aab', size: 10 },
+                { name: 'folia-sonnet-0.7.19-release.apk', browser_download_url: 'https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.19/x.apk', size: 42 },
             ],
         });
 
         const result = await checkForAppUpdate();
         if (result.status === 'failed') throw new Error(result.message);
-        expect(result.release.apk?.downloadUrl).toBe('https://cdn.example.com/x.apk');
+        expect(result.release.apk?.downloadUrl).toBe('https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.19/x.apk');
         expect(result.release.apk?.sizeBytes).toBe(42);
     });
 
     it('notes / page_url / size 是可选字段，缺了不报错', async () => {
         stubManifest({
             version: '0.7.19',
-            download_url: 'https://cdn.example.com/a.apk',
+            download_url: 'https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.19/a.apk',
             page_url: 'https://example.com/releases',
             notes: '修了个 bug',
             size: 1234,
@@ -241,7 +241,7 @@ describe('更新清单多源回退', () => {
             .mockResolvedValueOnce({
                 ok: true,
                 status: 200,
-                json: async () => ({ version: '9.9.9', download_url: 'https://mirror.example.com/app.apk' }),
+                json: async () => ({ version: '9.9.9', download_url: 'https://github.com/SuYunYue-550W/foliaData/releases/download/v9.9.9/app.apk' }),
             });
         vi.stubGlobal('fetch', fetchMock);
 
@@ -259,5 +259,20 @@ describe('更新清单多源回退', () => {
         const result = await checkForAppUpdate();
         expect(result.status).toBe('failed');
         expect(fetchMock).toHaveBeenCalledTimes(APP_UPDATE_MANIFEST_URLS.length);
+    });
+
+    it('镜像返回的清单若把安装包指向第三方域，不给下载入口', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                version: '9.9.9',
+                download_url: 'https://evil.example.com/folia.apk',
+            }),
+        }));
+        const result = await checkForAppUpdate();
+        // 清单里的 sha512 和 APK 同源时校验自证不了真实性，
+        // 至少挡住把用户导向第三方域这一条。
+        expect(result.status).toBe('failed');
     });
 });
