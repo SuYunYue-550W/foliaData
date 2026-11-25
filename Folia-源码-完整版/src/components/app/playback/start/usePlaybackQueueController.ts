@@ -611,6 +611,21 @@ export function usePlaybackQueueController({
                                 if (nextSong) void warmupSongAudio(nextSong, audioQuality);
                                 return;
                             }
+                            // 超时被当作「原生没接住」，但 ok:true 明明表示它受理了。
+                            // 回退前再读一次引擎快照（临界区二次确认）：解析线程可能刚好
+                            // 在这几百毫秒里完成了，此时若照常回 Web，就会和随后装载的
+                            // ExoPlayer 同时出声。已到达就认原生这一单。
+                            try {
+                                const late = await nativePlayer.getSnapshot();
+                                if (late && late.songKey === nativeKey
+                                    && (Number(late.durationMs ?? 0) > 0 || Number(late.positionMs ?? 0) > 0)) {
+                                    makeSongCurrent(song);
+                                    setPlayerState(PlayerState.PLAYING);
+                                    return;
+                                }
+                            } catch {
+                                // 读不到快照就按原路回退 Web。
+                            }
                         }
                     } catch {
                         // 桥不可用（老版本原生没有这个方法）：照常走 Web 全流程。
