@@ -2,8 +2,8 @@
 
 全屏沉浸式歌词播放器 **Folia** 的整合增强版。基于 Folia-major。
 
-> **当前版本：`v0.7.38`（安卓更新下载修复 + B站登录闭环，2026-11-21）。**
-> 本版修好两件真问题：**安卓应用内更新下不了**（版本清单里的安装包名字与实际上传的附件不一致，地址 404 —— 已在 v0.7.37 上紧急修复）**，以及 **B站扫码登录「扫得出码、登不上号」**（原生存的会话被调用方自带的 Cookie 头挡掉、登出后重启又自动登录回来）。另外把安装包完整性校验（SHA-512）、GitHub 镜像多路回退、二维码本地生成、后台节流默认开启一并做掉。桌面与安卓的「检查更新」均指向本仓库 Releases。
+> **当前版本：`v0.7.41`（播放稳定性与更新链路加固，2026-11-26）。**
+> 本版把此前全面审查发现的 52 项问题处理完（51 项修复、1 项复核确认不改）：切歌/歌词竞态、Worker 超时兜底、播放缓存串行化、B站分页与收藏夹、风控退避、扫码登录会话寿命、更新清单解析与镜像源校验、CI 门禁。全量单测 13490 用例、全量类型检查均通过。桌面与安卓的「检查更新」均指向本仓库 Releases。
 > 版本记录见 [`CHANGELOG.md`](CHANGELOG.md)，出包与发布步骤见 [`release-manifests/构建与发布.md`](release-manifests/构建与发布.md)。
 
 > 本仓库由维护者独立整理上传。上传前已移除原发布渠道的更新地址、旧仓库来源指向与原项目社区群信息；**软件更新源现统一指向本仓库的 Releases**。
@@ -17,7 +17,7 @@
 | 项 | 内容 |
 |---|---|
 | 基础项目 | Folia（`folia-major`）v0.7.25 的 `folia-sonnet` fork；v0.7.30 起回到健康基线 |
-| 当前版本 | `0.7.38`（`package.json` 的 `version` / `displayVersion`；安卓 `versionCode` `7031800`） |
+| 当前版本 | `0.7.41`（`package.json` 的 `version` / `displayVersion`；安卓 `versionCode` `7041000`） |
 | 定位 | Lyrics Reimagine —— 桌面 + 移动端的在线音乐播放与全屏歌词可视化 |
 | 技术栈 | React 19 + TypeScript 6 + Vite 8；three / React Three Fiber / pixi.js / framer-motion / animejs；桌面 Electron 43，移动 Capacitor 8 |
 | 规模 | 28 个可视化模式 + 6 种背景模式；`src/` 下约 2790 个 TS/TSX 文件 |
@@ -44,6 +44,8 @@
 
 > **历史限制已解除**：v0.7.28 的安装包是上游官方构建（不含自研改动、内置上游更新地址），且源码为文件级增量、未经编译验证。
 > **v0.7.29 已修复该状态**：补齐三方合并缺失的 44 个模块、对齐接口错配、对三处文件做并集合并，`vite build` 通过，并在本机补齐 Electron 运行时、Android SDK 36、Gradle 8.14.3、JDK 21 与打包资源，重新编译出 EXE / APK。逐项见 `CHANGELOG.md` 与 `release-manifests/构建与发布.md`。
+
+> **关于上游 v0.8.x（2026-11-26 决策）**：上游主线已发布 v0.8.0～v0.8.2，但这是一次破坏性目录重构 —— 源码从 `Folia-源码-完整版/` 移到仓库根并拆成 monorepo（`packages/`、`api-ts/`、`worker/` 等）；v0.7.28 起累计 7563 个文件 / 46 万行改动，且与本仓库**没有共同祖先**（`git merge-base` 为空，无法三方合并）。鉴于 v0.7.28 那次文件级同步曾造成构建链断裂、后来整体撤销，本仓库**决定暂不同步 v0.8.x**，继续以 0.7.x 代码基线交付。若将来要迁移，应作为一次独立的大型移植项目规划。
 
 ---
 
@@ -140,7 +142,7 @@ npm run build:android:debug   # Android debug APK
 
 ---
 
-## 七、软件更新机制（现指向本仓库，v0.7.32 继续生效）
+## 七、软件更新机制（现指向本仓库，v0.7.41 继续生效）
 
 | 端 | 机制 | 地址 |
 |---|---|---|
@@ -152,11 +154,11 @@ npm run build:android:debug   # Android debug APK
 
 ```json
 {
-  "version": "0.7.32",
-  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.32/Folia-Android-0.7.32.apk",
-  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.32",
+  "version": "0.7.41",
+  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.41/Folia-Android-0.7.41.apk",
+  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.41",
   "notes": "更新说明",
-  "published_at": "2026-11-15T05:50:37.167Z",
+  "published_at": "2026-11-26T14:56:32.446Z",
   "size": 124079060
 }
 ```
@@ -168,7 +170,15 @@ npm run build:android:debug   # Android debug APK
 
 ## 八、交付物（Release 附件）
 
-### v0.7.33（当前版本 · 启动卡住修复与新平台构建版）
+### v0.7.41（当前版本 · 播放稳定性与更新链路加固）
+
+| 文件 | 体积 | 说明 |
+|---|---:|---|
+| `Folia-Setup-0.7.41.exe` | 326,371,303 B | 本仓库源码编译的 Windows NSIS 安装包，未做代码签名 |
+| `Folia-Android-0.7.41.apk` | 124,049,290 B | 本仓库源码编译的 Android release 包，`Folia Whale Pet` 证书签名，`versionCode` 7041000 |
+| `latest.yml` / `update.json` | — | 桌面与安卓的更新清单，下载地址指向本仓库 Release |
+
+### v0.7.33（历史版本 · 启动卡住修复与新平台构建版）
 
 | 文件 | 体积 | 说明 |
 |---|---:|---|
