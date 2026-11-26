@@ -131,7 +131,8 @@ describe('library core layer boundaries', () => {
         ];
         const offenders = offendersOf(files, target => /^src\/library\/(suites|app)\//.test(target), allSpecifiersOf);
         expect(offenders).toEqual([]);
-    });
+    // 同样要扫很多文件（stores + services + utils + types），全量并发时 20 秒不够。
+    }, 120_000);
 
     it('keeps suites independent of each other and off the core services', () => {
         // suites 目录在 R2 才出现；规则先就位，空目录时自然通过。
@@ -164,7 +165,9 @@ describe('library core layer boundaries', () => {
         const offenders = offendersOf(files, target => /^src\/library\/suites\//.test(target), allSpecifiersOf);
         expect(files).toEqual(expect.arrayContaining(['src/components/app/Home.tsx', 'src/library/app/GridViewOverlayHost.tsx']));
         expect(offenders).toEqual([]);
-    });
+    // 扫的是整个源码树（几千个文件），全量并发跑时 20 秒不够（会超时失败，独跑正常）。
+    // 给它单独的余量：慢的是机器，不是这个断言。
+    }, 120_000);
 
     it('keeps the account host suite-agnostic: it resolves the account surface through the registry (A5)', () => {
         // 登录弹窗、确认框与它们的展示组件属于渲染 account surface 的那套 suite；宿主只经 registry 解析，

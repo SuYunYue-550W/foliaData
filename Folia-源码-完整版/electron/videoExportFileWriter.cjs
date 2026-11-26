@@ -134,11 +134,9 @@ function createVideoExportFileWriter({
     const target = session;
     session = null;
     try {
-      fsSync.closeSync(target.handle.fd);
-    } catch {
-      // The handle may already be closing; the unlink below is what matters.
-    }
-    try {
+      // 不要在这里 closeSync(target.handle.fd)：FileHandle 对象还活着，GC 时它会再关
+      // 同一个 fd，报 EBADF（全量并发跑时反复出现）。这里是进程退出时的兜底，
+      // 进程退出自会回收句柄；同步要紧的是把临时文件删掉。
       fsSync.unlinkSync(target.partPath);
     } catch {
       // Nothing to clean up.
