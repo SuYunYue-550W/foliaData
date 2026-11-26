@@ -1,19 +1,19 @@
 {
-  "version": "0.7.40",
-  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.40/Folia-Android-0.7.40.apk",
-  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.40",
+  "version": "0.7.41",
+  "download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.41/Folia-Android-0.7.41.apk",
+  "page_url": "https://github.com/SuYunYue-550W/foliaData/releases/tag/v0.7.41",
   "notes": "## v0.7.40 · B站融入首页 + 修复覆盖安装\n\n- **B站重设计（重点）**：B站以前是整个项目里唯一特殊的平台 —— 除 provider 外还自带播放面板页签、独立内容面板、独立状态层和独占画面层，跟「歌单 / 电台 / 专辑」那一套首页页签互不相通，看起来就像跟播放器不是一家的。现在 B站成为**首页的一级页签**，点进去是一个全屏页面：顶部有返回键和原生页签条，中间是推荐 / 热门 / 动画 / 影视 / 直播 / 收藏 / 历史七个模块，下面是视频网格。播放仍保持嵌入在歌词背后的画面层，声音由主引擎出。播放面板里的那个 B站入口现在只是跳转按钮，不再是一个关不干净的内容区；原来那个只会切回封面页签、名不副实的「关闭」按钮已删除。Esc 可以返回。\n- **Windows 覆盖安装修复**：双击新 EXE 覆盖安装一直报「Folia 无法关闭」/「uninstallFailed: 2」。根因是自定义进程清理只杀 Folia 主进程、只等 400ms，把 electron-builder 自带的轮询重试整个替换掉了，而 Apple Music companion / ffmpeg 这些后台程序仍锁着 app.asar。现在按「可执行文件位于安装目录下」杀所有相关进程并轮询确认退出；全新安装默认装到 D://Folia（已有安装保持原路径，确保覆盖仍可用）。\n- 三语 i18n 与界面门禁全过。B站页签与页面结构已在本机 dev server 真机截图确认。\n\n逐项记录见仓库 CHANGELOG.md 与 release-manifests/构建与发布.md 第 12 节。",
-  "published_at": "2026-11-23T14:58:27.191Z",
-  "size": 124048686,
-  "sha512": "BJL3OY+mMeurHE5l2mNPJnj8/vlSnnXl+iL43RcS5etAkAbN8g+wPN6EdF3nNgx0bbpg67dgrl4Dxo1YTTymaQ==",
-  "sha512_hex": "0492f7398fa631ebab1c4e65da634f2678fcfef9529e75e5fa22f8dd1712e5eb409006cdf20fb03cde84745de7360c746dba60ebb760ae5e03c68d584d3ca669",
+  "published_at": "2026-11-26T14:56:32.446Z",
+  "size": 124049290,
+  "sha512": "fb8SbugVgOLmW2O7BUteqJ+erqoYHP2Nm6031Bxz/qEvI2Ay7R/GBXXkn9pXayly0oU/Ihvo4HiWyEifl0FlqA==",
+  "sha512_hex": "7dbf126ee81580e2e65b63bb054b5ea89f9eaeaa181cfd8d9bad37d41c73fea12f236032ed1fc60575e49fda576b2972d2853f221be8e07896c8489f974165a8",
   "assets": [
     {
-      "name": "Folia-Android-0.7.40.apk",
-      "browser_download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.40/Folia-Android-0.7.40.apk",
-      "size": 124048686,
-      "sha512": "BJL3OY+mMeurHE5l2mNPJnj8/vlSnnXl+iL43RcS5etAkAbN8g+wPN6EdF3nNgx0bbpg67dgrl4Dxo1YTTymaQ==",
-      "sha512_hex": "0492f7398fa631ebab1c4e65da634f2678fcfef9529e75e5fa22f8dd1712e5eb409006cdf20fb03cde84745de7360c746dba60ebb760ae5e03c68d584d3ca669"
+      "name": "Folia-Android-0.7.41.apk",
+      "browser_download_url": "https://github.com/SuYunYue-550W/foliaData/releases/download/v0.7.41/Folia-Android-0.7.41.apk",
+      "size": 124049290,
+      "sha512": "fb8SbugVgOLmW2O7BUteqJ+erqoYHP2Nm6031Bxz/qEvI2Ay7R/GBXXkn9pXayly0oU/Ihvo4HiWyEifl0FlqA==",
+      "sha512_hex": "7dbf126ee81580e2e65b63bb054b5ea89f9eaeaa181cfd8d9bad37d41c73fea12f236032ed1fc60575e49fda576b2972d2853f221be8e07896c8489f974165a8"
     }
   ]
 }
